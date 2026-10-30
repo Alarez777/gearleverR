@@ -15,6 +15,8 @@ pub mod zsync;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::appimage::{AppImage, MetadataOptions};
@@ -239,6 +241,8 @@ pub struct DownloadContext<'a> {
     pub directory: PathBuf,
     /// Called with a fraction between 0.0 and 1.0.
     pub progress: &'a mut dyn FnMut(f64),
+    /// Set by the interface when the user cancels the download.
+    pub cancel: Arc<AtomicBool>,
 }
 
 impl fmt::Debug for DownloadContext<'_> {
@@ -255,7 +259,28 @@ impl<'a> DownloadContext<'a> {
         Self {
             directory: directory.into(),
             progress,
+            cancel: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Builds a context that shares a cancellation flag with the caller.
+    #[must_use]
+    pub fn with_cancel(
+        directory: impl Into<PathBuf>,
+        progress: &'a mut dyn FnMut(f64),
+        cancel: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            directory: directory.into(),
+            progress,
+            cancel,
+        }
+    }
+
+    /// Returns whether the user asked to cancel.
+    #[must_use]
+    pub fn is_cancelled(&self) -> bool {
+        self.cancel.load(Ordering::Relaxed)
     }
 
     /// Returns a unique path for the downloaded file.
@@ -393,9 +418,15 @@ pub fn apply(
     config: &mut Config,
     download_dir: &Path,
     progress: &mut dyn FnMut(f64),
+    cancel: Arc<AtomicBool>,
 ) -> Result<InstalledApp> {
-    let mut context = DownloadContext::new(download_dir.to_path_buf(), progress);
+    let mut context = DownloadContext::with_cancel(download_dir.to_path_buf(), progress, cancel);
     let downloaded = manager.download(&mut context)?;
+
+    if context.is_cancelled() {
+        let _ = std::fs::remove_file(&downloaded);
+        return Err(Error::Cancelled);
+    }
     let metadata = AppImage::open(&downloaded)?.metadata_with(&MetadataOptions {
         allow_unsafe_extractor: options.allow_unsafe_extractor,
         work_dir: download_dir.join("metadata"),

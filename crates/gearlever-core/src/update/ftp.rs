@@ -167,14 +167,20 @@ impl UpdateManager for Ftp {
             written: 0,
             total: size,
             progress: &mut *context.progress,
+            cancel: &context.cancel,
         };
 
-        stream
-            .retr(&path, |reader| {
-                io::copy(reader, &mut writer).map_err(suppaftp::FtpError::ConnectionError)?;
-                Ok(())
-            })
-            .map_err(|error| Error::Http(format!("FTP download: {error}")))?;
+        let transfer = stream.retr(&path, |reader| {
+            io::copy(reader, &mut writer).map_err(suppaftp::FtpError::ConnectionError)?;
+            Ok(())
+        });
+
+        if context.cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            let _ = std::fs::remove_file(&destination);
+            return Err(Error::Cancelled);
+        }
+
+        transfer.map_err(|error| Error::Http(format!("FTP download: {error}")))?;
         let _ = stream.quit();
         writer.file.flush()?;
         (writer.progress)(1.0);
@@ -275,10 +281,18 @@ struct ProgressWriter<'a> {
     written: u64,
     total: u64,
     progress: &'a mut dyn FnMut(f64),
+    cancel: &'a std::sync::atomic::AtomicBool,
 }
 
 impl Write for ProgressWriter<'_> {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        if self.cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "download cancelled",
+            ));
+        }
+
         let written = self.file.write(buffer)?;
         self.written = self
             .written

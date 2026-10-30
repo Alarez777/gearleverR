@@ -14,6 +14,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{ArgGroup, Parser};
@@ -547,6 +549,7 @@ impl Cli {
             &mut context.config,
             &download_dir,
             &mut progress,
+            Arc::new(AtomicBool::new(false)),
         )?;
 
         context.save()?;

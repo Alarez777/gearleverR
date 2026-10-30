@@ -22,11 +22,14 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
   herramientas externas para SquashFS.
 - Gestionar actualizaciones desde URL estática, GitHub, GitLab, Codeberg, Forgejo y FTP,
   incluida la información `.upd_info` embebida (`zsync` y `gh-releases-zsync`).
-- Actualizar todo a la vez, con progreso y comprobación de apps en ejecución.
+- Actualizar todo a la vez, con progreso, cancelación y comprobación de apps en ejecución.
 - Editar argumentos, variables de entorno, sitio web y fuente de actualizaciones.
 - Recargar metadata, borrar a la papelera y abrir la carpeta de la app.
 - Preferencias, tutorial, about, búsqueda y notificaciones de actualizaciones.
 - Traducciones gettext con los catálogos del Gear Lever original (22 idiomas).
+- Comprobación de actualizaciones al iniciar sesión mediante el portal
+  `org.freedesktop.portal.Background`, con entrada clásica en `~/.config/autostart`
+  como respaldo.
 - CLI con `--json` compatible con la versión original.
 
 ## Requisitos
@@ -170,8 +173,6 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
   AppImage de demostración.
 - Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.
 - No hay actualizaciones delta: se descarga el AppImage completo.
-- El autostart de la comprobación de updates se puede configurar a mano con
-  `--fetch-updates`; el portal `org.freedesktop.portal.Background` todavía no se usa.
 - DwarFS e ISO9660 requieren `dwarfsextract` o `7zz` instalados.
 - No hay auto-actualización del propio AppImage.
 

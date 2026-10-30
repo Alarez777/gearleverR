@@ -7,6 +7,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::error::{Error, Result};
@@ -140,7 +141,12 @@ impl HttpClient {
         url: &str,
         destination: &Path,
         progress: &mut dyn FnMut(f64),
+        cancel: &AtomicBool,
     ) -> Result<()> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(Error::Cancelled);
+        }
+
         let response = self
             .agent
             .get(url)
@@ -164,6 +170,12 @@ impl HttpClient {
         let mut last_reported = 0.0_f64;
 
         loop {
+            if cancel.load(Ordering::Relaxed) {
+                drop(file);
+                let _ = std::fs::remove_file(destination);
+                return Err(Error::Cancelled);
+            }
+
             let read = reader
                 .read(&mut buffer)
                 .map_err(|error| Error::Http(format!("{url}: {error}")))?;

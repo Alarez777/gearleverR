@@ -21,12 +21,15 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use relm4::adw::prelude::*;
 use relm4::gtk::{gdk, gio, glib};
 use relm4::prelude::*;
 use relm4::{adw, gtk};
 
+use gearlever_core::Error as CoreError;
 use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, is_running};
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
@@ -98,8 +101,10 @@ enum Msg {
     StartUpdate(PathBuf),
     StartAllUpdates,
     Progress(f64, String),
+    CancelUpdate,
+    UpdateCancelled,
     Updated(Result<(InstalledApp, Config), String>),
-    MultiUpdated(Result<Config, String>),
+    MultiUpdated(Result<Config, String>, bool),
     SaveExec {
         path: PathBuf,
         env: Vec<String>,
@@ -145,6 +150,7 @@ struct AppModel {
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
     reloaded: Option<(PathBuf, AppMetadata)>,
+    cancel_token: Option<Arc<AtomicBool>>,
 }
 
 struct Widgets {
@@ -163,6 +169,7 @@ struct Widgets {
     details: gtk::Box,
     multi: gtk::Box,
     progress: gtk::ProgressBar,
+    cancel_button: gtk::Button,
     drop_revealer: gtk::Revealer,
 }
 
@@ -539,6 +546,11 @@ impl Component for AppModel {
                 }
             }
             Msg::StartUpdate(path) => {
+                if self.cancel_token.is_some() {
+                    Self::toast(widgets, &t("An update is already running"));
+                    return;
+                }
+
                 let Some(app) = self.apps.iter().find(|app| app.image_path == path).cloned() else {
                     return;
                 };
@@ -556,7 +568,9 @@ impl Component for AppModel {
                 let options = self.update_options();
                 let config = self.config.clone();
                 let download_dir = self.paths.temp_dir().join("downloads");
-                widgets.progress.set_visible(true);
+                let cancel = Arc::new(AtomicBool::new(false));
+                self.cancel_token = Some(Arc::clone(&cancel));
+                Self::show_progress(widgets);
 
                 std::thread::spawn(move || {
                     let mut config = config;
@@ -574,14 +588,22 @@ impl Component for AppModel {
                         &mut config,
                         &download_dir,
                         &mut progress,
-                    )
-                    .map(|app| (app, config))
-                    .map_err(|error| error.to_string());
+                        cancel,
+                    );
 
-                    sender.input(Msg::Updated(result));
+                    match result {
+                        Ok(app) => sender.input(Msg::Updated(Ok((app, config)))),
+                        Err(CoreError::Cancelled) => sender.input(Msg::UpdateCancelled),
+                        Err(error) => sender.input(Msg::Updated(Err(error.to_string()))),
+                    }
                 });
             }
             Msg::StartAllUpdates => {
+                if self.cancel_token.is_some() {
+                    Self::toast(widgets, &t("An update is already running"));
+                    return;
+                }
+
                 let queue: Vec<InstalledApp> = self
                     .apps
                     .iter()
@@ -602,13 +624,21 @@ impl Component for AppModel {
                 let config = self.config.clone();
                 let options = self.update_options();
                 let download_dir = self.paths.temp_dir().join("downloads");
-                widgets.progress.set_visible(true);
+                let cancel = Arc::new(AtomicBool::new(false));
+                self.cancel_token = Some(Arc::clone(&cancel));
+                Self::show_progress(widgets);
 
                 std::thread::spawn(move || {
                     let mut config = config;
                     let total = queue.len();
+                    let mut cancelled = false;
 
                     for (index, app) in queue.iter().enumerate() {
+                        if cancel.load(Ordering::Relaxed) {
+                            cancelled = true;
+                            break;
+                        }
+
                         let Some(manager) = update::resolve(
                             &app.image_path,
                             &config.update_manager(&app.image_path),
@@ -629,28 +659,49 @@ impl Component for AppModel {
                             ));
                         };
 
-                        if let Err(error) = update::apply(
+                        match update::apply(
                             app,
                             manager.as_ref(),
                             &options,
                             &mut config,
                             &download_dir,
                             &mut progress,
+                            Arc::clone(&cancel),
                         ) {
-                            sender.input(Msg::Toast(format!("{}: {error}", app.name)));
+                            Ok(_) => {}
+                            Err(CoreError::Cancelled) => {
+                                cancelled = true;
+                                break;
+                            }
+                            Err(error) => {
+                                sender.input(Msg::Toast(format!("{}: {error}", app.name)));
+                            }
                         }
                     }
 
-                    sender.input(Msg::MultiUpdated(Ok(config)));
+                    sender.input(Msg::MultiUpdated(Ok(config), cancelled));
                 });
             }
             Msg::Progress(fraction, text) => {
-                widgets.progress.set_visible(true);
+                Self::show_progress(widgets);
                 widgets.progress.set_fraction(fraction);
                 widgets.progress.set_text(Some(&text));
             }
+            Msg::CancelUpdate => {
+                if let Some(cancel) = &self.cancel_token {
+                    cancel.store(true, Ordering::Relaxed);
+                    widgets.cancel_button.set_sensitive(false);
+                    widgets.cancel_button.set_label(&t("Cancelling..."));
+                }
+            }
+            Msg::UpdateCancelled => {
+                self.cancel_token = None;
+                Self::hide_progress(widgets);
+                Self::toast(widgets, &t("Update cancelled"));
+            }
             Msg::Updated(result) => {
-                widgets.progress.set_visible(false);
+                self.cancel_token = None;
+                Self::hide_progress(widgets);
                 match result {
                     Ok((app, config)) => {
                         self.config = config;
@@ -671,19 +722,24 @@ impl Component for AppModel {
                     Err(error) => Self::toast(widgets, &error),
                 }
             }
-            Msg::MultiUpdated(result) => {
-                widgets.progress.set_visible(false);
+            Msg::MultiUpdated(result, cancelled) => {
+                self.cancel_token = None;
+                Self::hide_progress(widgets);
                 match result {
                     Ok(config) => {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
-                        self.updates.clear();
                         self.update_queue.clear();
                         self.page = Page::List;
                         self.refresh_apps();
                         Self::show_page(self, widgets);
                         Self::rebuild_list(self, widgets);
-                        Self::toast(widgets, &t("Updates installed"));
+                        if cancelled {
+                            Self::toast(widgets, &t("Updates cancelled"));
+                        } else {
+                            self.updates.clear();
+                            Self::toast(widgets, &t("Updates installed"));
+                        }
                     }
                     Err(error) => Self::toast(widgets, &error),
                 }
@@ -852,6 +908,7 @@ impl AppModel {
             update_queue: Vec::new(),
             opened_from_file: false,
             reloaded: None,
+            cancel_token: None,
         };
 
         model.refresh_apps();
@@ -1714,8 +1771,35 @@ impl AppModel {
 
         let settings = self.settings.clone();
         let sender = sender.clone();
+        let paths = self.paths.clone();
+        let is_autostart = key == keys::FETCH_IN_BACKGROUND;
+        let guard = Rc::new(std::cell::Cell::new(false));
+        let guard_for_signal = Rc::clone(&guard);
+
         toggle.connect_active_notify(move |toggle| {
-            settings.store_boolean(key, toggle.is_active());
+            if guard_for_signal.get() {
+                return;
+            }
+
+            let active = toggle.is_active();
+
+            if is_autostart {
+                match crate::autostart::apply(&paths, active) {
+                    Ok(()) => {
+                        settings.store_boolean(key, active);
+                        sender.input(Msg::Refresh);
+                    }
+                    Err(error) => {
+                        guard_for_signal.set(true);
+                        toggle.set_active(!active);
+                        guard_for_signal.set(false);
+                        sender.input(Msg::Toast(error));
+                    }
+                }
+                return;
+            }
+
+            settings.store_boolean(key, active);
             sender.input(Msg::Refresh);
         });
 
@@ -1789,6 +1873,20 @@ impl AppModel {
         widgets.search_button.set_visible(false);
         widgets.window.set_resizable(false);
         widgets.window.set_default_size(420, 520);
+    }
+
+    fn show_progress(widgets: &Widgets) {
+        widgets.progress.set_visible(true);
+        widgets.cancel_button.set_visible(true);
+        widgets.cancel_button.set_sensitive(true);
+        widgets.cancel_button.set_label(&t("Cancel update"));
+    }
+
+    fn hide_progress(widgets: &Widgets) {
+        widgets.progress.set_visible(false);
+        widgets.cancel_button.set_visible(false);
+        widgets.cancel_button.set_sensitive(true);
+        widgets.cancel_button.set_label(&t("Cancel update"));
     }
 
     fn toast(widgets: &Widgets, message: &str) {
@@ -1960,12 +2058,26 @@ impl AppModel {
         let progress = gtk::ProgressBar::new();
         progress.set_visible(false);
         progress.set_show_text(true);
+        progress.set_hexpand(true);
+
+        let cancel_button = gtk::Button::with_label(&t("Cancel update"));
+        cancel_button.set_visible(false);
+        cancel_button.add_css_class("destructive-action");
+        let sender_cancel = sender.clone();
+        cancel_button.connect_clicked(move |_| sender_cancel.input(Msg::CancelUpdate));
+
+        let progress_row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        progress_row.set_margin_start(12);
+        progress_row.set_margin_end(12);
+        progress_row.set_margin_bottom(6);
+        progress_row.append(&progress);
+        progress_row.append(&cancel_button);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         content.append(&header);
         content.append(&search_bar);
         content.append(&stack);
-        content.append(&progress);
+        content.append(&progress_row);
 
         let drop_page = adw::StatusPage::builder()
             .icon_name("document-send-symbolic")
@@ -2036,6 +2148,7 @@ impl AppModel {
             details,
             multi,
             progress,
+            cancel_button,
             drop_revealer,
         }
     }

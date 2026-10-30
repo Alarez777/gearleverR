@@ -184,7 +184,7 @@ impl UpdateManager for Gitea {
         fs::create_dir_all(&context.directory)?;
         let path = context.output_path();
         self.http
-            .download(&asset.url, &path, &mut *context.progress)?;
+            .download(&asset.url, &path, &mut *context.progress, &context.cancel)?;
 
         Ok(path)
     }

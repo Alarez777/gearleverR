@@ -118,3 +118,15 @@ msgstr "Menú"
 
 msgid "Search"
 msgstr "Buscar"
+
+msgid "An update is already running"
+msgstr "Ya hay una actualización en curso"
+
+msgid "Cancelling..."
+msgstr "Cancelando..."
+
+msgid "Update cancelled"
+msgstr "Actualización cancelada"
+
+msgid "Updates cancelled"
+msgstr "Actualizaciones canceladas"

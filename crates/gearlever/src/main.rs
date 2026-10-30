@@ -5,6 +5,7 @@
     reason = "main reports command failures on standard error"
 )]
 
+mod autostart;
 mod cli;
 mod i18n;
 mod settings;
