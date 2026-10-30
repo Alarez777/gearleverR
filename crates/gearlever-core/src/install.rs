@@ -701,6 +701,28 @@ Exec=AppRun --new-window %U
     }
 
     #[test]
+    fn set_exec_rewrites_environment_and_arguments() {
+        let fixture = fixture();
+        let mut config = Config::default();
+        let app = integrate(
+            &fixture.source,
+            &metadata(),
+            None,
+            &fixture.options,
+            &mut config,
+        )
+        .unwrap();
+
+        set_exec(&app, &["A=1".to_owned()], "--custom value").unwrap();
+
+        let desktop = DesktopFile::parse(&fs::read_to_string(&app.desktop_path).unwrap());
+        let exec = desktop.value("Desktop Entry", "Exec").unwrap();
+        assert!(exec.starts_with("env A=1 "), "environment: {exec}");
+        assert!(exec.ends_with("--custom value"), "arguments: {exec}");
+        assert!(exec.contains("test_app.appimage"), "image path: {exec}");
+    }
+
+    #[test]
     fn sanitizes_names_and_avoids_double_extension() {
         assert_eq!(sanitize("my app (beta)"), "myappbeta");
         assert_eq!(sanitize("a_b.c-d"), "a_b.cd");

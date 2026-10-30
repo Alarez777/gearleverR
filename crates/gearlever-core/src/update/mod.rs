@@ -305,6 +305,56 @@ pub fn resolve(
     Ok(None)
 }
 
+/// Validates the configuration of an update source before saving it.
+///
+/// # Errors
+///
+/// Returns [`Error::UpdateConfig`] with a human-readable reason when a required
+/// field is missing or malformed.
+pub fn validate_config(
+    kind: ManagerKind,
+    values: &std::collections::BTreeMap<String, String>,
+) -> Result<()> {
+    let get = |key: &str| values.get(key).map(String::as_str).unwrap_or_default();
+
+    match kind {
+        ManagerKind::StaticFile => {
+            let url = get("url");
+            if !url.starts_with("http://") && !url.starts_with("https://") {
+                return Err(Error::UpdateConfig("enter a valid HTTP URL".to_owned()));
+            }
+        }
+        ManagerKind::Ftp => {
+            if !get("url").starts_with("ftp://") {
+                return Err(Error::UpdateConfig("enter a valid FTP URL".to_owned()));
+            }
+            if get("filename").is_empty() {
+                return Err(Error::UpdateConfig("enter a file name pattern".to_owned()));
+            }
+        }
+        ManagerKind::Github | ManagerKind::Codeberg => {
+            if get("repo").split('/').count() != 2 {
+                return Err(Error::UpdateConfig("enter <username>/<repo>".to_owned()));
+            }
+            if get("repo_filename").is_empty() {
+                return Err(Error::UpdateConfig("enter a release file name".to_owned()));
+            }
+        }
+        ManagerKind::Gitlab | ManagerKind::Forgejo => {
+            if !get("repo_url").starts_with("https://") {
+                return Err(Error::UpdateConfig(
+                    "enter a valid repository URL".to_owned(),
+                ));
+            }
+            if get("repo_filename").is_empty() {
+                return Err(Error::UpdateConfig("enter a release file name".to_owned()));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Builds a manager for a source selected in the interface.
 #[must_use]
 pub fn by_name(
@@ -467,6 +517,25 @@ mod tests {
             pick_asset(&assets, "app-*.AppImage").map(|asset| asset.name),
             Some("app-x86_64.AppImage".to_owned())
         );
+    }
+
+    #[test]
+    fn validates_update_configuration() {
+        let valid = std::collections::BTreeMap::from([
+            ("repo".to_owned(), "owner/repo".to_owned()),
+            ("repo_filename".to_owned(), "App.AppImage".to_owned()),
+        ]);
+        assert!(validate_config(ManagerKind::Github, &valid).is_ok());
+
+        let invalid = std::collections::BTreeMap::from([
+            ("repo".to_owned(), "owner".to_owned()),
+            ("repo_filename".to_owned(), "App.AppImage".to_owned()),
+        ]);
+        assert!(validate_config(ManagerKind::Github, &invalid).is_err());
+
+        let static_url =
+            std::collections::BTreeMap::from([("url".to_owned(), "not-a-url".to_owned())]);
+        assert!(validate_config(ManagerKind::StaticFile, &static_url).is_err());
     }
 
     #[test]

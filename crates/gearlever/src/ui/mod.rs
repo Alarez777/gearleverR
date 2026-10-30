@@ -143,6 +143,7 @@ struct AppModel {
     checking: bool,
     pending: Vec<(PathBuf, AppMetadata)>,
     update_queue: Vec<InstalledApp>,
+    opened_from_file: bool,
 }
 
 struct Widgets {
@@ -185,7 +186,10 @@ impl Component for AppModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = Self::new();
+        let mut model = Self::new();
+        if !files.is_empty() {
+            model.opened_from_file = true;
+        }
         let widgets = Self::build_shell(&root, &sender);
         Self::rebuild_list(&model, &widgets);
         Self::show_page(&model, &widgets);
@@ -307,7 +311,7 @@ impl Component for AppModel {
                             self.page = Page::Details;
                             Self::show_page(self, widgets);
                             Self::rebuild_details(self, widgets, &sender);
-                            if self.settings.values().preview_minimal_ui {
+                            if self.opened_from_file && self.settings.values().preview_minimal_ui {
                                 Self::minimal_ui(widgets);
                             }
                         }
@@ -504,6 +508,12 @@ impl Component for AppModel {
                 Ok((path, config)) => {
                     self.config = config;
                     let _ = self.config.save(&self.paths.config_file());
+
+                    if self.opened_from_file {
+                        widgets.window.close();
+                        return;
+                    }
+
                     self.page = Page::List;
                     self.details = None;
                     self.refresh_apps();
@@ -689,6 +699,14 @@ impl Component for AppModel {
                 }
             }
             Msg::SaveWebsite { path, website } => {
+                if !website.is_empty()
+                    && !website.starts_with("http://")
+                    && !website.starts_with("https://")
+                {
+                    Self::toast(widgets, &t("Enter a valid URL"));
+                    return;
+                }
+
                 let mut values = self.config.app(&path);
                 if website.is_empty() {
                     values.remove("website");
@@ -697,7 +715,10 @@ impl Component for AppModel {
                 }
                 self.config.set_app(&path, values);
                 match self.config.save(&self.paths.config_file()) {
-                    Ok(()) => Self::toast(widgets, &t("Website saved")),
+                    Ok(()) => {
+                        Self::rebuild_details(self, widgets, &sender);
+                        Self::toast(widgets, &t("Website saved"));
+                    }
                     Err(error) => Self::toast(widgets, &error.to_string()),
                 }
             }
@@ -740,6 +761,18 @@ impl Component for AppModel {
                 Err(error) => Self::toast(widgets, &error),
             },
             Msg::SelectSource(kind) => {
+                if kind.is_none()
+                    && let Some(DetailsItem::Installed(app)) = &self.details
+                {
+                    let path = app.image_path.clone();
+                    self.config.delete_update_manager(&path);
+                    let _ = self.config.save(&self.paths.config_file());
+                    self.details_source = None;
+                    Self::rebuild_details(self, widgets, &sender);
+                    sender.input(Msg::CheckUpdates);
+                    return;
+                }
+
                 self.details_source = kind;
                 Self::rebuild_details(self, widgets, &sender);
             }
@@ -810,6 +843,7 @@ impl AppModel {
             checking: false,
             pending: Vec::new(),
             update_queue: Vec::new(),
+            opened_from_file: false,
         };
 
         model.refresh_apps();
@@ -916,13 +950,14 @@ impl AppModel {
     }
 
     fn open_chooser(root: &adw::ApplicationWindow, sender: &ComponentSender<Self>) {
-        let dialog = gtk::FileChooserNative::new(
-            Some(&t("Open an AppImage")),
-            Some(root),
-            gtk::FileChooserAction::Open,
-            Some(&t("Open")),
-            Some(&t("Cancel")),
-        );
+        let dialog = gtk::FileChooserDialog::builder()
+            .title(t("Open an AppImage"))
+            .transient_for(root)
+            .modal(true)
+            .action(gtk::FileChooserAction::Open)
+            .build();
+        let _ = dialog.add_button(&t("Cancel"), gtk::ResponseType::Cancel);
+        let _ = dialog.add_button(&t("Open"), gtk::ResponseType::Accept);
         dialog.set_select_multiple(true);
 
         let sender = sender.clone();
@@ -942,7 +977,7 @@ impl AppModel {
             dialog.destroy();
         });
 
-        dialog.show();
+        dialog.present();
     }
 
     fn show_page(&self, widgets: &Widgets) {
@@ -1525,18 +1560,20 @@ impl AppModel {
             .build();
         let choose = gtk::Button::from_icon_name("folder-open-symbolic");
         choose.set_valign(gtk::Align::Center);
+        choose.set_tooltip_text(Some(&t("Select a folder")));
         let sender_folder = sender.clone();
         let settings_folder = self.settings.clone();
         let window_folder = window.clone();
         let row_folder = folder_row.clone();
         choose.connect_clicked(move |_| {
-            let dialog = gtk::FileChooserNative::new(
-                Some(&t("Select a folder")),
-                Some(&window_folder),
-                gtk::FileChooserAction::SelectFolder,
-                Some("Select"),
-                Some("Cancel"),
-            );
+            let dialog = gtk::FileChooserDialog::builder()
+                .title(t("Select a folder"))
+                .transient_for(&window_folder)
+                .modal(true)
+                .action(gtk::FileChooserAction::SelectFolder)
+                .build();
+            let _ = dialog.add_button(&t("Cancel"), gtk::ResponseType::Cancel);
+            let _ = dialog.add_button(&t("Select"), gtk::ResponseType::Accept);
             let sender = sender_folder.clone();
             let settings = settings_folder.clone();
             let row = row_folder.clone();
@@ -1551,7 +1588,7 @@ impl AppModel {
                 }
                 dialog.destroy();
             });
-            dialog.show();
+            dialog.present();
         });
         folder_row.add_suffix(&choose);
         general.add(&folder_row);
@@ -1733,11 +1770,13 @@ impl AppModel {
         left_button.connect_clicked(move |_| sender_left.input(Msg::LeftButton));
 
         let search_button = gtk::Button::from_icon_name("system-search-symbolic");
+        search_button.set_tooltip_text(Some(&t("Search")));
         let sender_search = sender.clone();
         search_button.connect_clicked(move |_| sender_search.input(Msg::ToggleSearch));
 
         let menu_button = gtk::MenuButton::builder()
             .icon_name("open-menu-symbolic")
+            .tooltip_text(t("Menu"))
             .build();
 
         let menu = gio::Menu::new();

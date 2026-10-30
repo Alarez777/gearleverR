@@ -910,38 +910,5 @@ fn parse_pairs(options: &[String]) -> BTreeMap<String, String> {
 }
 
 fn validate_source(kind: ManagerKind, values: &BTreeMap<String, String>) -> Result<()> {
-    let get = |key: &str| values.get(key).map(String::as_str).unwrap_or_default();
-
-    match kind {
-        ManagerKind::StaticFile => {
-            let url = get("url");
-            if !url.starts_with("http://") && !url.starts_with("https://") {
-                bail!("Error: enter a valid HTTP URL");
-            }
-        }
-        ManagerKind::Ftp => {
-            if !get("url").starts_with("ftp://") {
-                bail!("Error: enter a valid FTP URL");
-            }
-        }
-        ManagerKind::Github | ManagerKind::Codeberg => {
-            let repo = get("repo");
-            if repo.split('/').count() != 2 {
-                bail!("Error: enter <username>/<repo>");
-            }
-            if get("repo_filename").is_empty() {
-                bail!("Error: enter a release file name");
-            }
-        }
-        ManagerKind::Gitlab | ManagerKind::Forgejo => {
-            if !get("repo_url").starts_with("https://") {
-                bail!("Error: enter a valid repository URL");
-            }
-            if get("repo_filename").is_empty() {
-                bail!("Error: enter a release file name");
-            }
-        }
-    }
-
-    Ok(())
+    update::validate_config(kind, values).map_err(|error| anyhow!(error.to_string()))
 }

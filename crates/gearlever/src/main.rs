@@ -12,6 +12,7 @@ mod ui;
 
 use std::fs;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
@@ -23,6 +24,22 @@ use crate::settings::Settings;
 
 fn main() -> ExitCode {
     init_logging();
+
+    let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    let has_option = arguments
+        .iter()
+        .any(|argument| argument.to_string_lossy().starts_with('-'));
+
+    if !has_option {
+        let files: Vec<PathBuf> = arguments
+            .iter()
+            .map(PathBuf::from)
+            .filter(|path| path.is_file())
+            .collect();
+
+        ui::run(files);
+        return ExitCode::SUCCESS;
+    }
 
     let cli = cli::Cli::parse();
 

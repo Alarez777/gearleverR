@@ -107,27 +107,40 @@ msgstr "Bienvenido"
 msgid "{name} updated"
 msgstr "{name} actualizada"
 
-#: crates/gearlever/src/ui/mod.rs:1661
+msgid "Select"
+msgstr "Seleccionar"
+
+msgid "Enter a valid URL"
+msgstr "Introduce una URL válida"
+
+msgid "Menu"
+msgstr "Menú"
+
+msgid "Search"
+msgstr "Buscar"
+
+#: crates/gearlever/src/ui/mod.rs:1693
 msgid "An utility to manage AppImages with ease!"
 msgstr "¡Una utilidad para gestionar AppImages con facilidad!"
 
-#: crates/gearlever/src/ui/mod.rs:1522
+#: crates/gearlever/src/ui/mod.rs:1552
 msgid "AppImage default location"
 msgstr "Ubicación por defecto de la AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:929 crates/gearlever/src/ui/mod.rs:1673
+#: crates/gearlever/src/ui/mod.rs:959 crates/gearlever/src/ui/mod.rs:1575
+#: crates/gearlever/src/ui/mod.rs:1705
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: crates/gearlever/src/ui/mod.rs:1804
+#: crates/gearlever/src/ui/mod.rs:1838
 msgid "Check for updates"
 msgstr "Buscar actualizaciones"
 
-#: crates/gearlever/src/ui/mod.rs:1588
+#: crates/gearlever/src/ui/mod.rs:1620
 msgid "Check updates on system startup"
 msgstr "Comprobar actualizaciones al iniciar el sistema"
 
-#: crates/gearlever/src/ui/mod.rs:337
+#: crates/gearlever/src/ui/mod.rs:336
 msgid "Checking updates..."
 msgstr "Comprobando actualizaciones..."
 
@@ -135,138 +148,138 @@ msgstr "Comprobando actualizaciones..."
 msgid "Close tutorial"
 msgstr "Cerrar tutorial"
 
-#: crates/gearlever/src/ui/mod.rs:1161
+#: crates/gearlever/src/ui/mod.rs:1191
 msgid "Command line arguments"
 msgstr "Argumentos de la línea de comandos"
 
-#: crates/gearlever/src/ui/mod.rs:1357
+#: crates/gearlever/src/ui/mod.rs:1387
 msgid "Default"
 msgstr "Por defecto"
 
-#: crates/gearlever/src/ui/mod.rs:1671
+#: crates/gearlever/src/ui/mod.rs:1703
 msgid "Do you really want to remove this app?"
 msgstr "¿Realmente desea eliminar esta aplicación?"
 
-#: crates/gearlever/src/ui/mod.rs:1897
+#: crates/gearlever/src/ui/mod.rs:1931
 msgid "Drop your file here"
 msgstr "Suelta tu archivo aqui"
 
-#: crates/gearlever/src/ui/mod.rs:1609
+#: crates/gearlever/src/ui/mod.rs:1641
 msgid "Enable debug logs"
 msgstr "Habilitar registros de depuración"
 
-#: crates/gearlever/src/ui/mod.rs:1216
+#: crates/gearlever/src/ui/mod.rs:1246
 msgid "Environment variables"
 msgstr "Variables de entorno"
 
-#: crates/gearlever/src/ui/mod.rs:1571
+#: crates/gearlever/src/ui/mod.rs:1603
 msgid "File management"
 msgstr "Gestión de archivos"
 
-#: crates/gearlever/src/ui/mod.rs:1786
+#: crates/gearlever/src/ui/mod.rs:1820
 msgid "Filter installed applications"
 msgstr "Filtrar aplicaciones instaladas"
 
-#: crates/gearlever/src/ui/mod.rs:1519
+#: crates/gearlever/src/ui/mod.rs:1549
 msgid "General"
 msgstr "General"
 
-#: crates/gearlever/src/ui/mod.rs:1831
+#: crates/gearlever/src/ui/mod.rs:1865
 msgid "Get started"
 msgstr "Empezar"
 
-#: crates/gearlever/src/ui/mod.rs:1336
+#: crates/gearlever/src/ui/mod.rs:1366
 msgid "Hash"
 msgstr "Hash"
 
-#: crates/gearlever/src/ui/mod.rs:955 crates/gearlever/src/ui/mod.rs:1732
-#: crates/gearlever/src/ui/mod.rs:1798
+#: crates/gearlever/src/ui/mod.rs:985 crates/gearlever/src/ui/mod.rs:1764
+#: crates/gearlever/src/ui/mod.rs:1832
 msgid "Installed applications"
 msgstr "Aplicaciones instaladas"
 
-#: crates/gearlever/src/ui/mod.rs:1117 crates/gearlever/src/ui/mod.rs:1305
+#: crates/gearlever/src/ui/mod.rs:1147 crates/gearlever/src/ui/mod.rs:1335
 msgid "Launch"
 msgstr "Lanzar"
 
-#: crates/gearlever/src/ui/mod.rs:1573
+#: crates/gearlever/src/ui/mod.rs:1605
 msgid "Move AppImages into the destination folder"
 msgstr "Mueve las AppImages a la carpeta destinada"
 
-#: crates/gearlever/src/ui/mod.rs:1296
+#: crates/gearlever/src/ui/mod.rs:1326
 msgid "Move to the app menu"
 msgstr "Mover al menu de aplicaciones"
 
-#: crates/gearlever/src/ui/mod.rs:583
+#: crates/gearlever/src/ui/mod.rs:588
 msgid "No updates available"
 msgstr "No hay actualizaciones disponibles"
 
-#: crates/gearlever/src/ui/mod.rs:928
+#: crates/gearlever/src/ui/mod.rs:960
 msgid "Open"
 msgstr "Abrir"
 
-#: crates/gearlever/src/ui/mod.rs:1153
+#: crates/gearlever/src/ui/mod.rs:1183
 msgid "Open Folder"
 msgstr "Abrir carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:1841
+#: crates/gearlever/src/ui/mod.rs:1875
 msgid "Open Preferences"
 msgstr "Abrir Preferencias"
 
-#: crates/gearlever/src/ui/mod.rs:1204
+#: crates/gearlever/src/ui/mod.rs:1234
 msgid "Open URL"
 msgstr "Abrir URL"
 
-#: crates/gearlever/src/ui/mod.rs:973 crates/gearlever/src/ui/mod.rs:1736
+#: crates/gearlever/src/ui/mod.rs:1003 crates/gearlever/src/ui/mod.rs:1768
 msgid "Open a new AppImage"
 msgstr "Abrir una nueva AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:1147 crates/gearlever/src/ui/mod.rs:1318
+#: crates/gearlever/src/ui/mod.rs:1177 crates/gearlever/src/ui/mod.rs:1348
 msgid "Path"
 msgstr "Directorio"
 
-#: crates/gearlever/src/ui/mod.rs:1597
+#: crates/gearlever/src/ui/mod.rs:1629
 msgid "Preview new apps in a minimal UI"
 msgstr ""
 "Previsualiza nuevas aplicaciones en una interfaz de usuario minimalista"
 
-#: crates/gearlever/src/ui/mod.rs:1261
+#: crates/gearlever/src/ui/mod.rs:1291
 msgid "Reload metadata"
 msgstr "Recargar metada"
 
-#: crates/gearlever/src/ui/mod.rs:1124 crates/gearlever/src/ui/mod.rs:1674
+#: crates/gearlever/src/ui/mod.rs:1154 crates/gearlever/src/ui/mod.rs:1706
 msgid "Remove"
 msgstr "Eliminar"
 
-#: crates/gearlever/src/ui/mod.rs:1163 crates/gearlever/src/ui/mod.rs:1188
-#: crates/gearlever/src/ui/mod.rs:1408
+#: crates/gearlever/src/ui/mod.rs:1193 crates/gearlever/src/ui/mod.rs:1218
+#: crates/gearlever/src/ui/mod.rs:1438
 msgid "Save"
 msgstr "Guardar"
 
-#: crates/gearlever/src/ui/mod.rs:1539
+#: crates/gearlever/src/ui/mod.rs:1563 crates/gearlever/src/ui/mod.rs:1570
 msgid "Select a folder"
 msgstr "Selecciona una carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:1564
+#: crates/gearlever/src/ui/mod.rs:1596
 msgid "Show integrated AppImages outside the default folder"
 msgstr "Muestra las AppImages integradas fuera de la carpeta por defecto"
 
-#: crates/gearlever/src/ui/mod.rs:1837
+#: crates/gearlever/src/ui/mod.rs:1871
 msgid "Show welcome screen"
 msgstr "Mostrar pantalla de bienvenida"
 
-#: crates/gearlever/src/ui/mod.rs:1366
+#: crates/gearlever/src/ui/mod.rs:1396
 msgid "Source"
 msgstr "Fuente"
 
-#: crates/gearlever/src/ui/mod.rs:1132
+#: crates/gearlever/src/ui/mod.rs:1162
 msgid "Update"
 msgstr "Actualizar"
 
-#: crates/gearlever/src/ui/mod.rs:1809
+#: crates/gearlever/src/ui/mod.rs:1843
 msgid "Update all"
 msgstr "Actualizar todo"
 
-#: crates/gearlever/src/ui/mod.rs:1262
+#: crates/gearlever/src/ui/mod.rs:1292
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -274,38 +287,38 @@ msgstr ""
 "Actualizar información como icono, versión y descripción.\n"
 "Útil si la aplicación se actualizó por si misma."
 
-#: crates/gearlever/src/ui/mod.rs:1348
+#: crates/gearlever/src/ui/mod.rs:1378
 msgid "Update management"
 msgstr "Gestión de la actualización"
 
-#: crates/gearlever/src/ui/mod.rs:1586
+#: crates/gearlever/src/ui/mod.rs:1618
 msgid "Updates management"
 msgstr "Gestión de actualizaciones"
 
-#: crates/gearlever/src/ui/mod.rs:1579
+#: crates/gearlever/src/ui/mod.rs:1611
 msgid "Use executable name for integrated terminal apps"
 msgstr "Utilizar nombre ejecutable para aplicaciones de terminal integradas"
 
-#: crates/gearlever/src/ui/mod.rs:1603
+#: crates/gearlever/src/ui/mod.rs:1635
 msgid "Use safe mechanisms to load metadata"
 msgstr "Utilice mecanismos seguros para cargar metadatos"
 
-#: crates/gearlever/src/ui/mod.rs:1186
+#: crates/gearlever/src/ui/mod.rs:1216
 msgid "Website"
 msgstr "Sitio Web"
 
-#: crates/gearlever/src/ui/mod.rs:1752
+#: crates/gearlever/src/ui/mod.rs:1786
 msgid "_About Gear lever"
 msgstr "_Sobre Gear lever"
 
-#: crates/gearlever/src/ui/mod.rs:1751
+#: crates/gearlever/src/ui/mod.rs:1785
 msgid "_Open Log File"
 msgstr "_Abrir archivo Log"
 
-#: crates/gearlever/src/ui/mod.rs:1749
+#: crates/gearlever/src/ui/mod.rs:1783
 msgid "_Preferences"
 msgstr "_Preferencias"
 
-#: crates/gearlever/src/ui/mod.rs:1750
+#: crates/gearlever/src/ui/mod.rs:1784
 msgid "_Show tutorial"
 msgstr "_Mostrar tutorial"

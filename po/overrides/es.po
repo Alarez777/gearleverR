@@ -106,3 +106,15 @@ msgstr "Bienvenido"
 
 msgid "{name} updated"
 msgstr "{name} actualizada"
+
+msgid "Select"
+msgstr "Seleccionar"
+
+msgid "Enter a valid URL"
+msgstr "Introduce una URL válida"
+
+msgid "Menu"
+msgstr "Menú"
+
+msgid "Search"
+msgstr "Buscar"
