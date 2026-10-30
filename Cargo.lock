@@ -700,6 +700,7 @@ dependencies = [
  "blake3",
  "clap",
  "gearlever-core",
+ "libadwaita",
  "relm4",
  "serde",
  "serde_json",

@@ -32,6 +32,8 @@ pub struct InstalledApp {
     pub exec_arguments: String,
     /// `KEY=value` prefixes stored in `Exec`.
     pub env_variables: Vec<String>,
+    /// Whether the desktop entry runs the app in a terminal.
+    pub terminal: bool,
     /// Size of the AppImage in bytes.
     pub size: u64,
     /// Whether the AppImage lives outside the managed folder.
@@ -149,6 +151,9 @@ fn read_entry(path: &Path, options: &ScanOptions<'_>) -> Option<InstalledApp> {
     Some(InstalledApp {
         name,
         description: main.get("Comment").cloned().unwrap_or_default(),
+        terminal: main
+            .get("Terminal")
+            .is_some_and(|value| value.eq_ignore_ascii_case("true")),
         version: main
             .get("X-AppImage-Version")
             .filter(|value| !value.is_empty())

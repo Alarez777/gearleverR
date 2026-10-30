@@ -10,6 +10,7 @@ pub mod cache;
 pub mod config;
 pub mod desktop;
 pub mod error;
+pub mod format;
 pub mod hash;
 pub mod install;
 pub mod paths;

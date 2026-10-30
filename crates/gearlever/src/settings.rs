@@ -170,12 +170,78 @@ impl Settings {
         }
     }
 
+    /// Writes a boolean to GSettings without touching the snapshot.
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "GSettings booleans are inherently bool"
+    )]
+    pub fn store_boolean(&self, key: &str, value: bool) {
+        if let Some(settings) = &self.settings {
+            let _ = settings.set_boolean(key, value);
+        }
+    }
+
+    /// Writes the managed folder to GSettings without touching the snapshot.
+    pub fn store_appimages_dir(&self, path: &Path) {
+        if let Some(settings) = &self.settings {
+            let _ = settings.set_string(keys::APPIMAGES_FOLDER, &path.to_string_lossy());
+        }
+    }
+
     /// Stores the managed folder.
     pub fn set_appimages_dir(&mut self, path: &Path) {
         if let Some(settings) = &self.settings {
             let _ = settings.set_string(keys::APPIMAGES_FOLDER, &path.to_string_lossy());
         }
         self.values.appimages_dir = path.to_path_buf();
+    }
+}
+
+/// Copies the settings of the original Gear Lever once.
+///
+/// The schema keeps the same keys, so migration is a straight copy. A marker in
+/// the configuration directory prevents later runs from overwriting changes.
+fn migrate_legacy(
+    settings: &gio::Settings,
+    source: Option<&gio::SettingsSchemaSource>,
+    paths: &Paths,
+) {
+    let marker = paths.config_dir().join("gearlever-r.migrated");
+    if marker.exists() {
+        return;
+    }
+
+    if source
+        .and_then(|source| source.lookup("it.mijorus.gearlever", true))
+        .is_none()
+    {
+        return;
+    }
+
+    let legacy = gio::Settings::new("it.mijorus.gearlever");
+
+    let _ = settings.set_string(
+        keys::APPIMAGES_FOLDER,
+        legacy.string(keys::APPIMAGES_FOLDER).as_str(),
+    );
+
+    for key in [
+        keys::MANAGE_OUTSIDE,
+        keys::MOVE_ON_INTEGRATION,
+        keys::EXEC_AS_NAME,
+        keys::PREVIEW_MINIMAL_UI,
+        keys::BLOCK_UNSAFE_EXTRACTOR,
+        keys::FETCH_IN_BACKGROUND,
+        keys::DEBUG_LOGS,
+        keys::IS_MAXIMIZED,
+        keys::FIRST_RUN,
+    ] {
+        let _ = settings.set_boolean(key, legacy.boolean(key));
+    }
+
+    if let Some(parent) = marker.parent() {
+        let _ = std::fs::create_dir_all(parent);
+        let _ = std::fs::write(marker, b"1\n");
     }
 }
 

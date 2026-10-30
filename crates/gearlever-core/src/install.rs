@@ -192,6 +192,7 @@ pub fn integrate(
         name: metadata.name.clone(),
         description: metadata.comment.clone(),
         version: metadata.version.clone(),
+        terminal: metadata.terminal,
         size: fs::metadata(&destination)?.len(),
         image_path: destination,
         desktop_path,
@@ -329,6 +330,28 @@ fn exec_line(image: &Path, env_variables: &[String], arguments: &str) -> String 
     }
 
     command
+}
+
+/// Rewrites the `Exec` line of an integrated application.
+///
+/// Environment variables are written before the executable, and the arguments
+/// are appended verbatim, matching what the original does when the user edits
+/// them in the details view.
+///
+/// # Errors
+///
+/// Returns [`Error::Io`] when the desktop entry cannot be read or written.
+pub fn set_exec(app: &InstalledApp, env_variables: &[String], arguments: &str) -> Result<()> {
+    let contents = fs::read_to_string(&app.desktop_path)?;
+    let mut desktop = DesktopFile::parse(&contents);
+    desktop.set(
+        "Desktop Entry",
+        "Exec",
+        exec_line(&app.image_path, env_variables, arguments),
+    );
+    fs::write(&app.desktop_path, desktop.to_string())?;
+
+    Ok(())
 }
 
 fn store_icon(

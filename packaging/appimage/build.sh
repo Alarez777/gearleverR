@@ -33,6 +33,16 @@ install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
 ln -sf io.github.alarez777.GearLeverR.png "$APPDIR/.DirIcon"
 install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.svg" \
     "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.alarez777.GearLeverR.svg"
+install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
+    "$APPDIR/usr/share/icons/hicolor/256x256/apps/io.github.alarez777.GearLeverR.png"
+install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.gschema.xml" \
+    "$APPDIR/usr/share/glib-2.0/schemas/io.github.alarez777.GearLeverR.gschema.xml"
+
+if command -v glib-compile-schemas >/dev/null 2>&1; then
+    glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas"
+else
+    echo "warning: glib-compile-schemas not found; settings will fall back to defaults" >&2
+fi
 
 mkdir -p "$ROOT/dist"
 echo ":: packaging $OUTPUT"

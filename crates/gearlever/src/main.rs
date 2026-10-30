@@ -19,7 +19,7 @@ fn main() -> ExitCode {
     let cli = cli::Cli::parse();
 
     if !cli.has_command() {
-        ui::run();
+        ui::run(Vec::new());
         return ExitCode::SUCCESS;
     }
 
