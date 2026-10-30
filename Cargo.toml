@@ -13,9 +13,16 @@ repository = "https://github.com/alarez/gear-leverR"
 [workspace.dependencies]
 anyhow = "1"
 backhand = { version = "0.25", default-features = false, features = ["zstd", "xz", "gzip", "lz4"] }
+blake3 = "1"
+md-5 = "0.10"
 relm4 = { version = "0.11", features = ["libadwaita"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shlex = "1"
+tempfile = "3"
 thiserror = "2"
 tracing = "0.1"
+trash = "5"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"

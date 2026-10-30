@@ -38,6 +38,22 @@ pub enum Error {
     /// A desktop entry is not valid UTF-8.
     #[error("{0}: desktop entry is not valid UTF-8")]
     DesktopEntryNotUtf8(PathBuf),
+
+    /// `HOME` is not set, so XDG paths cannot be resolved.
+    #[error("cannot determine the home directory: HOME is not set")]
+    NoHomeDirectory,
+
+    /// A desktop entry `Exec` line cannot be parsed.
+    #[error("invalid command line: {0}")]
+    InvalidCommandLine(String),
+
+    /// A cached value cannot be decoded.
+    #[error("invalid cache entry: {0}")]
+    Cache(#[from] serde_json::Error),
+
+    /// A path cannot be used to derive a file or application name.
+    #[error("{0}: cannot derive a name from this path")]
+    InvalidName(PathBuf),
 }
 
 /// Convenient alias for the crate's [`Result`].

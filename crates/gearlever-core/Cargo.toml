@@ -9,8 +9,17 @@ repository.workspace = true
 
 [dependencies]
 backhand.workspace = true
+blake3.workspace = true
+md-5.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shlex.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+trash.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true
