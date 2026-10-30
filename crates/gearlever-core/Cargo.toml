@@ -10,13 +10,21 @@ repository.workspace = true
 [dependencies]
 backhand.workspace = true
 blake3.workspace = true
+glob.workspace = true
+http.workspace = true
 md-5.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha1.workspace = true
+sha2.workspace = true
 shlex.workspace = true
+suppaftp.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 trash.workspace = true
+ureq.workspace = true
+url.workspace = true
+urlencoding.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

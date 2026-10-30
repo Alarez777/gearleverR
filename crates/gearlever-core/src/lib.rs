@@ -10,9 +10,11 @@ pub mod cache;
 pub mod config;
 pub mod desktop;
 pub mod error;
+pub mod hash;
 pub mod install;
 pub mod paths;
 pub mod scan;
 pub mod uninstall;
+pub mod update;
 
 pub use error::{Error, Result};

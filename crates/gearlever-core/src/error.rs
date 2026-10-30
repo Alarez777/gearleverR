@@ -54,6 +54,18 @@ pub enum Error {
     /// A path cannot be used to derive a file or application name.
     #[error("{0}: cannot derive a name from this path")]
     InvalidName(PathBuf),
+
+    /// A network request failed or returned an unexpected status.
+    #[error("network error: {0}")]
+    Http(String),
+
+    /// An update manager is missing required configuration.
+    #[error("invalid update configuration: {0}")]
+    UpdateConfig(String),
+
+    /// No release matches the configured file name.
+    #[error("no release asset matches {0}")]
+    NoMatchingAsset(String),
 }
 
 /// Convenient alias for the crate's [`Result`].

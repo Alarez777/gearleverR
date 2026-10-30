@@ -1,71 +1,42 @@
-//! Gear Lever R: a GTK4 front-end for managing AppImages.
-//!
-//! This phase only proves the Relm4/libadwaita shell; the app list and the
-//! details view arrive with the core integration.
+//! Gear Lever R: a GTK4 front-end and CLI for managing AppImages.
 
-use relm4::adw::prelude::*;
-use relm4::prelude::*;
-use relm4::{adw, gtk};
+#![expect(
+    clippy::print_stderr,
+    reason = "main reports command failures on standard error"
+)]
 
-/// Application ID shared by the binary, the desktop entry and GSettings.
-const APP_ID: &str = "io.github.alarez777.GearLeverR";
+mod cli;
+mod settings;
+mod ui;
 
-#[derive(Debug, Default)]
-struct AppModel;
+use std::process::ExitCode;
 
-#[relm4::component]
-impl SimpleComponent for AppModel {
-    type Init = ();
-    type Input = ();
-    type Output = ();
+use clap::Parser;
 
-    view! {
-        adw::ApplicationWindow {
-            set_title: Some("Gear Lever R"),
-            set_default_width: 700,
-            set_default_height: 700,
+fn main() -> ExitCode {
+    init_logging();
 
-            gtk::Box {
-                set_orientation: gtk::Orientation::Vertical,
+    let cli = cli::Cli::parse();
 
-                adw::HeaderBar {},
-
-                adw::StatusPage {
-                    set_icon_name: Some("application-x-executable-symbolic"),
-                    set_title: "Gear Lever R",
-                    set_description: Some(concat!(
-                        "AppImage manager, rewritten in Rust — version ",
-                        env!("CARGO_PKG_VERSION"),
-                    )),
-                    set_vexpand: true,
-                },
-            },
-        }
+    if !cli.has_command() {
+        ui::run();
+        return ExitCode::SUCCESS;
     }
 
-    fn init(
-        _init: Self::Init,
-        root: Self::Root,
-        _sender: ComponentSender<Self>,
-    ) -> ComponentParts<Self> {
-        let widgets = view_output!();
-        ComponentParts {
-            model: AppModel,
-            widgets,
+    match cli.run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("Error: {error:#}");
+            ExitCode::FAILURE
         }
     }
 }
 
-fn main() {
-    tracing::info!(
-        gtk = format_args!(
-            "{}.{}.{}",
-            gtk::major_version(),
-            gtk::minor_version(),
-            gtk::micro_version()
-        ),
-        "starting Gear Lever R"
-    );
+fn init_logging() {
+    let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "warn".to_owned());
 
-    RelmApp::new(APP_ID).run::<AppModel>(());
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .try_init();
 }

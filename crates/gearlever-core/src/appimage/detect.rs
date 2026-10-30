@@ -7,7 +7,8 @@ use std::path::Path;
 
 use crate::error::{Error, Result};
 
-const ELF_MAGIC: [u8; 4] = [0x7f, b'E', b'L', b'F'];
+use super::elf;
+
 const MAGIC_OFFSET: usize = 8;
 
 /// AppImage format revision, taken from the runtime magic at offset 8.
@@ -113,7 +114,7 @@ impl fmt::Display for PayloadKind {
 /// does not contain an AppImage runtime, and [`Error::Io`] on read failure.
 pub fn image_type(path: &Path) -> Result<ImageType> {
     let mut file = File::open(path)?;
-    let mut header = [0u8; MAGIC_OFFSET + 3];
+    let mut header = [0_u8; MAGIC_OFFSET + 3];
     let read = file.read(&mut header)?;
     let magic = if read >= MAGIC_OFFSET + 3 {
         [
@@ -146,37 +147,7 @@ pub fn image_type(path: &Path) -> Result<ImageType> {
 /// Returns [`Error::InvalidElf`] if the runtime header is truncated or uses an
 /// unknown class/encoding, and [`Error::Io`] on read failure.
 pub fn payload_offset(path: &Path) -> Result<u64> {
-    let mut file = File::open(path)?;
-    let mut header = [0u8; 64];
-    file.read_exact(&mut header)?;
-
-    if header[0..4] != ELF_MAGIC {
-        return Err(Error::InvalidElf("missing ELF magic"));
-    }
-
-    let endian = Endian::from_elf(header[5])?;
-
-    let (section_offset, entry_size, entry_count) = match header[4] {
-        2 => (
-            u64_at(&header, 0x28, endian)?,
-            u16_at(&header, 0x3a, endian)?,
-            u16_at(&header, 0x3c, endian)?,
-        ),
-        1 => (
-            u64::from(u32_at(&header, 0x20, endian)?),
-            u16_at(&header, 0x2e, endian)?,
-            u16_at(&header, 0x30, endian)?,
-        ),
-        _ => return Err(Error::InvalidElf("unknown ELF class")),
-    };
-
-    let table_size = u64::from(entry_size)
-        .checked_mul(u64::from(entry_count))
-        .ok_or(Error::InvalidElf("section table size overflow"))?;
-
-    section_offset
-        .checked_add(table_size)
-        .ok_or(Error::InvalidElf("payload offset overflow"))
+    elf::header(path)?.payload_offset()
 }
 
 /// Reads the architecture from the AppImage runtime ELF header.
@@ -186,17 +157,7 @@ pub fn payload_offset(path: &Path) -> Result<u64> {
 /// Returns [`Error::InvalidElf`] if the header is truncated or not ELF, and
 /// [`Error::Io`] on read failure.
 pub fn elf_arch(path: &Path) -> Result<ElfArch> {
-    let mut file = File::open(path)?;
-    let mut header = [0u8; 20];
-    file.read_exact(&mut header)?;
-
-    if header[0..4] != ELF_MAGIC {
-        return Err(Error::InvalidElf("missing ELF magic"));
-    }
-
-    let endian = Endian::from_elf(header[5])?;
-
-    Ok(ElfArch::from_machine(u16_at(&header, 0x12, endian)?))
+    Ok(ElfArch::from_machine(elf::machine(path)?))
 }
 
 /// Sniffs the filesystem stored at `offset`.
@@ -208,7 +169,7 @@ pub fn payload_kind(path: &Path, offset: u64) -> Result<PayloadKind> {
     let mut file = File::open(path)?;
     file.seek(SeekFrom::Start(offset))?;
 
-    let mut magic = [0u8; 8];
+    let mut magic = [0_u8; 8];
     let read = file.read(&mut magic)?;
 
     if magic.starts_with(b"hsqs") {
@@ -233,67 +194,12 @@ fn is_iso9660(file: &mut File, offset: u64) -> Result<bool> {
         .ok_or(Error::InvalidElf("ISO9660 offset overflow"))?;
     file.seek(SeekFrom::Start(descriptor))?;
 
-    let mut marker = [0u8; 5];
+    let mut marker = [0_u8; 5];
     match file.read_exact(&mut marker) {
         Ok(()) => Ok(&marker == b"CD001"),
         Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => Ok(false),
         Err(error) => Err(Error::Io(error)),
     }
-}
-
-/// Byte order declared by the ELF header.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Endian {
-    /// Least-significant byte first (`ELFDATA2LSB`).
-    Little,
-    /// Most-significant byte first (`ELFDATA2MSB`).
-    Big,
-}
-
-impl Endian {
-    fn from_elf(encoding: u8) -> Result<Self> {
-        match encoding {
-            1 => Ok(Self::Little),
-            2 => Ok(Self::Big),
-            _ => Err(Error::InvalidElf("unknown ELF data encoding")),
-        }
-    }
-}
-
-fn u16_at(buffer: &[u8], offset: usize, endian: Endian) -> Result<u16> {
-    let bytes: [u8; 2] = buffer
-        .get(offset..offset + 2)
-        .and_then(|slice| slice.try_into().ok())
-        .ok_or(Error::InvalidElf("truncated ELF header"))?;
-
-    Ok(match endian {
-        Endian::Little => u16::from_le_bytes(bytes),
-        Endian::Big => u16::from_be_bytes(bytes),
-    })
-}
-
-fn u32_at(buffer: &[u8], offset: usize, endian: Endian) -> Result<u32> {
-    let bytes: [u8; 4] = buffer
-        .get(offset..offset + 4)
-        .and_then(|slice| slice.try_into().ok())
-        .ok_or(Error::InvalidElf("truncated ELF header"))?;
-
-    Ok(match endian {
-        Endian::Little => u32::from_le_bytes(bytes),
-        Endian::Big => u32::from_be_bytes(bytes),
-    })
-}
-
-fn u64_at(buffer: &[u8], offset: usize, endian: Endian) -> Result<u64> {
-    let bytes: [u8; 8] = buffer
-        .get(offset..offset + 8)
-        .and_then(|slice| slice.try_into().ok())
-        .ok_or(Error::InvalidElf("truncated ELF header"))?;
-
-    Ok(match endian {
-        Endian::Little => u64::from_le_bytes(bytes),
-        Endian::Big => u64::from_be_bytes(bytes),
-    })
 }
 
 #[cfg(test)]

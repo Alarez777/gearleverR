@@ -1,11 +1,14 @@
 //! AppImage container handling.
 
 pub mod detect;
+pub(crate) mod elf;
 pub mod metadata;
+pub mod running;
 pub mod squashfs;
 
 pub use detect::{ElfArch, ImageType, PayloadKind};
 pub use metadata::{AppMetadata, ExtractedIcon};
+pub use running::is_running;
 pub use squashfs::SquashfsImage;
 
 use std::path::{Path, PathBuf};
