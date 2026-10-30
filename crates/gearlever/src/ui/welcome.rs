@@ -5,6 +5,8 @@
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk};
 
+use crate::i18n::t;
+
 #[expect(
     clippy::as_conversions,
     clippy::cast_possible_truncation,
@@ -18,25 +20,25 @@ fn page_index(position: f64) -> u32 {
 const PAGES: [(&str, &str, &str); 3] = [
     (
         "system-software-install-symbolic",
-        "Hi, welcome to Gear Lever R",
-        "An app that helps you integrate AppImages into your system menu.",
+        "Hi, welcome to Gear lever",
+        "An app that helps you integrate AppImages into your system.",
     ),
     (
         "folder-symbolic",
         "Set the AppImage location",
-        "Gear Lever R groups all your AppImages into one folder and keeps them organised. You can change it later in the preferences.",
+        "Gear lever groups all your AppImages into a specific folder and keeps them organized.",
     ),
     (
         "object-select-symbolic",
-        "Drag, drop, done",
-        "Drop an AppImage anywhere in the window, or click the + button. Gear Lever R extracts its icon and adds it to the app menu.",
+        "All done, let's go!",
+        "You can customize it later in the preferences.",
     ),
 ];
 
 /// Shows the tutorial window.
 pub fn present(parent: &adw::ApplicationWindow) {
     let window = adw::Window::new();
-    window.set_title(Some("Welcome"));
+    window.set_title(Some(&t("Welcome")));
     window.set_modal(true);
     window.set_transient_for(Some(parent));
     window.set_default_size(560, 460);
@@ -51,8 +53,8 @@ pub fn present(parent: &adw::ApplicationWindow) {
     for (icon, title, description) in PAGES {
         let page = adw::StatusPage::builder()
             .icon_name(icon)
-            .title(title)
-            .description(description)
+            .title(t(title))
+            .description(t(description))
             .build();
         carousel.append(&page);
     }
@@ -66,9 +68,9 @@ pub fn present(parent: &adw::ApplicationWindow) {
     controls.set_margin_top(12);
     controls.set_margin_bottom(18);
 
-    let previous = gtk::Button::with_label("Previous");
-    let next = gtk::Button::with_label("Next");
-    let close = gtk::Button::with_label("Close");
+    let previous = gtk::Button::from_icon_name("go-previous-symbolic");
+    let next = gtk::Button::from_icon_name("go-next-symbolic");
+    let close = gtk::Button::with_label(&t("Close tutorial"));
     close.add_css_class("suggested-action");
     controls.append(&previous);
     controls.append(&next);

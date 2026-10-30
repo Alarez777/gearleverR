@@ -38,11 +38,13 @@ use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
+use crate::i18n::{t, tf};
 use crate::settings::{APP_ID, Settings, keys};
 use util::{normalize, pill};
 
 /// Starts the graphical application.
 pub(crate) fn run(files: Vec<PathBuf>) {
+    crate::i18n::init();
     tracing::info!("starting the Gear Lever R interface");
     RelmApp::new(APP_ID)
         .with_args(vec![APP_ID.to_owned()])
@@ -293,7 +295,7 @@ impl Component for AppModel {
                     self.page = Page::Details;
                     Self::show_page(self, widgets);
                     Self::rebuild_details(self, widgets, &sender);
-                    Self::toast(widgets, "This AppImage is already integrated");
+                    Self::toast(widgets, &t("This AppImage is already integrated"));
                     return;
                 }
 
@@ -332,7 +334,7 @@ impl Component for AppModel {
                 }
                 self.checking = true;
                 widgets.updates_button.set_sensitive(false);
-                widgets.updates_button.set_label("Checking updates…");
+                widgets.updates_button.set_label(&t("Checking updates..."));
 
                 let apps = self.apps.clone();
                 let config = self.config.clone();
@@ -398,14 +400,14 @@ impl Component for AppModel {
             }
             Msg::InstallCandidate(path) => {
                 let Some(metadata) = self.pending_metadata(&path).cloned() else {
-                    Self::toast(widgets, "Cannot read the AppImage metadata");
+                    Self::toast(widgets, &t("Cannot read the AppImage metadata"));
                     return;
                 };
 
                 let options = self.integrate_options(Conflict::KeepBoth, None);
                 let config = self.config.clone();
                 widgets.progress.set_visible(true);
-                widgets.progress.set_text(Some("Integrating…"));
+                widgets.progress.set_text(Some(&t("Integrating...")));
 
                 std::thread::spawn(move || {
                     let mut config = config;
@@ -433,7 +435,13 @@ impl Component for AppModel {
                         }
                         sender.input(Msg::Progress(
                             fraction(index + 1, total),
-                            format!("Integrated {} of {total}", index + 1),
+                            tf(
+                                "Integrated {done} of {total}",
+                                &[
+                                    ("done", &(index + 1).to_string()),
+                                    ("total", &total.to_string()),
+                                ],
+                            ),
                         ));
                     }
                     sender.input(Msg::MultiInstalled(Ok(config)));
@@ -456,7 +464,7 @@ impl Component for AppModel {
                         self.page = Page::Details;
                         Self::show_page(self, widgets);
                         Self::rebuild_details(self, widgets, &sender);
-                        Self::toast(widgets, "AppImage integrated");
+                        Self::toast(widgets, &t("AppImage integrated"));
                     }
                     Err(error) => Self::toast(widgets, &error),
                 }
@@ -472,17 +480,15 @@ impl Component for AppModel {
                         self.refresh_apps();
                         Self::show_page(self, widgets);
                         Self::rebuild_list(self, widgets);
-                        Self::toast(widgets, "AppImages integrated");
+                        Self::toast(widgets, &t("AppImages integrated"));
                     }
                     Err(error) => Self::toast(widgets, &error),
                 }
             }
             Msg::Remove(path) => {
-                let Some(app) = self.apps.iter().find(|app| app.image_path == path) else {
-                    return;
-                };
-
-                Self::confirm_remove(widgets, &app.name, path, &sender);
+                if self.apps.iter().any(|app| app.image_path == path) {
+                    Self::confirm_remove(widgets, path, &sender);
+                }
             }
             Msg::RemoveConfirmed(path) => {
                 let Some(app) = self.apps.iter().find(|app| app.image_path == path).cloned() else {
@@ -508,7 +514,10 @@ impl Component for AppModel {
                     self.refresh_apps();
                     Self::show_page(self, widgets);
                     Self::rebuild_list(self, widgets);
-                    Self::toast(widgets, &format!("Removed {}", path.display()));
+                    Self::toast(
+                        widgets,
+                        &tf("Removed {path}", &[("path", &path.display().to_string())]),
+                    );
                 }
                 Err(error) => Self::toast(widgets, &error),
             },
@@ -525,12 +534,12 @@ impl Component for AppModel {
                 };
 
                 if is_running(&app.image_path) {
-                    Self::toast(widgets, "The application is running, close it first");
+                    Self::toast(widgets, &t("The application is running, close it first"));
                     return;
                 }
 
                 let Ok(manager) = self.manager_for(&app.image_path) else {
-                    Self::toast(widgets, "No update method was found for this AppImage");
+                    Self::toast(widgets, &t("No update method was found for this AppImage"));
                     return;
                 };
 
@@ -542,7 +551,10 @@ impl Component for AppModel {
                 std::thread::spawn(move || {
                     let mut config = config;
                     let mut progress = |fraction: f64| {
-                        sender.input(Msg::Progress(fraction, format!("Updating {}…", app.name)));
+                        sender.input(Msg::Progress(
+                            fraction,
+                            tf("Updating {name}...", &[("name", &app.name)]),
+                        ));
                     };
 
                     let result = update::apply(
@@ -568,7 +580,7 @@ impl Component for AppModel {
                     .collect();
 
                 if queue.is_empty() {
-                    Self::toast(widgets, "No updates available");
+                    Self::toast(widgets, &t("No updates available"));
                     return;
                 }
 
@@ -603,7 +615,7 @@ impl Component for AppModel {
                         let mut progress = |progress: f64| {
                             sender_progress.input(Msg::Progress(
                                 (base + progress / total_pages).min(1.0),
-                                format!("Updating {name}…"),
+                                tf("Updating {name}...", &[("name", &name)]),
                             ));
                         };
 
@@ -643,7 +655,7 @@ impl Component for AppModel {
                             .map(DetailsItem::Installed);
                         Self::rebuild_details(self, widgets, &sender);
                         Self::rebuild_list(self, widgets);
-                        Self::toast(widgets, &format!("{} updated", app.name));
+                        Self::toast(widgets, &tf("{name} updated", &[("name", &app.name)]));
                     }
                     Err(error) => Self::toast(widgets, &error),
                 }
@@ -660,7 +672,7 @@ impl Component for AppModel {
                         self.refresh_apps();
                         Self::show_page(self, widgets);
                         Self::rebuild_list(self, widgets);
-                        Self::toast(widgets, "Updates installed");
+                        Self::toast(widgets, &t("Updates installed"));
                     }
                     Err(error) => Self::toast(widgets, &error),
                 }
@@ -675,7 +687,7 @@ impl Component for AppModel {
                         Ok(()) => {
                             self.refresh_apps();
                             Self::rebuild_details(self, widgets, &sender);
-                            Self::toast(widgets, "Command line updated");
+                            Self::toast(widgets, &t("Command line updated"));
                         }
                         Err(error) => Self::toast(widgets, &error.to_string()),
                     }
@@ -690,7 +702,7 @@ impl Component for AppModel {
                 }
                 self.config.set_app(&path, values);
                 match self.config.save(&self.paths.config_file()) {
-                    Ok(()) => Self::toast(widgets, "Website saved"),
+                    Ok(()) => Self::toast(widgets, &t("Website saved")),
                     Err(error) => Self::toast(widgets, &error.to_string()),
                 }
             }
@@ -698,7 +710,7 @@ impl Component for AppModel {
                 Ok(config) => {
                     self.config = config;
                     Self::rebuild_details(self, widgets, &sender);
-                    Self::toast(widgets, "Update source saved");
+                    Self::toast(widgets, &t("Update source saved"));
                     sender.input(Msg::CheckUpdates);
                 }
                 Err(error) => Self::toast(widgets, &error),
@@ -728,7 +740,7 @@ impl Component for AppModel {
                 Ok(()) => {
                     self.refresh_apps();
                     Self::rebuild_details(self, widgets, &sender);
-                    Self::toast(widgets, "Metadata reloaded");
+                    Self::toast(widgets, &t("Metadata reloaded"));
                 }
                 Err(error) => Self::toast(widgets, &error),
             },
@@ -910,11 +922,11 @@ impl AppModel {
 
     fn open_chooser(root: &adw::ApplicationWindow, sender: &ComponentSender<Self>) {
         let dialog = gtk::FileChooserNative::new(
-            Some("Open an AppImage"),
+            Some(&t("Open an AppImage")),
             Some(root),
             gtk::FileChooserAction::Open,
-            Some("Open"),
-            Some("Cancel"),
+            Some(&t("Open")),
+            Some(&t("Cancel")),
         );
         dialog.set_select_multiple(true);
 
@@ -940,23 +952,27 @@ impl AppModel {
 
     fn show_page(&self, widgets: &Widgets) {
         let (name, title, icon) = match self.page {
-            Page::List => ("list", "Installed applications", "list-add-symbolic"),
-            Page::Details => ("details", "App details", "go-previous-symbolic"),
-            Page::MultiInstall => ("multi", "Move all to the app menu", "go-previous-symbolic"),
-            Page::MultiUpdate => ("multi", "Updating applications", "go-previous-symbolic"),
+            Page::List => ("list", t("Installed applications"), "list-add-symbolic"),
+            Page::Details => ("details", t("App details"), "go-previous-symbolic"),
+            Page::MultiInstall => (
+                "multi",
+                t("Move all to the app menu"),
+                "go-previous-symbolic",
+            ),
+            Page::MultiUpdate => ("multi", t("Updating applications"), "go-previous-symbolic"),
         };
 
         widgets.stack.set_visible_child_name(name);
-        widgets.title.set_label(title);
+        widgets.title.set_label(&title);
         widgets.left_button.set_icon_name(icon);
         widgets.search_button.set_visible(self.page == Page::List);
         widgets.search_bar.set_search_mode(false);
         widgets
             .left_button
-            .set_tooltip_text(Some(if self.page == Page::List {
-                "Open a new AppImage"
+            .set_tooltip_text(Some(&if self.page == Page::List {
+                t("Open a new AppImage")
             } else {
-                "Back"
+                t("Back")
             }));
 
         if self.page == Page::Details {
@@ -1098,14 +1114,14 @@ impl AppModel {
         let actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         actions.set_halign(gtk::Align::Center);
 
-        let launch = gtk::Button::with_label("Launch");
+        let launch = gtk::Button::with_label(&t("Launch"));
         launch.set_sensitive(!terminal);
         let sender_launch = sender.clone();
         let path = app.image_path.clone();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path.clone())));
         actions.append(&launch);
 
-        let remove = gtk::Button::with_label("Remove");
+        let remove = gtk::Button::with_label(&t("Remove"));
         remove.add_css_class("destructive-action");
         let sender_remove = sender.clone();
         let path = app.image_path.clone();
@@ -1113,7 +1129,7 @@ impl AppModel {
         actions.append(&remove);
 
         if self.updates.contains(&app.image_path) {
-            let update = gtk::Button::with_label("Update");
+            let update = gtk::Button::with_label(&t("Update"));
             update.add_css_class("suggested-action");
             let sender_update = sender.clone();
             let path = app.image_path.clone();
@@ -1128,13 +1144,13 @@ impl AppModel {
         list.set_selection_mode(gtk::SelectionMode::None);
 
         let path_row = adw::ActionRow::builder()
-            .title("Path")
+            .title(t("Path"))
             .subtitle(app.image_path.to_string_lossy().into_owned())
             .build();
         path_row.add_prefix(&gtk::Image::from_icon_name("folder-symbolic"));
         let open = gtk::Button::from_icon_name("folder-open-symbolic");
         open.set_valign(gtk::Align::Center);
-        open.set_tooltip_text(Some("Open folder"));
+        open.set_tooltip_text(Some(&t("Open Folder")));
         let sender_open = sender.clone();
         let path = app.image_path.clone();
         open.connect_clicked(move |_| sender_open.input(Msg::OpenFolder(path.clone())));
@@ -1142,9 +1158,9 @@ impl AppModel {
         list.append(&path_row);
 
         let args_row = adw::EntryRow::new();
-        args_row.set_title("Command line arguments");
+        args_row.set_title(&t("Command line arguments"));
         args_row.set_text(&app.exec_arguments);
-        let save = gtk::Button::with_label("Save");
+        let save = gtk::Button::with_label(&t("Save"));
         save.set_valign(gtk::Align::Center);
         let sender_save = sender.clone();
         let path = app.image_path.clone();
@@ -1167,9 +1183,9 @@ impl AppModel {
             .cloned()
             .unwrap_or_default();
         let website_row = adw::EntryRow::new();
-        website_row.set_title("Website");
+        website_row.set_title(&t("Website"));
         website_row.set_text(&website);
-        let save_website = gtk::Button::with_label("Save");
+        let save_website = gtk::Button::with_label(&t("Save"));
         save_website.set_valign(gtk::Align::Center);
         let sender_website = sender.clone();
         let path = app.image_path.clone();
@@ -1185,7 +1201,7 @@ impl AppModel {
         if !website.is_empty() {
             let open_url = gtk::Button::from_icon_name("adw-external-link-symbolic");
             open_url.set_valign(gtk::Align::Center);
-            open_url.set_tooltip_text(Some("Open website"));
+            open_url.set_tooltip_text(Some(&t("Open URL")));
             let sender_url = sender.clone();
             let url = website;
             open_url.connect_clicked(move |_| sender_url.input(Msg::OpenUrl(url.clone())));
@@ -1197,10 +1213,10 @@ impl AppModel {
         content.append(&self.update_group(&app.image_path, sender));
 
         let env_group = gtk::Box::new(gtk::Orientation::Vertical, 6);
-        let env_title = gtk::Label::new(Some("Environment variables"));
+        let env_title = gtk::Label::new(Some(&t("Environment variables")));
         env_title.set_halign(gtk::Align::Start);
         env_title.add_css_class("heading");
-        let env_hint = gtk::Label::new(Some("One KEY=value per line"));
+        let env_hint = gtk::Label::new(Some(&t("One KEY=value per line")));
         env_hint.set_halign(gtk::Align::Start);
         env_hint.add_css_class("dim-label");
 
@@ -1213,7 +1229,7 @@ impl AppModel {
             .build();
         env_scroll.add_css_class("card");
 
-        let env_save = gtk::Button::with_label("Save environment");
+        let env_save = gtk::Button::with_label(&t("Save environment"));
         env_save.set_halign(gtk::Align::End);
         let sender_env = sender.clone();
         let path = app.image_path.clone();
@@ -1242,8 +1258,8 @@ impl AppModel {
         content.append(&env_group);
 
         let reload = adw::ActionRow::builder()
-            .title("Reload metadata")
-            .subtitle("Update information like icon, version and description")
+            .title(t("Reload metadata"))
+            .subtitle(t("Update information like icon, version and description.\nUseful if the app updated itself."))
             .build();
         reload.add_prefix(&gtk::Image::from_icon_name("view-refresh-symbolic"));
         reload.set_activatable(true);
@@ -1277,7 +1293,7 @@ impl AppModel {
         let actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         actions.set_halign(gtk::Align::Center);
 
-        let install = gtk::Button::with_label("Move to the app menu");
+        let install = gtk::Button::with_label(&t("Move to the app menu"));
         install.add_css_class("suggested-action");
         let sender_install = sender.clone();
         let path_buf = path.to_path_buf();
@@ -1286,7 +1302,7 @@ impl AppModel {
         });
         actions.append(&install);
 
-        let launch = gtk::Button::with_label("Launch");
+        let launch = gtk::Button::with_label(&t("Launch"));
         let sender_launch = sender.clone();
         let path_buf = path.to_path_buf();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path_buf.clone())));
@@ -1299,7 +1315,7 @@ impl AppModel {
         list.set_selection_mode(gtk::SelectionMode::None);
 
         let path_row = adw::ActionRow::builder()
-            .title("Path")
+            .title(t("Path"))
             .subtitle(path.to_string_lossy().into_owned())
             .build();
         path_row.add_prefix(&gtk::Image::from_icon_name("folder-symbolic"));
@@ -1311,18 +1327,14 @@ impl AppModel {
         path_row.add_suffix(&open);
         list.append(&path_row);
 
-        let hashes = gtk::Button::with_label("Compute hashes");
+        let hashes = gtk::Button::with_label(&t("Compute hashes"));
         let sender_hashes = sender.clone();
         let path_buf = path.to_path_buf();
         hashes.connect_clicked(move |_| sender_hashes.input(Msg::ComputeHashes(path_buf.clone())));
 
         let hash_row = adw::ActionRow::builder()
-            .title("Hash")
-            .subtitle(
-                self.hashes
-                    .clone()
-                    .unwrap_or_else(|| "Not computed".to_owned()),
-            )
+            .title(t("Hash"))
+            .subtitle(self.hashes.clone().unwrap_or_else(|| t("Not computed")))
             .build();
         hash_row.add_prefix(&gtk::Image::from_icon_name("dialog-password-symbolic"));
         hash_row.add_suffix(&hashes);
@@ -1333,7 +1345,7 @@ impl AppModel {
 
     fn update_group(&self, path: &Path, sender: &ComponentSender<Self>) -> adw::PreferencesGroup {
         let group = adw::PreferencesGroup::new();
-        group.set_title("Update management");
+        group.set_title(&t("Update management"));
 
         let config = self.config.update_manager(path);
         let configured = config
@@ -1342,7 +1354,7 @@ impl AppModel {
         let selected = self.details_source.or(configured);
 
         let combo = gtk::ComboBoxText::new();
-        combo.append(Some("default"), "Default");
+        combo.append(Some("default"), &t("Default"));
         for kind in ManagerKind::ALL {
             combo.append(Some(kind.name()), kind.label());
         }
@@ -1351,7 +1363,7 @@ impl AppModel {
             None => combo.set_active_id(Some("default")),
         };
 
-        let source_row = adw::ActionRow::builder().title("Source").build();
+        let source_row = adw::ActionRow::builder().title(t("Source")).build();
         source_row.add_suffix(&combo);
         group.add(&source_row);
 
@@ -1393,9 +1405,9 @@ impl AppModel {
 
             group.add(&form);
 
-            let apply = gtk::Button::with_label("Save");
+            let apply = gtk::Button::with_label(&t("Save"));
             apply.add_css_class("suggested-action");
-            let save_row = adw::ActionRow::builder().title("Apply changes").build();
+            let save_row = adw::ActionRow::builder().title(t("Apply changes")).build();
             save_row.add_suffix(&apply);
             group.add(&save_row);
 
@@ -1414,9 +1426,9 @@ impl AppModel {
                 });
             });
         } else {
-            group.set_description(Some(
-                "This application includes update information provided by the developer, or no update source is configured.",
-            ));
+            group.set_description(Some(&t(
+                "This application includes update information provided by the developer",
+            )));
         }
 
         let sender = sender.clone();
@@ -1443,7 +1455,7 @@ impl AppModel {
         content.set_margin_end(24);
 
         if self.page == Page::MultiInstall {
-            let title = gtk::Label::new(Some("Apps to integrate"));
+            let title = gtk::Label::new(Some(&t("Apps to integrate")));
             title.add_css_class("title-2");
             title.set_halign(gtk::Align::Start);
             content.append(&title);
@@ -1462,14 +1474,14 @@ impl AppModel {
             }
             content.append(&list);
 
-            let all = gtk::Button::with_label("Move all to the app menu");
+            let all = gtk::Button::with_label(&t("Move all to the app menu"));
             all.add_css_class("suggested-action");
             all.set_halign(gtk::Align::Center);
             let sender = sender.clone();
             all.connect_clicked(move |_| sender.input(Msg::InstallAll));
             content.append(&all);
         } else if self.page == Page::MultiUpdate {
-            let title = gtk::Label::new(Some("Updating applications"));
+            let title = gtk::Label::new(Some(&t("Updating applications")));
             title.add_css_class("title-2");
             title.set_halign(gtk::Align::Start);
             content.append(&title);
@@ -1497,17 +1509,17 @@ impl AppModel {
     )]
     fn show_preferences(&self, widgets: &Widgets, sender: &ComponentSender<Self>) {
         let window = adw::PreferencesWindow::new();
-        window.set_title(Some("Preferences"));
+        window.set_title(Some(&t("Preferences")));
         window.set_transient_for(Some(&widgets.window));
         window.set_modal(true);
 
         let page = adw::PreferencesPage::new();
 
         let general = adw::PreferencesGroup::new();
-        general.set_title("General");
+        general.set_title(&t("General"));
 
         let folder_row = adw::ActionRow::builder()
-            .title("AppImage default location")
+            .title(t("AppImage default location"))
             .subtitle(
                 self.settings
                     .values()
@@ -1524,7 +1536,7 @@ impl AppModel {
         let row_folder = folder_row.clone();
         choose.connect_clicked(move |_| {
             let dialog = gtk::FileChooserNative::new(
-                Some("Select a folder"),
+                Some(&t("Select a folder")),
                 Some(&window_folder),
                 gtk::FileChooserAction::SelectFolder,
                 Some("Select"),
@@ -1549,52 +1561,52 @@ impl AppModel {
         folder_row.add_suffix(&choose);
         general.add(&folder_row);
         general.add(&self.switch_row(
-            "Show AppImages outside the default folder",
+            &t("Show integrated AppImages outside the default folder"),
             keys::MANAGE_OUTSIDE,
             self.settings.values().manage_outside,
             sender,
         ));
 
         let files = adw::PreferencesGroup::new();
-        files.set_title("File management");
+        files.set_title(&t("File management"));
         files.add(&self.switch_row(
-            "Move AppImages into the destination folder",
+            &t("Move AppImages into the destination folder"),
             keys::MOVE_ON_INTEGRATION,
             self.settings.values().move_on_integration,
             sender,
         ));
         files.add(&self.switch_row(
-            "Use the executable name for terminal apps",
+            &t("Use executable name for integrated terminal apps"),
             keys::EXEC_AS_NAME,
             self.settings.values().exec_name_terminal,
             sender,
         ));
 
         let updates = adw::PreferencesGroup::new();
-        updates.set_title("Updates management");
+        updates.set_title(&t("Updates management"));
         updates.add(&self.switch_row(
-            "Check updates on system startup",
+            &t("Check updates on system startup"),
             keys::FETCH_IN_BACKGROUND,
             self.settings.values().fetch_in_background,
             sender,
         ));
 
         let advanced = adw::PreferencesGroup::new();
-        advanced.set_title("Advanced");
+        advanced.set_title(&t("Advanced"));
         advanced.add(&self.switch_row(
-            "Preview new apps in a minimal UI",
+            &t("Preview new apps in a minimal UI"),
             keys::PREVIEW_MINIMAL_UI,
             self.settings.values().preview_minimal_ui,
             sender,
         ));
         advanced.add(&self.switch_row(
-            "Use safe mechanisms to load metadata",
+            &t("Use safe mechanisms to load metadata"),
             keys::BLOCK_UNSAFE_EXTRACTOR,
             self.settings.values().block_unsafe_extractor,
             sender,
         ));
         advanced.add(&self.switch_row(
-            "Enable debug logs",
+            &t("Enable debug logs"),
             keys::DEBUG_LOGS,
             self.settings.values().debug_logs,
             sender,
@@ -1646,25 +1658,20 @@ impl AppModel {
             .website("https://github.com/alarez/gear-leverR")
             .issue_url("https://github.com/alarez/gear-leverR/issues")
             .license_type(gtk::License::Gpl30)
-            .comments("Manage AppImages with ease.")
+            .comments(t("An utility to manage AppImages with ease!"))
             .build();
         about.set_transient_for(Some(parent));
         about.present();
     }
 
-    fn confirm_remove(
-        widgets: &Widgets,
-        name: &str,
-        path: PathBuf,
-        sender: &ComponentSender<Self>,
-    ) {
+    fn confirm_remove(widgets: &Widgets, path: PathBuf, sender: &ComponentSender<Self>) {
         let dialog = adw::MessageDialog::new(
             Some(&widgets.window),
-            Some("Remove application?"),
-            Some(&format!("Do you really want to remove {name}?")),
+            Some(&t("Remove application?")),
+            Some(&t("Do you really want to remove this app?")),
         );
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("remove", "Remove");
+        dialog.add_response("cancel", &t("Cancel"));
+        dialog.add_response("remove", &t("Remove"));
         dialog.set_response_appearance("remove", adw::ResponseAppearance::Destructive);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
@@ -1722,11 +1729,11 @@ impl AppModel {
     fn build_shell(root: &adw::ApplicationWindow, sender: &ComponentSender<Self>) -> Widgets {
         let header = adw::HeaderBar::new();
 
-        let title = gtk::Label::new(Some("Installed applications"));
+        let title = gtk::Label::new(Some(&t("Installed applications")));
         header.set_title_widget(Some(&title));
 
         let left_button = gtk::Button::from_icon_name("list-add-symbolic");
-        left_button.set_tooltip_text(Some("Open a new AppImage"));
+        left_button.set_tooltip_text(Some(&t("Open a new AppImage")));
         let sender_left = sender.clone();
         left_button.connect_clicked(move |_| sender_left.input(Msg::LeftButton));
 
@@ -1739,11 +1746,11 @@ impl AppModel {
             .build();
 
         let menu = gio::Menu::new();
-        menu.append(Some("Preferences"), Some("win.preferences"));
-        menu.append(Some("Show tutorial"), Some("win.welcome"));
-        menu.append(Some("Open Log File"), Some("win.log"));
-        menu.append(Some("About Gear Lever R"), Some("win.about"));
-        menu.append(Some("Quit"), Some("win.quit"));
+        menu.append(Some(&t("_Preferences")), Some("win.preferences"));
+        menu.append(Some(&t("_Show tutorial")), Some("win.welcome"));
+        menu.append(Some(&t("_Open Log File")), Some("win.log"));
+        menu.append(Some(&t("_About Gear lever")), Some("win.about"));
+        menu.append(Some(&t("Quit")), Some("win.quit"));
         menu_button.set_menu_model(Some(&menu));
 
         header.pack_start(&left_button);
@@ -1776,7 +1783,7 @@ impl AppModel {
         root.add_action(&quit);
 
         let search_entry = gtk::SearchEntry::new();
-        search_entry.set_placeholder_text(Some("Filter installed applications"));
+        search_entry.set_placeholder_text(Some(&t("Filter installed applications")));
         let search_bar = gtk::SearchBar::new();
         search_bar.set_child(Some(&search_entry));
         search_bar.connect_entry(&search_entry);
@@ -1788,18 +1795,18 @@ impl AppModel {
         });
 
         let title_row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        let list_title = gtk::Label::new(Some("Installed applications"));
+        let list_title = gtk::Label::new(Some(&t("Installed applications")));
         list_title.add_css_class("title-2");
         list_title.set_halign(gtk::Align::Start);
         list_title.set_hexpand(true);
         title_row.append(&list_title);
 
-        let updates_button = gtk::Button::with_label("Check for updates");
+        let updates_button = gtk::Button::with_label(&t("Check for updates"));
         let sender_updates = sender.clone();
         updates_button.connect_clicked(move |_| sender_updates.input(Msg::CheckUpdates));
         title_row.append(&updates_button);
 
-        let update_all_button = gtk::Button::with_label("Update all");
+        let update_all_button = gtk::Button::with_label(&t("Update all"));
         update_all_button.add_css_class("suggested-action");
         update_all_button.set_visible(false);
         let sender_update_all = sender.clone();
@@ -1821,15 +1828,17 @@ impl AppModel {
 
         let empty = adw::StatusPage::builder()
             .icon_name("system-software-install-symbolic")
-            .title("Get started")
-            .description("Drag and drop an AppImage here or click the + button.")
+            .title(t("Get started"))
+            .description(t(
+                "Drag and drop an AppImage here or click on the \"+\" icon.",
+            ))
             .build();
         let empty_buttons = gtk::Box::new(gtk::Orientation::Vertical, 6);
-        let welcome = gtk::Button::with_label("Show welcome screen");
+        let welcome = gtk::Button::with_label(&t("Show welcome screen"));
         welcome.add_css_class("pill");
         let sender_welcome = sender.clone();
         welcome.connect_clicked(move |_| sender_welcome.input(Msg::ShowWelcome));
-        let preferences = gtk::Button::with_label("Open Preferences");
+        let preferences = gtk::Button::with_label(&t("Open Preferences"));
         preferences.add_css_class("pill");
         let sender_prefs = sender.clone();
         preferences.connect_clicked(move |_| sender_prefs.input(Msg::ShowPreferences));
@@ -1885,8 +1894,8 @@ impl AppModel {
 
         let drop_page = adw::StatusPage::builder()
             .icon_name("document-send-symbolic")
-            .title("Drop your file here")
-            .description("Release to open the AppImage")
+            .title(t("Drop your file here"))
+            .description(t("Release to open the AppImage"))
             .build();
         let drop_revealer = gtk::Revealer::new();
         drop_revealer.set_child(Some(&drop_page));

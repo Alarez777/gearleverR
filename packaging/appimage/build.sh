@@ -50,6 +50,12 @@ else
     echo "warning: glib-compile-schemas not found; settings will fall back to defaults" >&2
 fi
 
+if command -v msgfmt >/dev/null 2>&1; then
+    "$ROOT/scripts/compile-translations.sh" "$APPDIR/usr/share/locale"
+else
+    echo "warning: msgfmt not found; the AppImage will only show English" >&2
+fi
+
 mkdir -p "$ROOT/dist"
 echo ":: packaging $OUTPUT"
 ARCH="$ARCH" "$APPIMAGETOOL" "$APPDIR" "$OUTPUT"

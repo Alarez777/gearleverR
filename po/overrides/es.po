@@ -1,0 +1,108 @@
+# Spanish translations for strings added by Gear Lever R.
+# Merged on top of the upstream catalog by scripts/update-translations.sh.
+msgid ""
+msgstr ""
+"Project-Id-Version: gearlever-r 0.1.0\n"
+"PO-Revision-Date: 2026-10-30 00:00+0000\n"
+"Last-Translator: Gear Lever R contributors\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Advanced"
+msgstr "Avanzado"
+
+msgid "App details"
+msgstr "Detalles de la aplicación"
+
+msgid "AppImage integrated"
+msgstr "AppImage integrada"
+
+msgid "AppImages integrated"
+msgstr "AppImages integradas"
+
+msgid "Apply changes"
+msgstr "Aplicar cambios"
+
+msgid "Apps to integrate"
+msgstr "Aplicaciones para integrar"
+
+msgid "Back"
+msgstr "Atrás"
+
+msgid "Cannot read the AppImage metadata"
+msgstr "No se pudo leer la metadata de la AppImage"
+
+msgid "Command line updated"
+msgstr "Línea de comandos actualizada"
+
+msgid "Compute hashes"
+msgstr "Calcular hashes"
+
+msgid "Integrating..."
+msgstr "Integrando..."
+
+msgid "Metadata reloaded"
+msgstr "Metadata recargada"
+
+msgid "Move all to the app menu"
+msgstr "Mover todas al menú de aplicaciones"
+
+msgid "No update method was found for this AppImage"
+msgstr "No se encontró un método de actualización para esta AppImage"
+
+msgid "Not computed"
+msgstr "Sin calcular"
+
+msgid "One KEY=value per line"
+msgstr "Una línea KEY=value por variable"
+
+msgid "Open an AppImage"
+msgstr "Abrir una AppImage"
+
+msgid "Preferences"
+msgstr "Preferencias"
+
+msgid "Quit"
+msgstr "Salir"
+
+msgid "Release to open the AppImage"
+msgstr "Suelta para abrir la AppImage"
+
+msgid "Remove application?"
+msgstr "¿Eliminar aplicación?"
+
+msgid "Removed {path}"
+msgstr "Se eliminó {path}"
+
+msgid "Save environment"
+msgstr "Guardar entorno"
+
+msgid "The application is running, close it first"
+msgstr "La aplicación está en ejecución, ciérrala primero"
+
+msgid "This AppImage is already integrated"
+msgstr "Esta AppImage ya está integrada"
+
+msgid "Update source saved"
+msgstr "Fuente de actualización guardada"
+
+msgid "Updates installed"
+msgstr "Actualizaciones instaladas"
+
+msgid "Updating applications"
+msgstr "Actualizando aplicaciones"
+
+msgid "Updating {name}..."
+msgstr "Actualizando {name}..."
+
+msgid "Website saved"
+msgstr "Sitio web guardado"
+
+msgid "Welcome"
+msgstr "Bienvenido"
+
+msgid "{name} updated"
+msgstr "{name} actualizada"

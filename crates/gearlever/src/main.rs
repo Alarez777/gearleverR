@@ -6,6 +6,7 @@
 )]
 
 mod cli;
+mod i18n;
 mod settings;
 mod ui;
 

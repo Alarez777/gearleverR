@@ -16,6 +16,7 @@ anyhow.workspace = true
 blake3.workspace = true
 clap.workspace = true
 gearlever-core = { path = "../gearlever-core" }
+gettext-rs.workspace = true
 libadwaita = { version = "0.9", default-features = false, features = ["v1_2"] }
 relm4.workspace = true
 serde.workspace = true

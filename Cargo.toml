@@ -15,6 +15,7 @@ anyhow = "1"
 backhand = { version = "0.25", default-features = false, features = ["zstd", "xz", "gzip", "lz4"] }
 blake3 = "1"
 clap = { version = "4", features = ["derive"] }
+gettext-rs = { version = "0.8", features = ["gettext-system"] }
 glob = "0.3"
 http = "1"
 md-5 = "0.10"

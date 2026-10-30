@@ -26,6 +26,7 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 - Editar argumentos, variables de entorno, sitio web y fuente de actualizaciones.
 - Recargar metadata, borrar a la papelera y abrir la carpeta de la app.
 - Preferencias, tutorial, about, búsqueda y notificaciones de actualizaciones.
+- Traducciones gettext con los catálogos del Gear Lever original (22 idiomas).
 - CLI con `--json` compatible con la versión original.
 
 ## Requisitos
@@ -100,6 +101,23 @@ glib-compile-schemas ~/.local/share/glib-2.0/schemas
 Los logs se escriben en `~/.local/state/gearlever-r/gearlever-r.log` y se pueden
 abrir desde el menú. El nivel `debug` se activa en Preferencias.
 
+## Traducciones
+
+La interfaz usa gettext y reutiliza los catálogos del Gear Lever original. Los
+archivos viven en `po/` (formato `.po`); el AppImage incluye los `.mo` compilados.
+
+```sh
+# Compilar para probar en local
+scripts/compile-translations.sh
+GEARLEVER_R_LOCALEDIR=$PWD/target LANGUAGE=es ./target/release/gearlever-r
+
+# Tras añadir o cambiar textos con t("..."), actualizar plantilla y catálogos
+scripts/update-translations.sh
+```
+
+Los mensajes nuevos sin traducción muestran el inglés. Para completar un idioma
+basta con editar su `.po` (por ejemplo con Poedit) y volver a compilar.
+
 ## Pruebas y rendimiento
 
 ```sh
@@ -142,8 +160,9 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 
 ## Limitaciones conocidas
 
-- La interfaz está solo en inglés; las traducciones `.po` del original se portarán
-  en una versión posterior.
+- La interfaz está traducida: se reutilizan los catálogos del original. El español
+  está completo; en otros idiomas, las cadenas nuevas de Gear Lever R pueden
+  aparecer en inglés hasta que se traduzcan (ver `po/`).
 - El tutorial tiene tres páginas (el original tiene cuatro) y no incluye el
   AppImage de demostración.
 - Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.

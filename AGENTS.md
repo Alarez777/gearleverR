@@ -84,6 +84,9 @@ cargo test --workspace --all-features
 ## Convenciones
 
 - Español para hablar con el usuario; inglés para identificadores, docs y commits.
+- Todo texto visible para el usuario va dentro de `t("...")` (o `tf` con
+  `{placeholders}`) y usa los msgid del Gear Lever original cuando existan. Tras
+  cambiarlo, ejecutar `scripts/update-translations.sh` y `scripts/compile-translations.sh`.
 - Commits pequeños y revisables; nada de refactors masivos no pedidos.
 - No agregar funcionalidades nuevas: el objetivo es paridad + rendimiento.
 - Medir antes de optimizar; los benchmarks viven en `benches/` o `scripts/`.

@@ -31,6 +31,7 @@ fi
 if [ -d "$HERE/usr/share/glib-2.0/schemas" ]; then
     export GSETTINGS_SCHEMA_DIR="$HERE/usr/share/glib-2.0/schemas${GSETTINGS_SCHEMA_DIR:+:$GSETTINGS_SCHEMA_DIR}"
 fi
+export GEARLEVER_R_LOCALEDIR="$HERE/usr/share"
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
 exec "$HERE/gearlever-r" "$@"
