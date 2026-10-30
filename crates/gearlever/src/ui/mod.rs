@@ -111,7 +111,7 @@ enum Msg {
     },
     ConfigSaved(Result<Config, String>),
     ReloadMetadata(PathBuf),
-    MetadataReloaded(Result<(), String>),
+    MetadataReloaded(Result<(PathBuf, AppMetadata), String>),
     SelectSource(Option<ManagerKind>),
     ApplySource {
         path: PathBuf,
@@ -144,6 +144,7 @@ struct AppModel {
     pending: Vec<(PathBuf, AppMetadata)>,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
+    reloaded: Option<(PathBuf, AppMetadata)>,
 }
 
 struct Widgets {
@@ -229,6 +230,7 @@ impl Component for AppModel {
                 self.page = Page::List;
                 self.details = None;
                 self.hashes = None;
+                self.reloaded = None;
                 Self::show_page(self, widgets);
                 Self::rebuild_list(self, widgets);
             }
@@ -237,6 +239,7 @@ impl Component for AppModel {
                     self.details = Some(DetailsItem::Installed(app.clone()));
                     self.details_source = None;
                     self.hashes = None;
+                    self.reloaded = None;
                     self.page = Page::Details;
                     Self::show_page(self, widgets);
                     Self::rebuild_details(self, widgets, &sender);
@@ -308,6 +311,7 @@ impl Component for AppModel {
                             });
                             self.details_source = None;
                             self.hashes = None;
+                            self.reloaded = None;
                             self.page = Page::Details;
                             Self::show_page(self, widgets);
                             Self::rebuild_details(self, widgets, &sender);
@@ -453,6 +457,7 @@ impl Component for AppModel {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
                         self.pending.clear();
+                        self.reloaded = None;
                         self.refresh_apps();
                         self.details = self
                             .apps
@@ -651,6 +656,7 @@ impl Component for AppModel {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
                         self.updates.remove(&app.image_path);
+                        self.reloaded = None;
                         self.refresh_apps();
                         self.details = self
                             .apps
@@ -744,18 +750,19 @@ impl Component for AppModel {
                     let result = AppImage::open(&path)
                         .and_then(|appimage| appimage.metadata_with(&options))
                         .and_then(|metadata| {
-                            MetadataCache::new(cache_dir)
-                                .store(&path, &metadata)
-                                .map(|_| ())
+                            MetadataCache::new(cache_dir).store(&path, &metadata)?;
+                            Ok((path.clone(), metadata))
                         })
                         .map_err(|error| error.to_string());
                     sender.input(Msg::MetadataReloaded(result));
                 });
             }
             Msg::MetadataReloaded(result) => match result {
-                Ok(()) => {
+                Ok((path, metadata)) => {
+                    self.reloaded = Some((path, metadata));
                     self.refresh_apps();
                     Self::rebuild_details(self, widgets, &sender);
+                    Self::rebuild_list(self, widgets);
                     Self::toast(widgets, &t("Metadata reloaded"));
                 }
                 Err(error) => Self::toast(widgets, &error),
@@ -844,6 +851,7 @@ impl AppModel {
             pending: Vec::new(),
             update_queue: Vec::new(),
             opened_from_file: false,
+            reloaded: None,
         };
 
         model.refresh_apps();
@@ -1022,8 +1030,16 @@ impl AppModel {
             }
 
             visible += 1;
+            let mut display = app.clone();
+            if let Some((path, metadata)) = &self.reloaded
+                && path == &app.image_path
+            {
+                display.name.clone_from(&metadata.name);
+                display.description.clone_from(&metadata.comment);
+                display.version.clone_from(&metadata.version);
+            }
             let row = Self::list_row(
-                app,
+                &display,
                 self.updates.contains(&app.image_path),
                 &self.paths.metadata_cache_dir(),
             );
@@ -1129,12 +1145,33 @@ impl AppModel {
         content: &gtk::Box,
         sender: &ComponentSender<Self>,
     ) {
-        content.append(&details_header(
-            &app.name,
-            &app.description,
-            &util::app_image(app, &self.paths.metadata_cache_dir(), util::DETAILS_ICON),
-            &[
+        let reloaded = self
+            .reloaded
+            .as_ref()
+            .filter(|(path, _)| path == &app.image_path)
+            .map(|(_, metadata)| metadata);
+
+        let (name, description, version, icon) = match reloaded {
+            Some(metadata) => (
+                metadata.name.clone(),
+                metadata.comment.clone(),
+                metadata.version.clone(),
+                util::candidate_icon(metadata, util::DETAILS_ICON),
+            ),
+            None => (
+                app.name.clone(),
+                app.description.clone(),
                 app.version.clone(),
+                util::app_image(app, &self.paths.metadata_cache_dir(), util::DETAILS_ICON),
+            ),
+        };
+
+        content.append(&details_header(
+            &name,
+            &description,
+            &icon,
+            &[
+                version,
                 Some(size(app.size)),
                 is_running(&app.image_path).then(|| "Running".to_owned()),
             ],
@@ -1213,7 +1250,11 @@ impl AppModel {
             .cloned()
             .unwrap_or_default();
         let website_row = adw::EntryRow::new();
-        website_row.set_title(&t("Website"));
+        website_row.set_title(&t(if website.is_empty() {
+            "Add a website"
+        } else {
+            "Website"
+        }));
         website_row.set_text(&website);
         let save_website = gtk::Button::with_label(&t("Save"));
         save_website.set_valign(gtk::Align::Center);
@@ -2072,8 +2113,15 @@ fn details_header(
     let pills_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     pills_box.set_halign(gtk::Align::Center);
     pills_box.set_margin_top(6);
+    let mut first = true;
     for value in pills.iter().flatten() {
+        if !first {
+            let dot = gtk::Label::new(Some("·"));
+            dot.add_css_class("dim-label");
+            pills_box.append(&dot);
+        }
         pills_box.append(&pill(value));
+        first = false;
     }
     header.append(&pills_box);
 
