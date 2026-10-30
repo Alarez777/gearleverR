@@ -17,6 +17,7 @@ mod welcome;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
@@ -122,6 +123,7 @@ enum Msg {
     ShowPreferences,
     ShowWelcome,
     ShowAbout,
+    ShowLog,
     Toast(String),
 }
 
@@ -181,10 +183,19 @@ impl Component for AppModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = Self::new();
+        let mut model = Self::new();
         let widgets = Self::build_shell(&root, &sender);
         Self::rebuild_list(&model, &widgets);
         Self::show_page(&model, &widgets);
+
+        if model.settings.values().is_maximized {
+            root.maximize();
+        }
+
+        if model.settings.values().first_run {
+            welcome::present(&root);
+            model.settings.set_boolean(keys::FIRST_RUN, false);
+        }
 
         if !files.is_empty() {
             sender.input(Msg::FilesChosen(files));
@@ -504,6 +515,8 @@ impl Component for AppModel {
             Msg::Launch(path) => {
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == path) {
                     Self::launch(app);
+                } else {
+                    Self::launch_file(&path);
                 }
             }
             Msg::StartUpdate(path) => {
@@ -760,6 +773,10 @@ impl Component for AppModel {
             Msg::ShowPreferences => Self::show_preferences(self, widgets, &sender),
             Msg::ShowWelcome => welcome::present(&widgets.window),
             Msg::ShowAbout => Self::show_about(&widgets.window),
+            Msg::ShowLog => {
+                let uri = gio::File::for_path(self.paths.log_file()).uri();
+                Self::open_uri(uri.as_str());
+            }
             Msg::Toast(message) => Self::toast(widgets, &message),
         }
     }
@@ -1670,6 +1687,18 @@ impl AppModel {
         }
     }
 
+    fn launch_file(path: &Path) {
+        if let Ok(metadata) = fs::metadata(path) {
+            let mut permissions = metadata.permissions();
+            if permissions.mode() & 0o111 == 0 {
+                permissions.set_mode(0o755);
+                let _ = fs::set_permissions(path, permissions);
+            }
+        }
+
+        let _ = Command::new(path).spawn();
+    }
+
     fn open_uri(uri: &str) {
         let _ = gio::AppInfo::launch_default_for_uri(uri, None::<&gio::AppLaunchContext>);
     }
@@ -1712,6 +1741,7 @@ impl AppModel {
         let menu = gio::Menu::new();
         menu.append(Some("Preferences"), Some("win.preferences"));
         menu.append(Some("Show tutorial"), Some("win.welcome"));
+        menu.append(Some("Open Log File"), Some("win.log"));
         menu.append(Some("About Gear Lever R"), Some("win.about"));
         menu.append(Some("Quit"), Some("win.quit"));
         menu_button.set_menu_model(Some(&menu));
@@ -1734,6 +1764,11 @@ impl AppModel {
         let sender_about = sender.clone();
         about.connect_activate(move |_, _| sender_about.input(Msg::ShowAbout));
         root.add_action(&about);
+
+        let log = gio::SimpleAction::new("log", None);
+        let sender_log = sender.clone();
+        log.connect_activate(move |_, _| sender_log.input(Msg::ShowLog));
+        root.add_action(&log);
 
         let quit = gio::SimpleAction::new("quit", None);
         let window = root.clone();

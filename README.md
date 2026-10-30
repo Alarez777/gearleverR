@@ -88,6 +88,18 @@ packaging/appimage/build-in-debian12.sh
 El script compila dentro de `rust:1.98-bookworm` y empaqueta el AppImage en
 `dist/`. El binario resultante funciona también en distros más nuevas.
 
+Si ejecutas el binario directamente (sin AppImage), instala el esquema para que
+las preferencias persistan:
+
+```sh
+install -Dm644 data/io.github.alarez777.GearLeverR.gschema.xml \
+    ~/.local/share/glib-2.0/schemas/
+glib-compile-schemas ~/.local/share/glib-2.0/schemas
+```
+
+Los logs se escriben en `~/.local/state/gearlever-r/gearlever-r.log` y se pueden
+abrir desde el menú. El nivel `debug` se activa en Preferencias.
+
 ## Pruebas y rendimiento
 
 ```sh
