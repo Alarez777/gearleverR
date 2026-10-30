@@ -90,3 +90,5 @@ cargo test --workspace --all-features
 - Commits pequeños y revisables; nada de refactors masivos no pedidos.
 - No agregar funcionalidades nuevas: el objetivo es paridad + rendimiento.
 - Medir antes de optimizar; los benchmarks viven en `benches/` o `scripts/`.
+- Tras cambios de UI, ejecutar `scripts/ui-smoke.sh` en un contenedor Debian 12
+  (Xvfb + D-Bus) para detectar modales que bloqueen la ventana principal.

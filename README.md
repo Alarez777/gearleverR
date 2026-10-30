@@ -131,6 +131,9 @@ GEARLEVER_TEST_APPIMAGE=~/AppImages/app.appimage cargo test --workspace
 # Benchmarks
 scripts/bench-metadata.sh ~/AppImages/*.appimage
 scripts/bench-startup.sh
+
+# Humo de UI (Xvfb + D-Bus): sin modal bloqueante y el bucle de mensajes responde
+scripts/ui-smoke.sh ./dist/GearLeverR-0.1.0-x86_64.AppImage
 ```
 
 Resultados medidos en la máquina de desarrollo: consulta

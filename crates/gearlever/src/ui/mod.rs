@@ -185,18 +185,13 @@ impl Component for AppModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let mut model = Self::new();
+        let model = Self::new();
         let widgets = Self::build_shell(&root, &sender);
         Self::rebuild_list(&model, &widgets);
         Self::show_page(&model, &widgets);
 
         if model.settings.values().is_maximized {
             root.maximize();
-        }
-
-        if model.settings.values().first_run {
-            welcome::present(&root);
-            model.settings.set_boolean(keys::FIRST_RUN, false);
         }
 
         if !files.is_empty() {
