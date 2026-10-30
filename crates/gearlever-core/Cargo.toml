@@ -1,0 +1,16 @@
+[package]
+name = "gearlever-core"
+description = "UI-independent AppImage management logic for Gear Lever R"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+backhand.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

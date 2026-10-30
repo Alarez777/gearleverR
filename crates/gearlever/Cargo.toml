@@ -1,0 +1,20 @@
+[package]
+name = "gearlever"
+description = "GTK4 front-end and CLI for Gear Lever R"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "gearlever-r"
+path = "src/main.rs"
+
+[dependencies]
+gearlever-core = { path = "../gearlever-core" }
+relm4.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

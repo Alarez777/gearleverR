@@ -1,0 +1,31 @@
+#!/bin/sh
+# Gear Lever R launcher for the AppImage build.
+#
+# The AppImage links against the distribution's GTK4 and libadwaita, so a
+# missing library is reported here instead of as a dynamic-loader error.
+set -eu
+
+HERE=$(dirname "$(readlink -f "$0")")
+
+fail() {
+    printf 'Gear Lever R: %s\n' "$1" >&2
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --title="Gear Lever R" --text="$1" >/dev/null 2>&1 || true
+    elif command -v kdialog >/dev/null 2>&1; then
+        kdialog --title "Gear Lever R" --error "$1" >/dev/null 2>&1 || true
+    fi
+    exit 1
+}
+
+# Escape hatch for testing inside containers without ldconfig.
+if [ "${GEARLEVER_R_SKIP_DEPS:-0}" != "1" ]; then
+    if ! ldconfig -p 2>/dev/null | grep -q 'libgtk-4\.so\.1'; then
+        fail "GTK 4 is not installed. Install your distribution's gtk4 package (4.8 or newer) and run Gear Lever R again."
+    fi
+
+    if ! ldconfig -p 2>/dev/null | grep -q 'libadwaita-1\.so\.0'; then
+        fail "libadwaita is not installed. Install your distribution's libadwaita package (1.2 or newer) and run Gear Lever R again."
+    fi
+fi
+
+exec "$HERE/gearlever-r" "$@"

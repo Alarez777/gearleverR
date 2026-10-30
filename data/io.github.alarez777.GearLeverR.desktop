@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Gear Lever R
+Comment=Manage AppImages with ease
+Exec=gearlever-r %U
+Icon=io.github.alarez777.GearLeverR
+Terminal=false
+Type=Application
+Categories=GTK;Utility;
+StartupNotify=true
+MimeType=application/vnd.appimage;application/x-appimage;application/x-iso9660-appimage;application/vnd.efi.iso;
+Keywords=AppImage;

@@ -1,0 +1,7 @@
+/target
+**/*.rs.bk
+*.AppImage
+*.AppImage.zsync
+/dist
+/packaging/appimage/AppDir
+/packaging/appimage/*.AppImage
