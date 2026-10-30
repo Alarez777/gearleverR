@@ -31,7 +31,7 @@ echo ":: building inside $IMAGE"
         export PATH=/usr/local/cargo/bin:$PATH
         apt-get update -qq >/dev/null
         apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
-            libglib2.0-dev liblzma-dev zlib1g-dev >/dev/null
+            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev >/dev/null
         cargo build --release --locked -p gearlever
     '
 

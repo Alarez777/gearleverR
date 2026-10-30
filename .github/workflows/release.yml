@@ -22,7 +22,7 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
-            libglib2.0-dev liblzma-dev zlib1g-dev curl file
+            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev curl file
 
       - name: Build
         run: cargo build --release --locked -p gearlever

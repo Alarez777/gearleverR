@@ -36,13 +36,13 @@ pub fn read(
     let mut extracted = false;
 
     if kind == PayloadKind::Dwarfs {
-        extracted = dwarfsextract(image, work_dir);
+        extracted = dwarfsextract(image, work_dir) && has_desktop(work_dir);
     }
     if !extracted {
-        extracted = seven_zip(image, work_dir);
+        extracted = seven_zip(image, work_dir) && has_desktop(work_dir);
     }
     if !extracted && allow_unsafe_extractor {
-        extracted = appimage_extract(image, work_dir)?;
+        extracted = appimage_extract(image, work_dir)? && has_desktop(work_dir);
     }
     if !extracted {
         return Err(Error::MissingExtractor(image.to_path_buf()));
@@ -86,7 +86,24 @@ fn seven_zip(image: &Path, work_dir: &Path) -> bool {
         "-ir0!.DirIcon",
     ];
 
-    run("7zz", &arguments) || run("7z", &arguments)
+    run("7zz", &arguments)
+}
+
+fn has_desktop(work_dir: &Path) -> bool {
+    let root = if work_dir.join("squashfs-root").is_dir() {
+        work_dir.join("squashfs-root")
+    } else {
+        work_dir.to_path_buf()
+    };
+
+    std::fs::read_dir(root).is_ok_and(|entries| {
+        entries.flatten().any(|entry| {
+            entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("desktop"))
+        })
+    })
 }
 
 fn appimage_extract(image: &Path, work_dir: &Path) -> Result<bool> {
