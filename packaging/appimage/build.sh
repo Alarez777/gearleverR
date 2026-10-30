@@ -32,15 +32,14 @@ install -Dm755 "$BINARY" "$APPDIR/gearlever-r"
 install -Dm755 "$ROOT/packaging/appimage/AppRun" "$APPDIR/AppRun"
 install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.desktop" \
     "$APPDIR/io.github.alarez777.GearLeverR.desktop"
-install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.svg" \
-    "$APPDIR/io.github.alarez777.GearLeverR.svg"
 install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
     "$APPDIR/io.github.alarez777.GearLeverR.png"
 ln -sf io.github.alarez777.GearLeverR.png "$APPDIR/.DirIcon"
-install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.svg" \
-    "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.alarez777.GearLeverR.svg"
-install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
-    "$APPDIR/usr/share/icons/hicolor/256x256/apps/io.github.alarez777.GearLeverR.png"
+
+for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "$ROOT/data/icons/hicolor/${size}x${size}/apps/io.github.alarez777.GearLeverR.png" \
+        "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/io.github.alarez777.GearLeverR.png"
+done
 install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.gschema.xml" \
     "$APPDIR/usr/share/glib-2.0/schemas/io.github.alarez777.GearLeverR.gschema.xml"
 
