@@ -271,12 +271,16 @@ impl Component for AppModel {
                 Self::rebuild_list(self, widgets);
             }
             Msg::OpenChooser => Self::open_chooser(root, &sender),
-            Msg::FilesChosen(paths) => Self::load_files(
-                paths,
-                !self.settings.values().block_unsafe_extractor,
-                self.paths.temp_dir().join("metadata"),
-                &sender,
-            ),
+            Msg::FilesChosen(paths) => {
+                widgets.drop_revealer.set_reveal_child(false);
+                widgets.drop_revealer.set_visible(false);
+                Self::load_files(
+                    paths,
+                    !self.settings.values().block_unsafe_extractor,
+                    self.paths.temp_dir().join("metadata"),
+                    &sender,
+                );
+            }
             Msg::FilesLoaded(loaded, errors) => {
                 for error in errors {
                     Self::toast(widgets, &error);
@@ -336,7 +340,13 @@ impl Component for AppModel {
                 }
             }
             Msg::DragActive(active) => {
-                widgets.drop_revealer.set_reveal_child(active);
+                if active {
+                    widgets.drop_revealer.set_visible(true);
+                    widgets.drop_revealer.set_reveal_child(true);
+                } else {
+                    widgets.drop_revealer.set_reveal_child(false);
+                    widgets.drop_revealer.set_visible(false);
+                }
             }
             Msg::CheckUpdates => {
                 if self.checking {
@@ -2088,6 +2098,11 @@ impl AppModel {
         drop_revealer.set_child(Some(&drop_page));
         drop_revealer.set_transition_type(gtk::RevealerTransitionType::Crossfade);
         drop_revealer.set_reveal_child(false);
+        // An overlay child that stays visible swallows every pointer event,
+        // even when its child is not revealed. Keep it hidden and never let
+        // it take input; the drop target lives on the content below.
+        drop_revealer.set_visible(false);
+        drop_revealer.set_can_target(false);
 
         let overlay = gtk::Overlay::new();
         overlay.set_child(Some(&content));
