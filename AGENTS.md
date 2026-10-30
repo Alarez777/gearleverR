@@ -42,7 +42,8 @@ Las reglas de estilo y API se consultan en la skill, no se improvisan.
 
 **Builds de release:** el AppImage se compila en un contenedor **Debian 12** (glibc 2.36,
 GTK 4.8, Adw 1.2) para que siga funcionando en Debian 12 aunque el desarrollo se haga en
-Debian 13. Los binarios locales de Debian 13 solo sirven para probar.
+Debian 13. Los binarios locales de Debian 13 solo sirven para probar. Usar
+`packaging/appimage/build-in-debian12.sh` y no compilar el AppImage en el host.
 
 ## Estructura
 

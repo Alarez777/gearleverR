@@ -1,5 +1,6 @@
 //! Metadata extraction from the filesystem embedded in an AppImage.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::desktop::DesktopFile;
@@ -39,6 +40,65 @@ pub struct AppMetadata {
     pub desktop_contents: String,
     /// Icon bytes, when one could be found.
     pub icon: Option<ExtractedIcon>,
+}
+
+/// Reads the desktop entry and icon from an extracted AppDir.
+///
+/// This is used when the payload is not SquashFS and an external extractor had
+/// to unpack it first.
+///
+/// # Errors
+///
+/// Returns [`Error::MissingDesktopEntry`] when the directory has no top-level
+/// `.desktop` file, [`Error::DesktopEntryNotUtf8`] when it is not UTF-8, and
+/// [`Error::Io`] when files cannot be read.
+pub fn read_from_directory(root: &Path) -> Result<AppMetadata> {
+    let desktop_path = find_desktop_in_directory(root)
+        .ok_or_else(|| Error::MissingDesktopEntry(root.to_path_buf()))?;
+    let contents = fs::read_to_string(&desktop_path)
+        .map_err(|_| Error::DesktopEntryNotUtf8(desktop_path.clone()))?;
+    let entry = DesktopFile::parse(&contents);
+    let main = entry.main_section();
+
+    let name = main
+        .get("Name")
+        .filter(|value| !value.is_empty())
+        .cloned()
+        .or_else(|| {
+            desktop_path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| "Unknown".to_owned());
+
+    let icon_name = main.get("Icon").filter(|value| !value.is_empty()).cloned();
+    let icon = match icon_name.as_deref() {
+        Some(icon_name) => find_icon_in_directory(root, icon_name),
+        None => None,
+    };
+
+    Ok(AppMetadata {
+        name,
+        comment: main.get("Comment").cloned().unwrap_or_default(),
+        exec: main.get("Exec").cloned().unwrap_or_default(),
+        try_exec: main.get("TryExec").cloned().unwrap_or_default(),
+        icon_name,
+        terminal: main
+            .get("Terminal")
+            .is_some_and(|value| value.eq_ignore_ascii_case("true")),
+        version: main
+            .get("X-AppImage-Version")
+            .filter(|value| !value.is_empty())
+            .cloned(),
+        desktop_file: Some(
+            desktop_path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+        ),
+        desktop_contents: contents,
+        icon,
+    })
 }
 
 /// Reads the desktop entry and icon from a SquashFS payload.
@@ -97,6 +157,73 @@ pub fn read(path: &Path, offset: u64) -> Result<AppMetadata> {
         desktop_file: Some(desktop_path.to_string_lossy().into_owned()),
         desktop_contents: contents,
         icon,
+    })
+}
+
+/// Finds a top-level desktop entry in an extracted directory.
+fn find_desktop_in_directory(root: &Path) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = fs::read_dir(root)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("desktop"))
+        })
+        .collect();
+
+    candidates.sort();
+    candidates.into_iter().next()
+}
+
+/// Looks for an icon inside an extracted directory.
+fn find_icon_in_directory(root: &Path, icon_name: &str) -> Option<ExtractedIcon> {
+    if let Some(icon) = read_dir_icon_from_disk(root) {
+        return Some(icon);
+    }
+
+    let base = strip_extension(icon_name);
+
+    for candidate in icon_candidates(&base) {
+        let path = root.join(&candidate);
+        let Ok(bytes) = fs::read(&path) else {
+            continue;
+        };
+
+        if let Some(extension) = image_extension(&bytes) {
+            return Some(ExtractedIcon {
+                file_name: format!("{base}{extension}"),
+                bytes,
+            });
+        }
+    }
+
+    None
+}
+
+fn read_dir_icon_from_disk(root: &Path) -> Option<ExtractedIcon> {
+    let path = root.join(".DirIcon");
+    let bytes = fs::read(&path).ok()?;
+
+    if let Some(extension) = image_extension(&bytes) {
+        return Some(ExtractedIcon {
+            file_name: format!("diricon{extension}"),
+            bytes,
+        });
+    }
+
+    let text = std::str::from_utf8(&bytes).ok()?.trim().to_owned();
+    if text.is_empty() || text.contains('\n') {
+        return None;
+    }
+
+    let target = root.join(text.trim_start_matches('/'));
+    let bytes = fs::read(target).ok()?;
+
+    image_extension(&bytes).map(|extension| ExtractedIcon {
+        file_name: format!("diricon{extension}"),
+        bytes,
     })
 }
 
@@ -228,6 +355,40 @@ mod tests {
         assert_eq!(strip_extension("app.SVG"), "app");
         assert_eq!(strip_extension("app"), "app");
         assert_eq!(strip_extension("app.icon"), "app.icon");
+    }
+
+    #[test]
+    fn reads_metadata_from_an_extracted_directory() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(
+            directory.path().join("Example.desktop"),
+            "[Desktop Entry]\nName=Example\nExec=AppRun %U\nIcon=example\nX-AppImage-Version=2.1\n",
+        )
+        .unwrap();
+        std::fs::write(
+            directory.path().join("example.png"),
+            [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+        )
+        .unwrap();
+
+        let metadata = read_from_directory(directory.path()).unwrap();
+
+        assert_eq!(metadata.name, "Example");
+        assert_eq!(metadata.version.as_deref(), Some("2.1"));
+        assert_eq!(
+            metadata.icon.as_ref().map(|icon| icon.file_name.as_str()),
+            Some("example.png")
+        );
+    }
+
+    #[test]
+    fn reports_a_missing_desktop_entry() {
+        let directory = tempfile::tempdir().unwrap();
+
+        assert!(matches!(
+            read_from_directory(directory.path()),
+            Err(Error::MissingDesktopEntry(_))
+        ));
     }
 
     #[test]

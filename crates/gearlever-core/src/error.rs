@@ -63,6 +63,10 @@ pub enum Error {
     #[error("invalid update configuration: {0}")]
     UpdateConfig(String),
 
+    /// No external tool can extract this AppImage's payload.
+    #[error("{0}: no extractor available, install 7zz or dwarfs and retry")]
+    MissingExtractor(PathBuf),
+
     /// No release matches the configured file name.
     #[error("no release asset matches {0}")]
     NoMatchingAsset(String),

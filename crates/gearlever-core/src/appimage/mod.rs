@@ -2,18 +2,38 @@
 
 pub mod detect;
 pub(crate) mod elf;
+pub mod fallback;
 pub mod metadata;
 pub mod running;
 pub mod squashfs;
 
 pub use detect::{ElfArch, ImageType, PayloadKind};
+pub use fallback::read as read_with_extractor;
 pub use metadata::{AppMetadata, ExtractedIcon};
 pub use running::is_running;
 pub use squashfs::SquashfsImage;
 
 use std::path::{Path, PathBuf};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+
+/// Options for reading metadata from payloads that need external tools.
+#[derive(Debug, Clone)]
+pub struct MetadataOptions {
+    /// Whether running the AppImage with `--appimage-extract` is allowed.
+    pub allow_unsafe_extractor: bool,
+    /// Directory where temporary extractions are created.
+    pub work_dir: PathBuf,
+}
+
+impl Default for MetadataOptions {
+    fn default() -> Self {
+        Self {
+            allow_unsafe_extractor: false,
+            work_dir: std::env::temp_dir().join("gearlever-r-metadata"),
+        }
+    }
+}
 
 /// An AppImage file opened for inspection.
 ///
@@ -83,14 +103,38 @@ impl AppImage {
 
     /// Reads the desktop entry and icon embedded in the AppImage.
     ///
+    /// Payloads that are not SquashFS return [`Error::UnsupportedPayload`]; use
+    /// [`AppImage::metadata_with`] to let an external extractor handle them.
+    ///
     /// # Errors
     ///
-    /// Returns [`Error::UnsupportedPayload`] for payloads that are not SquashFS
-    /// yet, plus the errors documented on [`metadata::read`].
+    /// Returns [`Error::UnsupportedPayload`] for non-SquashFS payloads, plus the
+    /// errors documented on [`metadata::read`].
     pub fn metadata(&self) -> Result<AppMetadata> {
+        self.metadata_with(&MetadataOptions::default())
+    }
+
+    /// Reads the desktop entry and icon, using external tools when needed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::MissingExtractor`] when a DwarFS or ISO9660 payload
+    /// needs a tool that is not installed, plus the errors documented on
+    /// [`metadata::read`] and [`metadata::read_from_directory`].
+    pub fn metadata_with(&self, options: &MetadataOptions) -> Result<AppMetadata> {
         match self.payload_kind {
             PayloadKind::Squashfs => metadata::read(&self.path, self.payload_offset),
-            _ => Err(Error::UnsupportedPayload(self.path.clone())),
+            other => {
+                let nanos = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos();
+                let work_dir = options.work_dir.join(format!("extract-{nanos}"));
+                let result =
+                    fallback::read(&self.path, other, &work_dir, options.allow_unsafe_extractor);
+                let _ = std::fs::remove_dir_all(&work_dir);
+                result
+            }
         }
     }
 }

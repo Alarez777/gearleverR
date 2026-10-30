@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: rust:1.98-bookworm
+    env:
+      RUSTFLAGS: "-C link-arg=-L/usr/lib/x86_64-linux-gnu"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust components
+        run: rustup component add rustfmt clippy
+
+      - name: Install GTK development files
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
+            libglib2.0-dev liblzma-dev zlib1g-dev
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace

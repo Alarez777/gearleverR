@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  appimage:
+    runs-on: ubuntu-latest
+    container: rust:1.98-bookworm
+    permissions:
+      contents: write
+    env:
+      RUSTFLAGS: "-C link-arg=-L/usr/lib/x86_64-linux-gnu"
+      CARGO_TARGET_DIR: /tmp/target
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
+            libglib2.0-dev liblzma-dev zlib1g-dev curl file
+
+      - name: Build
+        run: cargo build --release --locked -p gearlever
+
+      - name: Package AppImage
+        run: |
+          curl -fsSL -o /tmp/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /tmp/appimagetool
+          GEARLEVER_R_BINARY=/tmp/target/release/gearlever-r \
+          APPIMAGETOOL=/tmp/appimagetool \
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+            ./packaging/appimage/build.sh
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.AppImage

@@ -19,7 +19,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::{ArgGroup, Parser};
 use serde::Serialize;
 
-use gearlever_core::appimage::{AppImage, is_running};
+use gearlever_core::appimage::{AppImage, MetadataOptions, is_running};
 use gearlever_core::config::Config;
 use gearlever_core::hash::HashCache;
 use gearlever_core::install::{Conflict, IntegrateOptions, PreviousInstall, integrate};
@@ -207,7 +207,10 @@ impl Cli {
         let app_image = AppImage::open(file)
             .with_context(|| format!("{} is not a valid AppImage", file.display()))?;
         let metadata = app_image
-            .metadata()
+            .metadata_with(&MetadataOptions {
+                allow_unsafe_extractor: !context.settings.values().block_unsafe_extractor,
+                work_dir: context.paths.temp_dir().join("metadata"),
+            })
             .with_context(|| format!("cannot read the metadata of {}", file.display()))?;
 
         let apps = context.apps()?;
@@ -768,6 +771,7 @@ impl CommandContext {
             applications_dir: self.paths.applications_dir(),
             exec_name_for_terminal_apps: self.settings.values().exec_name_terminal,
             update_desktop_database: true,
+            allow_unsafe_extractor: !self.settings.values().block_unsafe_extractor,
         }
     }
 }

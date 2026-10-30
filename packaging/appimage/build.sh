@@ -18,11 +18,17 @@ if ! command -v "$APPIMAGETOOL" >/dev/null 2>&1 && [ ! -x "$APPIMAGETOOL" ]; the
     exit 1
 fi
 
-echo ":: building gearlever-r ${VERSION} for ${ARCH}"
-cargo build --release --locked -p gearlever --manifest-path "$ROOT/Cargo.toml"
+if [ -n "${GEARLEVER_R_BINARY:-}" ]; then
+    BINARY="$GEARLEVER_R_BINARY"
+    echo ":: using prebuilt binary $BINARY"
+else
+    echo ":: building gearlever-r ${VERSION} for ${ARCH}"
+    cargo build --release --locked -p gearlever --manifest-path "$ROOT/Cargo.toml"
+    BINARY="$ROOT/target/release/gearlever-r"
+fi
 
 rm -rf "$APPDIR"
-install -Dm755 "$ROOT/target/release/gearlever-r" "$APPDIR/gearlever-r"
+install -Dm755 "$BINARY" "$APPDIR/gearlever-r"
 install -Dm755 "$ROOT/packaging/appimage/AppRun" "$APPDIR/AppRun"
 install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.desktop" \
     "$APPDIR/io.github.alarez777.GearLeverR.desktop"

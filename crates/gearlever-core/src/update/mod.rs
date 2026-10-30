@@ -17,7 +17,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::appimage::AppImage;
+use crate::appimage::{AppImage, MetadataOptions};
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::hash::HashCache;
@@ -326,6 +326,8 @@ pub struct UpdateOptions {
     pub exec_name_for_terminal_apps: bool,
     /// Run `update-desktop-database` after installing.
     pub update_desktop_database: bool,
+    /// Whether an external `--appimage-extract` fallback is allowed.
+    pub allow_unsafe_extractor: bool,
 }
 
 /// Downloads an update, validates it and replaces the installed AppImage.
@@ -344,7 +346,10 @@ pub fn apply(
 ) -> Result<InstalledApp> {
     let mut context = DownloadContext::new(download_dir.to_path_buf(), progress);
     let downloaded = manager.download(&mut context)?;
-    let metadata = AppImage::open(&downloaded)?.metadata()?;
+    let metadata = AppImage::open(&downloaded)?.metadata_with(&MetadataOptions {
+        allow_unsafe_extractor: options.allow_unsafe_extractor,
+        work_dir: download_dir.join("metadata"),
+    })?;
 
     let previous = PreviousInstall {
         image_path: app.image_path.clone(),

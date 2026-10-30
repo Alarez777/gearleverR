@@ -5,3 +5,6 @@
 /dist
 /packaging/appimage/AppDir
 /packaging/appimage/*.AppImage
+/target-debian12
+
+/.cache

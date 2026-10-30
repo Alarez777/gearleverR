@@ -6,7 +6,7 @@
 //! Long operations run on threads and report back through messages, so the GTK
 //! main loop is never blocked.
 
-#![expect(
+#![allow(
     deprecated,
     reason = "FileChooserNative and ComboBoxText are deprecated only in GTK 4.10; staying on them keeps Debian 12 (GTK 4.8) supported"
 )]
@@ -26,7 +26,7 @@ use relm4::gtk::{gdk, gio, glib};
 use relm4::prelude::*;
 use relm4::{adw, gtk};
 
-use gearlever_core::appimage::{AppImage, AppMetadata, is_running};
+use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, is_running};
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
 use gearlever_core::format::size;
@@ -249,7 +249,12 @@ impl Component for AppModel {
                 Self::rebuild_list(self, widgets);
             }
             Msg::OpenChooser => Self::open_chooser(root, &sender),
-            Msg::FilesChosen(paths) => Self::load_files(paths, &sender),
+            Msg::FilesChosen(paths) => Self::load_files(
+                paths,
+                !self.settings.values().block_unsafe_extractor,
+                self.paths.temp_dir().join("metadata"),
+                &sender,
+            ),
             Msg::FilesLoaded(loaded, errors) => {
                 for error in errors {
                     Self::toast(widgets, &error);
@@ -687,9 +692,16 @@ impl Component for AppModel {
             },
             Msg::ReloadMetadata(path) => {
                 let cache_dir = self.paths.metadata_cache_dir();
+                let allow_unsafe_extractor = !self.settings.values().block_unsafe_extractor;
+                let work_dir = self.paths.temp_dir().join("metadata");
                 std::thread::spawn(move || {
+                    let options = MetadataOptions {
+                        allow_unsafe_extractor,
+                        work_dir,
+                    };
+
                     let result = AppImage::open(&path)
-                        .and_then(|appimage| appimage.metadata())
+                        .and_then(|appimage| appimage.metadata_with(&options))
                         .and_then(|metadata| {
                             MetadataCache::new(cache_dir)
                                 .store(&path, &metadata)
@@ -834,6 +846,7 @@ impl AppModel {
             applications_dir: self.paths.applications_dir(),
             exec_name_for_terminal_apps: self.settings.values().exec_name_terminal,
             update_desktop_database: true,
+            allow_unsafe_extractor: !self.settings.values().block_unsafe_extractor,
         }
     }
 
@@ -843,7 +856,16 @@ impl AppModel {
             .ok_or_else(|| "No update method was found for this AppImage".to_owned())
     }
 
-    fn load_files(paths: Vec<PathBuf>, sender: &ComponentSender<Self>) {
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "the security switch mirrors the block-unsafe-extractor setting"
+    )]
+    fn load_files(
+        paths: Vec<PathBuf>,
+        allow_unsafe_extractor: bool,
+        work_dir: PathBuf,
+        sender: &ComponentSender<Self>,
+    ) {
         if paths.is_empty() {
             return;
         }
@@ -854,7 +876,12 @@ impl AppModel {
             let mut errors = Vec::new();
 
             for path in paths {
-                match AppImage::open(&path).and_then(|appimage| appimage.metadata()) {
+                let options = MetadataOptions {
+                    allow_unsafe_extractor,
+                    work_dir: work_dir.clone(),
+                };
+
+                match AppImage::open(&path).and_then(|appimage| appimage.metadata_with(&options)) {
                     Ok(metadata) => loaded.push((path, metadata)),
                     Err(error) => errors.push(format!("{}: {error}", path.display())),
                 }
