@@ -14,6 +14,11 @@ La versión 0.1 implementa la paridad funcional principal: integración, borrado
 lanzamiento, actualizaciones desde seis fuentes, CLI compatible y la interfaz
 completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 
+## Ramas
+
+- `develop`: desarrollo activo. Todos los cambios entran aquí primero.
+- `main`: código probado y releases. Se actualiza desde `develop` cuando pasa las pruebas.
+
 ## Funciones
 
 - Integrar AppImages con un click, por arrastrar y soltar o desde el selector de archivos.
