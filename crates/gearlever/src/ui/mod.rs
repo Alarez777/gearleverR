@@ -1677,7 +1677,7 @@ impl AppModel {
         actions.set_halign(gtk::Align::Center);
 
         let launch = gtk::Button::with_label(&t("Launch"));
-        launch.set_size_request(PREVIEW_BUTTON_WIDTH, PREVIEW_BUTTON_HEIGHT);
+        launch.set_size_request(PREVIEW_BUTTON_WIDTH, CANDIDATE_BUTTON_HEIGHT);
         let sender_launch = sender.clone();
         let path_buf = path.to_path_buf();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path_buf.clone())));
@@ -1685,7 +1685,7 @@ impl AppModel {
 
         let install = gtk::Button::with_label(&t("Move to the app menu"));
         install.add_css_class("suggested-action");
-        install.set_size_request(PREVIEW_BUTTON_WIDTH, PREVIEW_BUTTON_HEIGHT);
+        install.set_size_request(PREVIEW_BUTTON_WIDTH, CANDIDATE_BUTTON_HEIGHT);
         let sender_install = sender.clone();
         let path_buf = path.to_path_buf();
         install.connect_clicked(move |_| {
@@ -2244,7 +2244,7 @@ impl AppModel {
         widgets.window.set_resizable(false);
 
         let (width, height) = match preview {
-            Preview::Candidate => (600, 400),
+            Preview::Candidate => (600, 420),
             Preview::Installed => (600, 360),
         };
         widgets.window.set_default_size(width, height);
@@ -2560,6 +2560,8 @@ const ACTION_BUTTON_WIDTH: i32 = 200;
 /// Width and height of the buttons in the small preview windows.
 const PREVIEW_BUTTON_WIDTH: i32 = 240;
 const PREVIEW_BUTTON_HEIGHT: i32 = 36;
+/// Height of Launch and Move in the new-AppImage preview.
+const CANDIDATE_BUTTON_HEIGHT: i32 = 54;
 
 fn same_file(left: &Path, right: &Path) -> bool {
     match (fs::canonicalize(left), fs::canonicalize(right)) {
