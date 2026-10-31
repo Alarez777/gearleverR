@@ -1,4 +1,4 @@
-# Gear Lever R
+# Gear LeverR
 
 [English](README.md) | **Español**
 
@@ -174,7 +174,7 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 ## Limitaciones conocidas
 
 - La interfaz está traducida: se reutilizan los catálogos del original. El español
-  está completo; en otros idiomas, las cadenas nuevas de Gear Lever R pueden
+  está completo; en otros idiomas, las cadenas nuevas de Gear LeverR pueden
   aparecer en inglés hasta que se traduzcan (ver `po/`).
 - El tutorial tiene tres páginas (el original tiene cuatro) y no incluye el
   AppImage de demostración.
@@ -187,4 +187,4 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 
 GPL-3.0-or-later. Es un trabajo derivado de Gear Lever, de Lorenzo Paderi
 (<https://github.com/mijorus/gearlever>). El nombre y el icono originales no se
-usan; este proyecto se distribuye como Gear Lever R.
+usan; este proyecto se distribuye como Gear LeverR.

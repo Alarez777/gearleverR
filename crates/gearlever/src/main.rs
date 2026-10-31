@@ -1,4 +1,4 @@
-//! Gear Lever R: a GTK4 front-end and CLI for managing AppImages.
+//! Gear LeverR: a GTK4 front-end and CLI for managing AppImages.
 
 #![expect(
     clippy::print_stderr,

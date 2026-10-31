@@ -1,10 +1,10 @@
-# Spanish translations for strings added by Gear Lever R.
+# Spanish translations for strings added by Gear LeverR.
 # Merged on top of the upstream catalog by scripts/update-translations.sh.
 msgid ""
 msgstr ""
 "Project-Id-Version: gearlever-r 0.1.0\n"
 "PO-Revision-Date: 2026-10-30 00:00+0000\n"
-"Last-Translator: Gear Lever R contributors\n"
+"Last-Translator: Gear LeverR contributors\n"
 "Language-Team: Spanish\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
@@ -130,3 +130,15 @@ msgstr "Actualización cancelada"
 
 msgid "Updates cancelled"
 msgstr "Actualizaciones canceladas"
+
+msgid "_About Gear LeverR"
+msgstr "_Acerca de Gear LeverR"
+
+msgid "Hi, welcome to Gear LeverR"
+msgstr "Hola, te damos la bienvenida a Gear LeverR"
+
+msgid "An app that helps you integrate AppImages into your system."
+msgstr "Una app que te ayuda a integrar AppImages en tu sistema."
+
+msgid "Gear LeverR groups all your AppImages into a specific folder and keeps them organized."
+msgstr "Gear LeverR agrupa todas tus AppImages en una carpeta concreta y las mantiene organizadas."

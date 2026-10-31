@@ -1,7 +1,7 @@
 //! External extractors for payloads that are not SquashFS.
 //!
 //! DwarFS and ISO9660 images cannot be read in-process yet. When the matching
-//! tool is installed, Gear Lever R extracts only the desktop entry and icons
+//! tool is installed, Gear LeverR extracts only the desktop entry and icons
 //! into a temporary directory. Running the AppImage itself is a last resort and
 //! is gated by the `block-unsafe-extractor` setting.
 

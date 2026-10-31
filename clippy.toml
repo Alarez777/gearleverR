@@ -11,6 +11,8 @@ doc-valid-idents = [
     "AppImage",
     "AppImages",
     "AppDir",
+    "GearLeverR",
+    "LeverR",
     "AArch64",
     "x86_64",
     "aarch64",

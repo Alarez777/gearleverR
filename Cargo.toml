@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.93"
 license = "GPL-3.0-or-later"
-authors = ["Gear Lever R contributors"]
+authors = ["Gear LeverR contributors"]
 repository = "https://github.com/alarez/gear-leverR"
 
 [workspace.dependencies]

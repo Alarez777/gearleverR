@@ -1,4 +1,4 @@
-//! GTK4 and libadwaita interface for Gear Lever R.
+//! GTK4 and libadwaita interface for Gear LeverR.
 //!
 //! The interface is built imperatively on top of a Relm4 [`Component`]: the
 //! model holds plain data, the widgets struct holds the persistent shell, and
@@ -48,7 +48,7 @@ use util::{normalize, pill};
 /// Starts the graphical application.
 pub(crate) fn run(files: Vec<PathBuf>) {
     crate::i18n::init();
-    tracing::info!("starting the Gear Lever R interface");
+    tracing::info!("starting the Gear LeverR interface");
     RelmApp::new(APP_ID)
         .with_args(vec![APP_ID.to_owned()])
         .run::<AppModel>(files);
@@ -183,7 +183,7 @@ impl Component for AppModel {
 
     fn init_root() -> Self::Root {
         adw::ApplicationWindow::builder()
-            .title("Gear Lever R")
+            .title("Gear LeverR")
             .default_width(720)
             .default_height(720)
             .build()
@@ -1818,10 +1818,10 @@ impl AppModel {
 
     fn show_about(parent: &adw::ApplicationWindow) {
         let about = adw::AboutWindow::builder()
-            .application_name("Gear Lever R")
+            .application_name("Gear LeverR")
             .application_icon("io.github.alarez777.GearLeverR")
             .version(env!("CARGO_PKG_VERSION"))
-            .developer_name("Gear Lever R contributors")
+            .developer_name("Gear LeverR contributors")
             .website("https://github.com/alarez/gear-leverR")
             .issue_url("https://github.com/alarez/gear-leverR/issues")
             .license_type(gtk::License::Gpl30)
@@ -1932,7 +1932,7 @@ impl AppModel {
         menu.append(Some(&t("_Preferences")), Some("win.preferences"));
         menu.append(Some(&t("_Show tutorial")), Some("win.welcome"));
         menu.append(Some(&t("_Open Log File")), Some("win.log"));
-        menu.append(Some(&t("_About Gear lever")), Some("win.about"));
+        menu.append(Some(&t("_About Gear LeverR")), Some("win.about"));
         menu.append(Some(&t("Quit")), Some("win.quit"));
         menu_button.set_menu_model(Some(&menu));
 

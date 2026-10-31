@@ -1,6 +1,6 @@
 //! Small blocking HTTP client built on `ureq` with rustls.
 //!
-//! Gear Lever R never links OpenSSL: the AppImage must run on any distribution
+//! Gear LeverR never links OpenSSL: the AppImage must run on any distribution
 //! without extra system packages.
 
 use std::fmt;

@@ -1,11 +1,11 @@
-//! XDG base directories and the files Gear Lever R keeps in them.
+//! XDG base directories and the files Gear LeverR keeps in them.
 
 use std::env;
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
 
-/// Filesystem locations used by Gear Lever R.
+/// Filesystem locations used by Gear LeverR.
 ///
 /// Construction is explicit: [`Paths::from_env`] reads `HOME` and the XDG
 /// variables, while [`Paths::with_home`] builds the default layout below a
@@ -86,7 +86,7 @@ impl Paths {
         &self.state_dir
     }
 
-    /// Returns Gear Lever R's own configuration file.
+    /// Returns Gear LeverR's own configuration file.
     #[must_use]
     pub fn config_file(&self) -> PathBuf {
         self.config_dir.join("gearlever-r.conf")
@@ -116,7 +116,7 @@ impl Paths {
         appimages_dir.join(".icons")
     }
 
-    /// Returns the root of Gear Lever R's cache.
+    /// Returns the root of Gear LeverR's cache.
     #[must_use]
     pub fn cache_root(&self) -> PathBuf {
         self.cache_dir.join("gearlever-r")

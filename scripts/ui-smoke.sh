@@ -28,7 +28,7 @@ dbus-run-session -- xvfb-run -a -s "-screen 0 1000x900x24" bash -c '
     pid=$!
     sleep 6
 
-    if ! xwininfo -root -tree 2>/dev/null | grep "Gear Lever R" >/dev/null; then
+    if ! xwininfo -root -tree 2>/dev/null | grep "Gear LeverR" >/dev/null; then
         echo "main window did not appear" >&2
         cat "$HOME/gui.log" >&2
         kill $pid 2>/dev/null
@@ -41,7 +41,7 @@ dbus-run-session -- xvfb-run -a -s "-screen 0 1000x900x24" bash -c '
         exit 1
     fi
 
-    id=$(xdotool search --name "Gear Lever R" | head -1)
+    id=$(xdotool search --name "Gear LeverR" | head -1)
     xdotool windowactivate --sync "$id" 2>/dev/null || true
     sleep 1
     xdotool mousemove --window "$id" 30 28

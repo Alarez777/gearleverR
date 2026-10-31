@@ -1,6 +1,6 @@
 [package]
 name = "gearlever-core"
-description = "UI-independent AppImage management logic for Gear Lever R"
+description = "UI-independent AppImage management logic for Gear LeverR"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

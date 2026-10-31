@@ -646,7 +646,7 @@ impl Cli {
 
         let result = Command::new("notify-send")
             .arg(&message)
-            .arg("--action=Open Gear Lever R")
+            .arg("--action=Open Gear LeverR")
             .arg("--expire-time=600000")
             .output();
 

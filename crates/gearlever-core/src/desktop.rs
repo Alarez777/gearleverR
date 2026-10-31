@@ -1,6 +1,6 @@
 //! Reader and writer for freedesktop.org desktop entries.
 //!
-//! Gear Lever R needs to read entries embedded in AppImages and to rewrite the
+//! Gear LeverR needs to read entries embedded in AppImages and to rewrite the
 //! integrated copy while preserving unknown keys and `[Desktop Action ...]`
 //! groups. The file is kept as a map of groups so nothing is lost.
 

@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-/// Errors returned by Gear Lever R's core.
+/// Errors returned by Gear LeverR's core.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {

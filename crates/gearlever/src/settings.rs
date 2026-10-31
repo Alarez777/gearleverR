@@ -8,7 +8,7 @@
 //!
 //! The schema keeps the keys of the original Gear Lever so a migration only has
 //! to copy values. When the schema is not installed (a source checkout without
-//! `glib-compile-schemas`), Gear Lever R falls back to the same defaults.
+//! `glib-compile-schemas`), Gear LeverR falls back to the same defaults.
 
 use std::path::{Path, PathBuf};
 

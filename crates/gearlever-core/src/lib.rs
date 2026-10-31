@@ -1,4 +1,4 @@
-//! Core, UI-independent logic for Gear Lever R.
+//! Core, UI-independent logic for Gear LeverR.
 //!
 //! This crate knows how to inspect AppImage files and, in later phases, how to
 //! integrate them into the desktop and check for updates. It deliberately has no

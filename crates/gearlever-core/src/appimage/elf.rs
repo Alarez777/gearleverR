@@ -1,7 +1,7 @@
 //! Minimal ELF reader for the AppImage runtime.
 //!
 //! AppImages are ELF executables with a payload appended after the section
-//! header table. Reading the runtime directly lets Gear Lever R find that
+//! header table. Reading the runtime directly lets Gear LeverR find that
 //! offset, the architecture and string sections such as `.upd_info` without
 //! spawning `readelf`, `strings` or `file`.
 

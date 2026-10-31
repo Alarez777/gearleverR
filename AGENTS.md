@@ -1,4 +1,4 @@
-# AGENTS.md — Gear Lever R
+# AGENTS.md — Gear LeverR
 
 ## Project identity
 
@@ -8,7 +8,7 @@ reference only** and must not be modified. That directory has its own `AGENTS.md
 
 | Field | Value |
 | --- | --- |
-| Name | Gear Lever R |
+| Name | Gear LeverR |
 | App ID | `io.github.alarez777.GearLeverR` |
 | Binary | `gearlever-r` |
 | AppImage | `GearLeverR-<version>-x86_64.AppImage` |

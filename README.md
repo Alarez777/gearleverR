@@ -1,4 +1,4 @@
-# Gear Lever R
+# Gear LeverR
 
 **English** | [Español](README.es.md)
 
@@ -173,7 +173,7 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
 ## Known limitations
 
 - The interface is translated by reusing the original catalogs. Spanish is complete;
-  in other languages, new Gear Lever R strings may appear in English until they are
+  in other languages, new Gear LeverR strings may appear in English until they are
   translated (see `po/`).
 - The tutorial has three pages (the original has four) and does not include the demo
   AppImage.
@@ -186,4 +186,4 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
 
 GPL-3.0-or-later. This is a derivative work of Gear Lever by Lorenzo Paderi
 (<https://github.com/mijorus/gearlever>). The original name and icon are not used;
-this project is distributed as Gear Lever R.
+this project is distributed as Gear LeverR.

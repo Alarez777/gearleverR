@@ -1,6 +1,6 @@
 [package]
 name = "gearlever"
-description = "GTK4 front-end and CLI for Gear Lever R"
+description = "GTK4 front-end and CLI for Gear LeverR"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

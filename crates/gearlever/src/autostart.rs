@@ -2,7 +2,7 @@
 //!
 //! The XDG Background portal is asked first, because it respects the desktop's
 //! own autostart settings and works from a sandbox. If the portal is not
-//! available, Gear Lever R falls back to a classic `~/.config/autostart` entry.
+//! available, Gear LeverR falls back to a classic `~/.config/autostart` entry.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -67,7 +67,7 @@ fn request_background(enabled: bool, command: &[String]) -> Result<(), String> {
     let options = glib::VariantDict::new(None);
     options.insert_value(
         "reason",
-        &"Gear Lever R background update checks".to_variant(),
+        &"Gear LeverR background update checks".to_variant(),
     );
     options.insert_value("autostart", &enabled.to_variant());
     options.insert_value("background", &true.to_variant());
@@ -106,7 +106,7 @@ fn write_entry(path: &Path, command: &[String]) -> std::io::Result<()> {
 
     let mut desktop = DesktopFile::default();
     desktop.set("Desktop Entry", "Type", "Application");
-    desktop.set("Desktop Entry", "Name", "Gear Lever R updates");
+    desktop.set("Desktop Entry", "Name", "Gear LeverR updates");
     desktop.set(
         "Desktop Entry",
         "Comment",

@@ -20,13 +20,13 @@ fn page_index(position: f64) -> u32 {
 const PAGES: [(&str, &str, &str); 3] = [
     (
         "system-software-install-symbolic",
-        "Hi, welcome to Gear lever",
+        "Hi, welcome to Gear LeverR",
         "An app that helps you integrate AppImages into your system.",
     ),
     (
         "folder-symbolic",
         "Set the AppImage location",
-        "Gear lever groups all your AppImages into a specific folder and keeps them organized.",
+        "Gear LeverR groups all your AppImages into a specific folder and keeps them organized.",
     ),
     (
         "object-select-symbolic",

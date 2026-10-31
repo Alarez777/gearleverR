@@ -13,7 +13,7 @@ AppImages y mismos 68 archivos `.desktop`).
 | Memoria privada (GUI) | ~124 MB |
 | Metadata de una app | md5 del AppImage completo + subproceso `7zz`/`unsquashfs`/`dwarfsck` |
 
-## Gear Lever R 0.1
+## Gear LeverR 0.1
 
 | Métrica | Valor |
 | --- | --- |

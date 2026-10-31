@@ -43,7 +43,7 @@ pub struct InstalledApp {
 /// Options that affect which integrations are returned.
 #[derive(Debug, Clone, Copy)]
 pub struct ScanOptions<'a> {
-    /// Folder where Gear Lever R keeps AppImages.
+    /// Folder where Gear LeverR keeps AppImages.
     pub appimages_dir: &'a Path,
     /// Whether integrations that point outside `appimages_dir` are listed.
     pub include_external: bool,

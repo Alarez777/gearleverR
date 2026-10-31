@@ -1,4 +1,4 @@
-//! Prints the metadata Gear Lever R can read from one AppImage.
+//! Prints the metadata Gear LeverR can read from one AppImage.
 //!
 //! ```sh
 //! cargo run -p gearlever-core --example inspect -- ~/AppImages/app.appimage

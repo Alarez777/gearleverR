@@ -2,7 +2,7 @@
 //!
 //! The original stores per-application settings in `gearlever.conf` using
 //! `configparser`: one `[app.<md5(path)>]` section per AppImage plus an optional
-//! `[app.<md5>.update_manager]` section. Gear Lever R writes the same format to
+//! `[app.<md5>.update_manager]` section. Gear LeverR writes the same format to
 //! its own file so existing integrations can be imported without data loss.
 
 use std::collections::BTreeMap;
@@ -217,7 +217,7 @@ impl Config {
     /// Imports the configuration written by the original Gear Lever.
     ///
     /// Returns `true` when a legacy file was found and copied. An existing
-    /// Gear Lever R configuration is never overwritten.
+    /// Gear LeverR configuration is never overwritten.
     ///
     /// # Errors
     ///

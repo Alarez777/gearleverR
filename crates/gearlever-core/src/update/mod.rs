@@ -1,6 +1,6 @@
 //! Update checks and downloads.
 //!
-//! Gear Lever R supports the same six sources as the original: a static URL,
+//! Gear LeverR supports the same six sources as the original: a static URL,
 //! GitHub, GitLab, Codeberg, Forgejo and FTP, plus the `.upd_info` section that
 //! AppImage developers embed in their bundles.
 

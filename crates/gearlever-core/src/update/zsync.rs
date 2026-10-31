@@ -2,12 +2,12 @@
 //!
 //! AppImage developers publish a `.zsync` file next to every release. Its header
 //! carries the SHA-1 of the file and, sometimes, a relative or absolute URL to
-//! the actual AppImage. Gear Lever R does a full download, but it uses the
+//! the actual AppImage. Gear LeverR does a full download, but it uses the
 //! header to decide whether an update exists.
 
 use url::Url;
 
-/// The parts of a zsync header that Gear Lever R uses.
+/// The parts of a zsync header that Gear LeverR uses.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ZsyncInfo {
     /// SHA-1 of the target file, lower-case hex.
