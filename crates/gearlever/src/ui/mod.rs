@@ -98,6 +98,11 @@ enum Msg {
     Remove(PathBuf),
     RemoveConfirmed(PathBuf),
     Removed(Result<(PathBuf, Config), String>),
+    RemoveAllConfirmed,
+    AllRemoved {
+        config: Config,
+        errors: Vec<String>,
+    },
     Launch(PathBuf),
     StartUpdate(PathBuf),
     StartAllUpdates,
@@ -159,6 +164,7 @@ struct AppModel {
     opened_from_file: bool,
     reloaded: Option<(PathBuf, AppMetadata)>,
     cancel_token: Option<Arc<AtomicBool>>,
+    removing_self: bool,
 }
 
 struct Widgets {
@@ -518,7 +524,12 @@ impl Component for AppModel {
                 }
             }
             Msg::Remove(path) => {
-                if self.apps.iter().any(|app| app.image_path == path) {
+                let Some(app) = self.apps.iter().find(|app| app.image_path == path) else {
+                    return;
+                };
+                if app.self_entry {
+                    Self::confirm_self_remove(widgets, path, self.apps.len(), &sender);
+                } else {
                     Self::confirm_remove(widgets, path, &sender);
                 }
             }
@@ -527,6 +538,7 @@ impl Component for AppModel {
                     return;
                 };
 
+                self.removing_self = app.self_entry;
                 let config = self.config.clone();
 
                 std::thread::spawn(move || {
@@ -541,6 +553,12 @@ impl Component for AppModel {
                 Ok((path, config)) => {
                     self.config = config;
                     let _ = self.config.save(&self.paths.config_file());
+
+                    if self.removing_self {
+                        self.removing_self = false;
+                        widgets.window.close();
+                        return;
+                    }
 
                     if self.opened_from_file {
                         widgets.window.close();
@@ -557,8 +575,48 @@ impl Component for AppModel {
                         &tf("Removed {path}", &[("path", &path.display().to_string())]),
                     );
                 }
-                Err(error) => Self::toast(widgets, &error),
+                Err(error) => {
+                    self.removing_self = false;
+                    Self::toast(widgets, &error);
+                }
             },
+            Msg::RemoveAllConfirmed => {
+                let apps = self.apps.clone();
+                if apps.is_empty() {
+                    return;
+                }
+
+                let config = self.config.clone();
+                std::thread::spawn(move || {
+                    let mut config = config;
+                    let mut errors = Vec::new();
+
+                    for app in &apps {
+                        if let Err(error) = uninstall(app, Removal::Trash, &mut config) {
+                            errors.push(format!("{}: {error}", app.name));
+                        }
+                    }
+
+                    sender.input(Msg::AllRemoved { config, errors });
+                });
+            }
+            Msg::AllRemoved { config, errors } => {
+                self.config = config;
+                let _ = self.config.save(&self.paths.config_file());
+
+                if !self_install::is_installed(&self.paths) {
+                    widgets.window.close();
+                    return;
+                }
+
+                self.refresh_apps();
+                Self::rebuild_list(self, widgets);
+                if errors.is_empty() {
+                    Self::toast(widgets, &t("AppImages removed"));
+                } else {
+                    Self::toast(widgets, &errors.join("\n"));
+                }
+            }
             Msg::Launch(path) => {
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == path) {
                     Self::launch(app);
@@ -1013,6 +1071,7 @@ impl AppModel {
             opened_from_file: false,
             reloaded: None,
             cancel_token: None,
+            removing_self: false,
         };
 
         model.refresh_apps();
@@ -1963,6 +2022,73 @@ impl AppModel {
             dialog.close();
         });
         dialog.present();
+    }
+
+    fn confirm_self_remove(
+        widgets: &Widgets,
+        path: PathBuf,
+        count: usize,
+        sender: &ComponentSender<Self>,
+    ) {
+        let dialog = adw::MessageDialog::new(
+            Some(&widgets.window),
+            Some(&t("Remove Gear LeverR?")),
+            Some(&t(
+                "Gear LeverR will be removed together with its desktop entry and the application will close. Removing only Gear LeverR keeps the other AppImages integrated.",
+            )),
+        );
+        dialog.add_response("cancel", &t("Cancel"));
+        dialog.add_response("remove-all", &t("Remove all AppImages"));
+        dialog.add_response("remove-self", &t("Remove Gear LeverR"));
+        dialog.set_response_appearance("remove-self", adw::ResponseAppearance::Suggested);
+        dialog.set_response_appearance("remove-all", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+
+        let sender = sender.clone();
+        let parent = widgets.window.clone();
+        dialog.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
+            match response {
+                "remove-self" => sender.input(Msg::RemoveConfirmed(path.clone())),
+                "remove-all" => Self::confirm_remove_all(&parent, count, &sender),
+                _ => {}
+            }
+            dialog.close();
+        });
+        dialog.present();
+    }
+
+    fn confirm_remove_all(
+        parent: &adw::ApplicationWindow,
+        count: usize,
+        sender: &ComponentSender<Self>,
+    ) {
+        let body = if count == 1 {
+            t(
+                "Gear LeverR is the only integrated AppImage. It will be removed and the application will close.",
+            )
+        } else {
+            tf(
+                "This removes all {count} integrated AppImages, including Gear LeverR, and the application will close.",
+                &[("count", &count.to_string())],
+            )
+        };
+        let confirm =
+            adw::MessageDialog::new(Some(parent), Some(&t("Remove all AppImages?")), Some(&body));
+        confirm.add_response("cancel", &t("Cancel"));
+        confirm.add_response("remove-all", &t("Remove all AppImages"));
+        confirm.set_response_appearance("remove-all", adw::ResponseAppearance::Destructive);
+        confirm.set_default_response(Some("cancel"));
+        confirm.set_close_response("cancel");
+
+        let sender = sender.clone();
+        confirm.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
+            if response == "remove-all" {
+                sender.input(Msg::RemoveAllConfirmed);
+            }
+            dialog.close();
+        });
+        confirm.present();
     }
 
     fn launch(app: &InstalledApp) {

@@ -38,6 +38,8 @@ pub struct InstalledApp {
     pub size: u64,
     /// Whether the AppImage lives outside the managed folder.
     pub external: bool,
+    /// Whether this is Gear LeverR's own integration.
+    pub self_entry: bool,
 }
 
 /// Options that affect which integrations are returned.
@@ -100,13 +102,9 @@ fn read_entry(path: &Path, options: &ScanOptions<'_>) -> Option<InstalledApp> {
     let desktop = DesktopFile::parse(&contents);
     let main = desktop.section("Desktop Entry")?;
 
-    // Gear LeverR installs its own entry outside the managed collection.
-    if main
+    let self_entry = main
         .get(crate::self_install::SELF_MARKER)
-        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
-    {
-        return None;
-    }
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"));
 
     let try_exec = main
         .get("TryExec")
@@ -178,6 +176,7 @@ fn read_entry(path: &Path, options: &ScanOptions<'_>) -> Option<InstalledApp> {
         exec_arguments: command.arguments_joined(),
         env_variables: command.env_variables,
         external,
+        self_entry,
     })
 }
 
@@ -277,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    fn ignores_the_self_installed_desktop_entry() {
+    fn lists_the_self_installed_desktop_entry() {
         let directory = tempfile::tempdir().unwrap();
         let paths = Paths::with_home(directory.path());
         let appimages = paths.default_appimages_dir();
@@ -309,7 +308,8 @@ mod tests {
         )
         .unwrap();
 
-        assert!(apps.is_empty());
+        assert_eq!(apps.len(), 1);
+        assert!(apps[0].self_entry);
     }
 
     #[test]

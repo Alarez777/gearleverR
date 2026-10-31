@@ -78,7 +78,7 @@ fn integrates_scans_and_removes_a_real_appimage() {
 }
 
 #[test]
-fn installs_itself_and_stays_out_of_the_list() {
+fn installs_itself_lists_itself_and_uninstalls_cleanly() {
     let Some(source) = test_appimage() else {
         return;
     };
@@ -108,8 +108,18 @@ fn installs_itself_and_stays_out_of_the_list() {
     )
     .expect("scan succeeds");
 
-    assert!(
-        apps.is_empty(),
-        "Gear LeverR must not manage its own desktop entry"
-    );
+    assert_eq!(apps.len(), 1, "Gear LeverR lists its own integration");
+    assert!(apps[0].self_entry);
+    assert!(apps[0].version.is_some(), "the entry declares a version");
+
+    let app = apps.into_iter().next().expect("the self entry is listed");
+    let mut config = Config::default();
+    uninstall(&app, Removal::Delete, &mut config).expect("removal succeeds");
+
+    assert!(!installation.image_path.exists());
+    assert!(!installation.desktop_path.exists());
+    if let Some(icon) = installation.icon_path {
+        assert!(!icon.exists(), "the icon is removed");
+    }
+    assert!(!self_install::is_installed(&paths));
 }

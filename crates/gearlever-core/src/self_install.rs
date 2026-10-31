@@ -113,7 +113,7 @@ pub fn install(image: &Path, options: &InstallOptions) -> Result<Installation> {
     let image_path = place_image(image, &options.appimages_dir)?;
     let icon_path = write_icon(&metadata, &options.icons_dir)?;
 
-    let desktop = desktop_entry(&metadata, &image_path);
+    let desktop = desktop_entry(&metadata, &image_path, icon_path.as_deref());
     let desktop_path = options.applications_dir.join(DESKTOP_ID);
     write_atomic(&desktop_path, desktop.to_string().as_bytes())?;
 
@@ -214,7 +214,7 @@ fn write_icon(metadata: &AppMetadata, icons_dir: &Path) -> Result<Option<PathBuf
 }
 
 /// Builds the desktop entry, reusing the one shipped inside the AppImage.
-fn desktop_entry(metadata: &AppMetadata, image: &Path) -> DesktopFile {
+fn desktop_entry(metadata: &AppMetadata, image: &Path, icon_path: Option<&Path>) -> DesktopFile {
     let mut desktop = if metadata.desktop_contents.trim().is_empty() {
         DesktopFile::default()
     } else {
@@ -225,6 +225,12 @@ fn desktop_entry(metadata: &AppMetadata, image: &Path) -> DesktopFile {
     let original = args::parse(&metadata.exec).unwrap_or_default();
     let exec = args::join(
         std::iter::once(image_text.as_ref()).chain(original.arguments.iter().map(String::as_str)),
+    );
+    // An absolute icon path lets the generic uninstall remove the file without
+    // knowing that this entry belongs to Gear LeverR.
+    let icon = icon_path.map_or_else(
+        || ICON_NAME.to_owned(),
+        |path| path.to_string_lossy().into_owned(),
     );
 
     if desktop
@@ -237,14 +243,18 @@ fn desktop_entry(metadata: &AppMetadata, image: &Path) -> DesktopFile {
     desktop.set("Desktop Entry", "Type", "Application");
     desktop.set("Desktop Entry", "TryExec", image_text.as_ref());
     desktop.set("Desktop Entry", "Exec", exec);
-    desktop.set("Desktop Entry", "Icon", ICON_NAME);
+    desktop.set("Desktop Entry", "Icon", icon);
     desktop.set("Desktop Entry", "Terminal", "false");
     desktop.set("Desktop Entry", SELF_MARKER, "true");
     desktop.set("Desktop Entry", "X-AppImage-Name", &metadata.name);
-
-    if let Some(version) = &metadata.version {
-        desktop.set("Desktop Entry", "X-AppImage-Version", version);
-    }
+    desktop.set(
+        "Desktop Entry",
+        "X-AppImage-Version",
+        metadata
+            .version
+            .clone()
+            .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_owned()),
+    );
 
     desktop
 }
@@ -378,12 +388,29 @@ mod tests {
     #[test]
     fn writes_an_absolute_exec_and_the_self_marker() {
         let image = Path::new("/home/tester/AppImages/Gear LeverR.AppImage");
-        let desktop = desktop_entry(&metadata(), image).to_string();
+        let icon = Path::new("/home/tester/.local/share/icons/hicolor/512x512/apps/icon.png");
+        let desktop = desktop_entry(&metadata(), image, Some(icon)).to_string();
 
         assert!(desktop.contains("TryExec=/home/tester/AppImages/Gear LeverR.AppImage"));
         assert!(desktop.contains("Exec='/home/tester/AppImages/Gear LeverR.AppImage' %U"));
         assert!(desktop.contains(&format!("{SELF_MARKER}=true")));
         assert!(desktop.contains("X-AppImage-Version=0.1.0"));
+        assert!(desktop.contains(&format!("Icon={}", icon.display())));
+    }
+
+    #[test]
+    fn falls_back_to_the_crate_version() {
+        let mut metadata = metadata();
+        metadata.version = None;
+        let desktop = desktop_entry(
+            &metadata,
+            Path::new("/home/tester/AppImages/GearLeverR.AppImage"),
+            None,
+        )
+        .to_string();
+
+        assert!(desktop.contains(&format!("X-AppImage-Version={}", env!("CARGO_PKG_VERSION"))));
+        assert!(desktop.contains(&format!("Icon={ICON_NAME}")));
     }
 
     #[test]

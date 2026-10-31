@@ -62,6 +62,9 @@ The first launch shows a welcome window: it installs Gear LeverR in the applicat
 the AppImages folder, whether new AppImages are moved or cloned, and whether updates are
 checked at login. Once the entry exists the window is not shown again.
 
+Gear LeverR also appears in its own list of installed AppImages. Its Remove button can
+uninstall only Gear LeverR or every integrated AppImage.
+
 You can also pass an AppImage directly:
 
 ```sh

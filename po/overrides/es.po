@@ -157,3 +157,27 @@ msgstr "No se puede determinar el AppImage en ejecución"
 
 msgid "Gear LeverR installed"
 msgstr "Gear LeverR instalado"
+
+msgid "Remove Gear LeverR?"
+msgstr "¿Eliminar Gear LeverR?"
+
+msgid "Gear LeverR will be removed together with its desktop entry and the application will close. Removing only Gear LeverR keeps the other AppImages integrated."
+msgstr "Se eliminará Gear LeverR junto con su acceso al menú y la aplicación se cerrará. Si eliminas solo Gear LeverR, el resto de AppImages seguirán integradas."
+
+msgid "Remove Gear LeverR"
+msgstr "Eliminar Gear LeverR"
+
+msgid "Remove all AppImages"
+msgstr "Eliminar todos los AppImages"
+
+msgid "Remove all AppImages?"
+msgstr "¿Eliminar todos los AppImages?"
+
+msgid "Gear LeverR is the only integrated AppImage. It will be removed and the application will close."
+msgstr "Gear LeverR es el único AppImage integrado. Se eliminará y la aplicación se cerrará."
+
+msgid "This removes all {count} integrated AppImages, including Gear LeverR, and the application will close."
+msgstr "Se eliminarán los {count} AppImages integrados, incluida Gear LeverR, y se cerrará la aplicación."
+
+msgid "AppImages removed"
+msgstr "AppImages eliminadas"

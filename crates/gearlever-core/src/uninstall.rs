@@ -113,6 +113,7 @@ mod tests {
             env_variables: Vec::new(),
             size: 5,
             external: false,
+            self_entry: false,
         };
 
         let mut config = Config::default();
@@ -146,6 +147,7 @@ mod tests {
             env_variables: Vec::new(),
             size: 0,
             external: false,
+            self_entry: false,
         };
 
         let mut config = Config::default();

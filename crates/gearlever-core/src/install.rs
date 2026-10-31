@@ -203,6 +203,7 @@ pub fn integrate(
         exec_arguments,
         env_variables,
         external: false,
+        self_entry: false,
     })
 }
 

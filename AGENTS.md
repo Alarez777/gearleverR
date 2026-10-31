@@ -77,6 +77,8 @@ headless.
 - Keep the same update manager IDs: `StaticFileUpdater`, `GithubUpdater`,
   `GitlabUpdater`, `CodebergUpdater`, `FTPUpdater`, `ForgejoUpdater`.
 - Keep CLI behaviour and `--json` with `schema_version: 1`.
+- Gear LeverR installs its own `.desktop` entry with `X-GearLeverR-Self=true`; `scan()`
+  lists it like any other app and the UI uses the marker to offer self-removal.
 - Do not change the AppImages folder or `.icons` (`~/AppImages` by default).
 
 ## Quality before handing back
