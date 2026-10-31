@@ -2240,11 +2240,12 @@ impl AppModel {
         widgets.left_button.set_visible(false);
         widgets.menu_button.set_visible(false);
         widgets.search_button.set_visible(false);
+        widgets.title.set_visible(false);
         widgets.window.set_resizable(false);
 
         let (width, height) = match preview {
-            Preview::Candidate => (480, 450),
-            Preview::Installed => (600, 380),
+            Preview::Candidate => (600, 400),
+            Preview::Installed => (600, 360),
         };
         widgets.window.set_default_size(width, height);
     }
@@ -2558,7 +2559,7 @@ const ACTION_BUTTON_WIDTH: i32 = 200;
 
 /// Width and height of the buttons in the small preview windows.
 const PREVIEW_BUTTON_WIDTH: i32 = 240;
-const PREVIEW_BUTTON_HEIGHT: i32 = 72;
+const PREVIEW_BUTTON_HEIGHT: i32 = 36;
 
 fn same_file(left: &Path, right: &Path) -> bool {
     match (fs::canonicalize(left), fs::canonicalize(right)) {
