@@ -13,6 +13,7 @@ const MAGIC_OFFSET: usize = 8;
 
 /// AppImage format revision, taken from the runtime magic at offset 8.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ImageType {
     /// Type 1: the payload is an ISO9660 image.
     Type1,
@@ -42,6 +43,7 @@ impl fmt::Display for ImageType {
 
 /// CPU architecture encoded in the ELF header of the AppImage runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ElfArch {
     /// x86-64 (`EM_X86_64`).
     X86_64,
@@ -84,6 +86,7 @@ impl fmt::Display for ElfArch {
 
 /// Filesystem found right after the ELF runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PayloadKind {
     /// SquashFS, readable in-process by `backhand`.
     Squashfs,

@@ -21,6 +21,7 @@ use crate::error::{Error, Result};
 
 /// Supported digest algorithms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Algorithm {
     /// MD5, used only to display a fingerprint.
     Md5,

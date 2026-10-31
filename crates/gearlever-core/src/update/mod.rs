@@ -31,6 +31,7 @@ pub use zsync::ZsyncInfo;
 
 /// Result of asking an update source whether a newer release exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum UpdateStatus {
     /// A newer release is available.
     Available,
@@ -50,6 +51,7 @@ impl UpdateStatus {
 
 /// Kind of update source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ManagerKind {
     /// A direct HTTP(S) URL or a `zsync` URL.
     StaticFile,
@@ -200,6 +202,7 @@ impl ConfigField {
 
 /// Type of a configuration field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FieldKind {
     /// Free-form text.
     Text,

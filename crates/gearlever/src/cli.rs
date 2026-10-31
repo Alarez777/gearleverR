@@ -593,6 +593,10 @@ impl Cli {
                     "false" | "0" | "no" => "false".to_owned(),
                     _ => bail!("Error: {} must be true/false", field.key),
                 },
+                other => bail!(
+                    "Error: {} has an unsupported field type ({other:?})",
+                    field.key
+                ),
             };
 
             values.insert(field.key.to_owned(), value);

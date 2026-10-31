@@ -9,6 +9,7 @@ use crate::scan::InstalledApp;
 
 /// How to remove the AppImage file from disk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Removal {
     /// Move it to the freedesktop trash.
     Trash,

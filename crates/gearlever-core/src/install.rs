@@ -22,6 +22,7 @@ pub const DESKTOP_INTEGRATION_ENV: &str = "DESKTOPINTEGRATION=1";
 
 /// What to do when an application with the same name exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Conflict {
     /// Keep the new file under a unique name.
     KeepBoth,

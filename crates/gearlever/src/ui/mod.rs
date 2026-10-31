@@ -1538,6 +1538,17 @@ impl AppModel {
                             .borrow_mut()
                             .push((field.key, FieldWidget::Boolean(toggle)));
                     }
+                    other => {
+                        // Gear LeverR only defines text and boolean fields. A
+                        // non-exhaustive match keeps this building if the core
+                        // grows a new kind, even though this version cannot
+                        // render it.
+                        tracing::warn!(
+                            key = field.key,
+                            kind = ?other,
+                            "unsupported update source field type"
+                        );
+                    }
                 }
             }
 

@@ -51,6 +51,7 @@ expect_used = "allow"
 panic_in_result_fn = "warn"
 missing_panics_doc = "warn"
 missing_errors_doc = "warn"
+missing_assert_message = "warn"
 
 allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
@@ -63,6 +64,9 @@ struct_excessive_bools = "warn"
 clone_on_ref_ptr = "warn"
 redundant_clone = "warn"
 rc_buffer = "warn"
+
+# Evolution.
+exhaustive_enums = "warn"
 
 string_add = "warn"
 wildcard_imports = "warn"
