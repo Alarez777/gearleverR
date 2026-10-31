@@ -1,63 +1,64 @@
 # Gear Lever R
 
-Reescritura en Rust de [Gear Lever](https://github.com/mijorus/gearlever), pensada
-para ser más rápida y consumir menos memoria, manteniendo las mismas funciones,
-los mismos archivos de configuración y la misma interfaz.
+**English** | [Español](README.es.md)
+
+A Rust rewrite of [Gear Lever](https://github.com/mijorus/gearlever), meant to be
+faster and use less memory while keeping the same features, the same configuration
+files and the same interface.
 
 - **UI**: GTK4 + libadwaita + Relm4
-- **AppImage**: enlazado contra el GTK del sistema (AppImage de ~4 MB)
-- **Licencia**: GPL-3.0-or-later
+- **AppImage**: links against the system GTK (a ~4 MB AppImage)
+- **License**: GPL-3.0-or-later
 
-## Estado
+## Status
 
-La versión 0.1 implementa la paridad funcional principal: integración, borrado,
-lanzamiento, actualizaciones desde seis fuentes, CLI compatible y la interfaz
-completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
+Version 0.1 implements the main functional parity: integration, removal, launching,
+updates from six sources, a compatible CLI and the full interface. See
+[Known limitations](#known-limitations).
 
-## Ramas
+## Branches
 
-- `develop`: desarrollo activo. Todos los cambios entran aquí primero.
-- `main`: código probado y releases. Se actualiza desde `develop` cuando pasa las pruebas.
+- `develop`: active development. Every change lands here first.
+- `main`: tested code and releases. Updated from `develop` once the tests pass.
 
-## Funciones
+## Features
 
-- Integrar AppImages con un click, por arrastrar y soltar o desde el selector de archivos.
-- Integrar varios AppImages a la vez y detectar conflictos de nombre (mantener ambos o reemplazar).
-- Extraer icono, nombre, versión y descripción **sin** ejecutar la AppImage y sin
-  herramientas externas para SquashFS.
-- Gestionar actualizaciones desde URL estática, GitHub, GitLab, Codeberg, Forgejo y FTP,
-  incluida la información `.upd_info` embebida (`zsync` y `gh-releases-zsync`).
-- Actualizar todo a la vez, con progreso, cancelación y comprobación de apps en ejecución.
-- Editar argumentos, variables de entorno, sitio web y fuente de actualizaciones.
-- Recargar metadata, borrar a la papelera y abrir la carpeta de la app.
-- Preferencias, tutorial, about, búsqueda y notificaciones de actualizaciones.
-- Traducciones gettext con los catálogos del Gear Lever original (22 idiomas).
-- Comprobación de actualizaciones al iniciar sesión mediante el portal
-  `org.freedesktop.portal.Background`, con entrada clásica en `~/.config/autostart`
-  como respaldo.
-- CLI con `--json` compatible con la versión original.
+- Integrate AppImages with one click, by drag and drop, or from the file chooser.
+- Integrate several AppImages at once and resolve name conflicts (keep both or replace).
+- Extract the icon, name, version and description **without** running the AppImage and
+  without external tools for SquashFS.
+- Manage updates from a static URL, GitHub, GitLab, Codeberg, Forgejo and FTP,
+  including embedded `.upd_info` data (`zsync` and `gh-releases-zsync`).
+- Update everything at once, with progress, cancellation and a check for running apps.
+- Edit arguments, environment variables, the website and the update source.
+- Reload metadata, move an app to the trash and open its folder.
+- Preferences, tutorial, about dialog, search and update notifications.
+- gettext translations based on the original Gear Lever catalogs (22 languages).
+- Update checks at login through `org.freedesktop.portal.Background`, with a classic
+  `~/.config/autostart` entry as a fallback.
+- CLI with a `--json` document compatible with the original.
 
-## Requisitos
+## Requirements
 
-- GTK 4.8 o superior y libadwaita 1.2 o superior.
-- Probado en Debian 12 y Debian 13. Ubuntu 23.04+, Fedora 38+ y Arch incluyen
-  versiones compatibles. **Ubuntu 22.04 no** (GTK 4.6 / Adw 1.1).
-- Para payloads DwarFS o ISO9660 hacen falta `dwarfsextract`/`7zz`; sin ellos la
-  app muestra un error claro.
+- GTK 4.8 or newer and libadwaita 1.2 or newer.
+- Tested on Debian 12 and Debian 13. Ubuntu 23.04+, Fedora 38+ and Arch ship
+  compatible versions. **Ubuntu 22.04 does not** (GTK 4.6 / Adw 1.1).
+- DwarFS or ISO9660 payloads need `dwarfsextract`/`7zz`; without them the app shows a
+  clear error.
 
-## Uso
+## Usage
 
-Descarga `GearLeverR-<version>-x86_64.AppImage`, dale permisos de ejecución y ábrelo:
+Download `GearLeverR-<version>-x86_64.AppImage`, make it executable and open it:
 
 ```sh
 chmod +x GearLeverR-0.1.0-x86_64.AppImage
 ./GearLeverR-0.1.0-x86_64.AppImage
 ```
 
-También puedes pasarle un AppImage directamente:
+You can also pass an AppImage directly:
 
 ```sh
-./GearLeverR-0.1.0-x86_64.AppImage ~/Descargas/App.AppImage
+./GearLeverR-0.1.0-x86_64.AppImage ~/Downloads/App.AppImage
 ```
 
 ### CLI
@@ -74,12 +75,12 @@ También puedes pasarle un AppImage directamente:
 ./GearLeverR-0.1.0-x86_64.AppImage --list-update-managers
 ```
 
-Los documentos `--json` tienen `schema_version: 1` y las mismas claves que la
-versión original (`installed` / `updates`).
+`--json` documents use `schema_version: 1` and the same keys as the original
+(`installed` / `updates`).
 
-## Compilar
+## Building
 
-Desarrollo en Debian 13 (o cualquier distro con GTK 4.18/Adw 1.7):
+Development on Debian 13 (or any distro with GTK 4.18/Adw 1.7):
 
 ```sh
 sudo apt install build-essential pkg-config libgtk-4-dev libadwaita-1-dev \
@@ -88,17 +89,17 @@ cargo build -p gearlever --release
 ./target/release/gearlever-r
 ```
 
-Builds de release (compatibles con Debian 12; glibc 2.36, GTK 4.8, Adw 1.2):
+Release builds (compatible with Debian 12; glibc 2.36, GTK 4.8, Adw 1.2):
 
 ```sh
 packaging/appimage/build-in-debian12.sh
 ```
 
-El script compila dentro de `rust:1.98-bookworm` y empaqueta el AppImage en
-`dist/`. El binario resultante funciona también en distros más nuevas.
+The script builds inside `rust:1.98-bookworm` and packages the AppImage into `dist/`.
+The resulting binary also runs on newer distributions.
 
-Si ejecutas el binario directamente (sin AppImage), instala el esquema para que
-las preferencias persistan:
+If you run the binary directly (without the AppImage), install the schema so the
+preferences persist:
 
 ```sh
 install -Dm644 data/io.github.alarez777.GearLeverR.gschema.xml \
@@ -106,83 +107,83 @@ install -Dm644 data/io.github.alarez777.GearLeverR.gschema.xml \
 glib-compile-schemas ~/.local/share/glib-2.0/schemas
 ```
 
-Los logs se escriben en `~/.local/state/gearlever-r/gearlever-r.log` y se pueden
-abrir desde el menú. El nivel `debug` se activa en Preferencias.
+Logs are written to `~/.local/state/gearlever-r/gearlever-r.log` and can be opened
+from the menu. Enable the `debug` level in Preferences.
 
-## Traducciones
+## Translations
 
-La interfaz usa gettext y reutiliza los catálogos del Gear Lever original. Los
-archivos viven en `po/` (formato `.po`); el AppImage incluye los `.mo` compilados.
+The interface uses gettext and reuses the original Gear Lever catalogs. The files live
+in `po/` (`.po` format); the AppImage bundles the compiled `.mo` files.
 
 ```sh
-# Compilar para probar en local
+# Compile to test locally
 scripts/compile-translations.sh
 GEARLEVER_R_LOCALEDIR=$PWD/target LANGUAGE=es ./target/release/gearlever-r
 
-# Tras añadir o cambiar textos con t("..."), actualizar plantilla y catálogos
+# After adding or changing strings with t("..."), update the template and catalogs
 scripts/update-translations.sh
 ```
 
-Los mensajes nuevos sin traducción muestran el inglés. Para completar un idioma
-basta con editar su `.po` (por ejemplo con Poedit) y volver a compilar.
+New, untranslated strings fall back to English. To complete a language, edit its `.po`
+file (for example with Poedit) and compile again.
 
-## Pruebas y rendimiento
+## Tests and performance
 
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace
 
-# Pruebas opcionales con un AppImage real
+# Optional tests against a real AppImage
 GEARLEVER_TEST_APPIMAGE=~/AppImages/app.appimage cargo test --workspace
 
 # Benchmarks
 scripts/bench-metadata.sh ~/AppImages/*.appimage
 scripts/bench-startup.sh
 
-# Humo de UI (Xvfb + D-Bus): sin modal bloqueante y el bucle de mensajes responde
+# UI smoke test (Xvfb + openbox + xdotool): no blocking modal and real clicks work
 scripts/ui-smoke.sh ./dist/GearLeverR-0.1.0-x86_64.AppImage
 ```
 
-Resultados medidos en la máquina de desarrollo: consulta
+Results measured on the development machine: see
 [`docs/performance.md`](docs/performance.md).
 
-## Arquitectura
+## Architecture
 
 ```
-crates/gearlever-core/   lógica sin GTK: appimage, desktop, config, updates, install
-crates/gearlever/        binario: CLI (clap) + UI (Relm4)
-data/                    .desktop, .gschema, iconos
-packaging/appimage/      AppRun, build.sh y build-in-debian12.sh
+crates/gearlever-core/   GTK-free logic: appimage, desktop, config, updates, install
+crates/gearlever/        binary: CLI (clap) + UI (Relm4)
+data/                    .desktop, .gschema, icons
+packaging/appimage/      AppRun, build.sh and build-in-debian12.sh
 ```
 
-El core no depende de GTK: el CLI funciona sin display y los tests son headless.
-La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
-`unsquashfs`, `readelf`, `file` ni `ps` en el camino normal.
+The core does not depend on GTK: the CLI runs without a display and the tests are
+headless. SquashFS extraction uses `backhand` in process; the normal path does not
+invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
 
-## Compatibilidad con Gear Lever
+## Gear Lever compatibility
 
-- Importa `~/.config/gearlever.conf` la primera vez (incluidas las secciones
-  `app.<md5>` con argumentos, variables y fuentes de actualización).
-- Importa las claves de GSettings del esquema `it.mijorus.gearlever`.
-- Escribe `.desktop` con el mismo formato que el original.
-- Usa el mismo directorio `~/AppImages` y `~/AppImages/.icons`.
-- Puede convivir con el Flatpak instalado.
+- Imports `~/.config/gearlever.conf` on first run (including the `app.<md5>` sections
+  with arguments, environment variables and update sources).
+- Imports the GSettings keys of the `it.mijorus.gearlever` schema.
+- Writes `.desktop` files in the same format as the original.
+- Uses the same `~/AppImages` and `~/AppImages/.icons` directories.
+- Can coexist with the installed Flatpak.
 
-## Limitaciones conocidas
+## Known limitations
 
-- La interfaz está traducida: se reutilizan los catálogos del original. El español
-  está completo; en otros idiomas, las cadenas nuevas de Gear Lever R pueden
-  aparecer en inglés hasta que se traduzcan (ver `po/`).
-- El tutorial tiene tres páginas (el original tiene cuatro) y no incluye el
-  AppImage de demostración.
-- Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.
-- No hay actualizaciones delta: se descarga el AppImage completo.
-- DwarFS e ISO9660 requieren `dwarfsextract` o `7zz` instalados.
-- No hay auto-actualización del propio AppImage.
+- The interface is translated by reusing the original catalogs. Spanish is complete;
+  in other languages, new Gear Lever R strings may appear in English until they are
+  translated (see `po/`).
+- The tutorial has three pages (the original has four) and does not include the demo
+  AppImage.
+- Environment variables are edited as `KEY=value` lines, not row by row.
+- There are no delta updates: the whole AppImage is downloaded.
+- DwarFS and ISO9660 require `dwarfsextract` or `7zz` to be installed.
+- There is no self-update for the AppImage itself.
 
-## Licencia y atribución
+## License and attribution
 
-GPL-3.0-or-later. Es un trabajo derivado de Gear Lever, de Lorenzo Paderi
-(<https://github.com/mijorus/gearlever>). El nombre y el icono originales no se
-usan; este proyecto se distribuye como Gear Lever R.
+GPL-3.0-or-later. This is a derivative work of Gear Lever by Lorenzo Paderi
+(<https://github.com/mijorus/gearlever>). The original name and icon are not used;
+this project is distributed as Gear Lever R.
