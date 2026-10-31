@@ -63,6 +63,13 @@ enum Page {
     MultiUpdate,
 }
 
+/// Which small window is used when an AppImage is opened from the file manager.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Preview {
+    Candidate,
+    Installed,
+}
+
 #[expect(
     clippy::large_enum_variant,
     reason = "the installed path is the common case and cloning is cheap enough"
@@ -342,7 +349,7 @@ impl Component for AppModel {
                     self.page = Page::Details;
                     Self::show_page(self, widgets);
                     if self.minimal_preview() {
-                        Self::minimal_ui(widgets);
+                        Self::minimal_ui(widgets, Preview::Installed);
                     }
                     Self::rebuild_details(self, widgets, &sender);
                     return;
@@ -362,7 +369,7 @@ impl Component for AppModel {
                             Self::show_page(self, widgets);
                             Self::rebuild_details(self, widgets, &sender);
                             if self.minimal_preview() {
-                                Self::minimal_ui(widgets);
+                                Self::minimal_ui(widgets, Preview::Candidate);
                             }
                         }
                     }
@@ -1477,9 +1484,15 @@ impl AppModel {
         let actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         actions.set_halign(gtk::Align::Center);
 
+        let (button_width, button_height) = if minimal {
+            (PREVIEW_BUTTON_WIDTH, PREVIEW_BUTTON_HEIGHT)
+        } else {
+            (ACTION_BUTTON_WIDTH, -1)
+        };
+
         let launch = gtk::Button::with_label(&t("Launch"));
         launch.set_sensitive(!terminal);
-        launch.set_size_request(ACTION_BUTTON_WIDTH, -1);
+        launch.set_size_request(button_width, button_height);
         let sender_launch = sender.clone();
         let path = app.image_path.clone();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path.clone())));
@@ -1487,7 +1500,7 @@ impl AppModel {
 
         let remove = gtk::Button::with_label(&t("Remove"));
         remove.add_css_class("destructive-action");
-        remove.set_size_request(ACTION_BUTTON_WIDTH, -1);
+        remove.set_size_request(button_width, button_height);
         let sender_remove = sender.clone();
         let path = app.image_path.clone();
         remove.connect_clicked(move |_| sender_remove.input(Msg::Remove(path.clone())));
@@ -1664,7 +1677,7 @@ impl AppModel {
         actions.set_halign(gtk::Align::Center);
 
         let launch = gtk::Button::with_label(&t("Launch"));
-        launch.set_size_request(ACTION_BUTTON_WIDTH, -1);
+        launch.set_size_request(PREVIEW_BUTTON_WIDTH, PREVIEW_BUTTON_HEIGHT);
         let sender_launch = sender.clone();
         let path_buf = path.to_path_buf();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path_buf.clone())));
@@ -1672,7 +1685,7 @@ impl AppModel {
 
         let install = gtk::Button::with_label(&t("Move to the app menu"));
         install.add_css_class("suggested-action");
-        install.set_size_request(ACTION_BUTTON_WIDTH, -1);
+        install.set_size_request(PREVIEW_BUTTON_WIDTH, PREVIEW_BUTTON_HEIGHT);
         let sender_install = sender.clone();
         let path_buf = path.to_path_buf();
         install.connect_clicked(move |_| {
@@ -2082,28 +2095,53 @@ impl AppModel {
                 "There is already an app with the same name, how do you want to proceed?",
             )),
         );
-        dialog.add_response("cancel", &t("Cancel"));
-        dialog.add_response("keep", &t("Keep both"));
-        dialog.add_response("replace", &t("Replace"));
-        dialog.set_response_appearance("replace", adw::ResponseAppearance::Suggested);
-        dialog.set_default_response(Some("cancel"));
-        dialog.set_close_response("cancel");
 
-        let sender = sender.clone();
-        dialog.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
-            match response {
-                "keep" => sender.input(Msg::InstallWithConflict {
-                    path: path.clone(),
-                    replace: false,
-                }),
-                "replace" => sender.input(Msg::InstallWithConflict {
-                    path: path.clone(),
-                    replace: true,
-                }),
-                _ => {}
-            }
-            dialog.close();
+        // Build the responses by hand so Cancel keeps the filled red
+        // destructive style and the three choices stay in this order.
+        let buttons = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        buttons.set_margin_top(6);
+
+        let replace = gtk::Button::with_label(&t("Replace"));
+        replace.add_css_class("suggested-action");
+        replace.set_hexpand(true);
+
+        let keep = gtk::Button::with_label(&t("Keep both"));
+        keep.set_hexpand(true);
+
+        let cancel = gtk::Button::with_label(&t("Cancel"));
+        cancel.add_css_class("destructive-action");
+        cancel.set_hexpand(true);
+
+        buttons.append(&replace);
+        buttons.append(&keep);
+        buttons.append(&cancel);
+        dialog.set_extra_child(Some(&buttons));
+
+        let sender_replace = sender.clone();
+        let dialog_replace = dialog.clone();
+        let replace_path = path.clone();
+        replace.connect_clicked(move |_| {
+            sender_replace.input(Msg::InstallWithConflict {
+                path: replace_path.clone(),
+                replace: true,
+            });
+            dialog_replace.close();
         });
+
+        let sender_keep = sender.clone();
+        let dialog_keep = dialog.clone();
+        let keep_path = path;
+        keep.connect_clicked(move |_| {
+            sender_keep.input(Msg::InstallWithConflict {
+                path: keep_path.clone(),
+                replace: false,
+            });
+            dialog_keep.close();
+        });
+
+        let dialog_cancel = dialog.clone();
+        cancel.connect_clicked(move |_| dialog_cancel.close());
+
         dialog.present();
     }
 
@@ -2198,12 +2236,17 @@ impl AppModel {
         let _ = gio::AppInfo::launch_default_for_uri(uri, None::<&gio::AppLaunchContext>);
     }
 
-    fn minimal_ui(widgets: &Widgets) {
+    fn minimal_ui(widgets: &Widgets, preview: Preview) {
         widgets.left_button.set_visible(false);
         widgets.menu_button.set_visible(false);
         widgets.search_button.set_visible(false);
         widgets.window.set_resizable(false);
-        widgets.window.set_default_size(420, 520);
+
+        let (width, height) = match preview {
+            Preview::Candidate => (480, 450),
+            Preview::Installed => (600, 380),
+        };
+        widgets.window.set_default_size(width, height);
     }
 
     fn show_progress(widgets: &Widgets) {
@@ -2512,6 +2555,10 @@ fn fraction(done: usize, total: usize) -> f64 {
 
 /// Width shared by the primary action buttons.
 const ACTION_BUTTON_WIDTH: i32 = 200;
+
+/// Width and height of the buttons in the small preview windows.
+const PREVIEW_BUTTON_WIDTH: i32 = 240;
+const PREVIEW_BUTTON_HEIGHT: i32 = 72;
 
 fn same_file(left: &Path, right: &Path) -> bool {
     match (fs::canonicalize(left), fs::canonicalize(right)) {
