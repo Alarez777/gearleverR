@@ -24,6 +24,10 @@ updates from six sources, a compatible CLI and the full interface. See
 ## Features
 
 - Integrate AppImages with one click, by drag and drop, or from the file chooser.
+- Detect an AppImage that is already integrated by comparing its contents, and offer
+  Launch and Remove instead of integrating a second copy.
+- Ask whether to replace the installed version, keep both or cancel when a different
+  AppImage with the same name is integrated.
 - Integrate several AppImages at once and resolve name conflicts (keep both or replace).
 - Extract the icon, name, version and description **without** running the AppImage and
   without external tools for SquashFS.

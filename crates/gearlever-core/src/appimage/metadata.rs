@@ -301,14 +301,18 @@ fn read_dir_icon(image: &SquashfsImage) -> Result<Option<ExtractedIcon>> {
 }
 
 /// Candidate icon paths, mirroring the order used by the original project.
+///
+/// The root icon is often a symlink to a small `hicolor` size, so the theme
+/// copies are tried first. A root SVG still wins because it scales.
 fn icon_candidates(base: &str) -> Vec<String> {
-    let mut candidates = vec![format!("{base}.svg"), format!("{base}.png")];
+    let mut candidates = vec![format!("{base}.svg")];
 
     for size in ["scalable", "512x512", "256x256", "128x128", "96x96"] {
         candidates.push(format!("usr/share/icons/hicolor/{size}/apps/{base}.svg"));
         candidates.push(format!("usr/share/icons/hicolor/{size}/apps/{base}.png"));
     }
 
+    candidates.push(format!("{base}.png"));
     candidates
 }
 
@@ -389,6 +393,22 @@ mod tests {
             read_from_directory(directory.path()),
             Err(Error::MissingDesktopEntry(_))
         ));
+    }
+
+    #[test]
+    fn prefers_high_resolution_icons_over_root_pngs() {
+        let candidates = icon_candidates("example");
+        let position = |path: &str| {
+            candidates
+                .iter()
+                .position(|candidate| candidate == path)
+                .unwrap()
+        };
+
+        assert!(
+            position("usr/share/icons/hicolor/512x512/apps/example.png") < position("example.png")
+        );
+        assert!(position("example.svg") < position("example.png"));
     }
 
     #[test]

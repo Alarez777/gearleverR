@@ -203,6 +203,50 @@ impl HashCache {
     }
 }
 
+/// Returns whether two files have identical contents.
+///
+/// Sizes are compared first, then the files are read in chunks so a duplicate
+/// AppImage does not need to fit in memory. Missing or unreadable files are not
+/// considered equal.
+#[must_use]
+pub fn same_content(left: &Path, right: &Path) -> bool {
+    same_content_inner(left, right).unwrap_or(false)
+}
+
+fn same_content_inner(left: &Path, right: &Path) -> std::io::Result<bool> {
+    const CHUNK: usize = 16 * 1024;
+
+    let left_metadata = fs::metadata(left)?;
+    let right_metadata = fs::metadata(right)?;
+
+    if !left_metadata.is_file() || !right_metadata.is_file() {
+        return Ok(false);
+    }
+    if left_metadata.len() != right_metadata.len() {
+        return Ok(false);
+    }
+
+    let mut left_file = File::open(left)?;
+    let mut right_file = File::open(right)?;
+    let mut left_buffer = [0_u8; CHUNK];
+    let mut right_buffer = [0_u8; CHUNK];
+
+    loop {
+        let left_read = left_file.read(&mut left_buffer)?;
+        let right_read = right_file.read(&mut right_buffer)?;
+
+        if left_read != right_read {
+            return Ok(false);
+        }
+        if left_read == 0 {
+            return Ok(true);
+        }
+        if left_buffer[..left_read] != right_buffer[..right_read] {
+            return Ok(false);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,6 +269,28 @@ mod tests {
             hash_file(&file, Algorithm::Sha256).unwrap(),
             "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
         );
+    }
+
+    #[test]
+    fn compares_file_contents_by_chunks() {
+        let directory = tempfile::tempdir().unwrap();
+        let left = directory.path().join("left");
+        let right = directory.path().join("right");
+
+        let big = vec![7_u8; 150 * 1024];
+        fs::write(&left, &big).unwrap();
+        fs::write(&right, &big).unwrap();
+        assert!(same_content(&left, &right));
+
+        let mut different = big;
+        different[100 * 1024] = 9;
+        fs::write(&right, &different).unwrap();
+        assert!(!same_content(&left, &right));
+
+        fs::write(&right, b"short").unwrap();
+        assert!(!same_content(&left, &right));
+
+        assert!(!same_content(&left, &directory.path().join("missing")));
     }
 
     #[test]

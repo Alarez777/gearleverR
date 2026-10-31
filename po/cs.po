@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://github.com/alarez/gear-leverR/issues\n"
-"POT-Creation-Date: 2026-10-31 22:11+0000\n"
+"POT-Creation-Date: 2026-10-31 23:07+0000\n"
 "PO-Revision-Date: 2024-09-03 17:10+0200\n"
 "Last-Translator: Jonáš Loskot <jonas.loskot@proton.me>\n"
 "Language-Team: \n"
@@ -17,82 +17,83 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 3.4.4\n"
 
-#: crates/gearlever/src/ui/mod.rs:1906
+#: crates/gearlever/src/ui/mod.rs:1947
 msgid "Advanced"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:629 crates/gearlever/src/ui/mod.rs:682
+#: crates/gearlever/src/ui/mod.rs:649 crates/gearlever/src/ui/mod.rs:702
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1999
+#: crates/gearlever/src/ui/mod.rs:2040
 msgid "An utility to manage AppImages with ease!"
 msgstr "Nástroj pro jednoduchou správu AppImages!"
 
-#: crates/gearlever/src/ui/mod.rs:1221
+#: crates/gearlever/src/ui/mod.rs:1288
 msgid "App details"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1831 crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/mod.rs:1872 crates/gearlever/src/ui/welcome.rs:134
 msgid "AppImage default location"
 msgstr "Výchozí umístění AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:505
+#: crates/gearlever/src/ui/mod.rs:525
 msgid "AppImage integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:521
+#: crates/gearlever/src/ui/mod.rs:541
 msgid "AppImages integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:615
+#: crates/gearlever/src/ui/mod.rs:635
 msgid "AppImages removed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1719
+#: crates/gearlever/src/ui/mod.rs:1760
 msgid "Apply changes"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1767
+#: crates/gearlever/src/ui/mod.rs:1808
 msgid "Apps to integrate"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1240
+#: crates/gearlever/src/ui/mod.rs:1307
 msgid "Back"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1194 crates/gearlever/src/ui/mod.rs:1854
-#: crates/gearlever/src/ui/mod.rs:2011 crates/gearlever/src/ui/mod.rs:2040
-#: crates/gearlever/src/ui/mod.rs:2078 crates/gearlever/src/ui/welcome.rs:157
+#: crates/gearlever/src/ui/mod.rs:1261 crates/gearlever/src/ui/mod.rs:1895
+#: crates/gearlever/src/ui/mod.rs:2052 crates/gearlever/src/ui/mod.rs:2084
+#: crates/gearlever/src/ui/mod.rs:2122 crates/gearlever/src/ui/mod.rs:2160
+#: crates/gearlever/src/ui/welcome.rs:157
 msgid "Cancel"
 msgstr "Zrušit"
 
-#: crates/gearlever/src/ui/mod.rs:2130 crates/gearlever/src/ui/mod.rs:2137
-#: crates/gearlever/src/ui/mod.rs:2300
+#: crates/gearlever/src/ui/mod.rs:2212 crates/gearlever/src/ui/mod.rs:2219
+#: crates/gearlever/src/ui/mod.rs:2382
 msgid "Cancel update"
 msgstr "Zrušit aktualizaci"
 
-#: crates/gearlever/src/ui/mod.rs:773
+#: crates/gearlever/src/ui/mod.rs:793
 msgid "Cancelling..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:994
+#: crates/gearlever/src/ui/mod.rs:997
 msgid "Cannot determine the running AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:440
+#: crates/gearlever/src/ui/mod.rs:458 crates/gearlever/src/ui/mod.rs:1156
 msgid "Cannot read the AppImage metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2219
+#: crates/gearlever/src/ui/mod.rs:2301
 msgid "Check for updates"
 msgstr "Zkontrolovat aktualizace"
 
-#: crates/gearlever/src/ui/mod.rs:1899 crates/gearlever/src/ui/welcome.rs:201
+#: crates/gearlever/src/ui/mod.rs:1940 crates/gearlever/src/ui/welcome.rs:201
 msgid "Check updates on system startup"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:374
+#: crates/gearlever/src/ui/mod.rs:392
 msgid "Checking updates..."
 msgstr "Kontrola aktualizací..."
 
@@ -100,55 +101,55 @@ msgstr "Kontrola aktualizací..."
 msgid "Close"
 msgstr "Zavřít"
 
-#: crates/gearlever/src/ui/mod.rs:1455
+#: crates/gearlever/src/ui/mod.rs:1529
 msgid "Command line arguments"
 msgstr "Argumenty příkazového řádku"
 
-#: crates/gearlever/src/ui/mod.rs:836
+#: crates/gearlever/src/ui/mod.rs:856
 msgid "Command line updated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1628
-msgid "Compute hashes"
-msgstr ""
+#: crates/gearlever/src/ui/mod.rs:2076
+msgid "Conflict with \"{app_name}\""
+msgstr "Konflikt s aplikací „{app_name}“"
 
-#: crates/gearlever/src/ui/mod.rs:1655
+#: crates/gearlever/src/ui/mod.rs:1696
 msgid "Default"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2009
+#: crates/gearlever/src/ui/mod.rs:2050
 msgid "Do you really want to remove this app?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2247
+#: crates/gearlever/src/ui/mod.rs:2329
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "Přesuňte sem AppImage nebo klikněte na ikonu „+“."
 
-#: crates/gearlever/src/ui/mod.rs:2321
+#: crates/gearlever/src/ui/mod.rs:2403
 msgid "Drop your file here"
 msgstr "Sem přetáhněte váš soubor"
 
-#: crates/gearlever/src/ui/mod.rs:1920
+#: crates/gearlever/src/ui/mod.rs:1961
 msgid "Enable debug logs"
 msgstr "Povolit ladicí protokoly"
 
-#: crates/gearlever/src/ui/mod.rs:847
+#: crates/gearlever/src/ui/mod.rs:867
 msgid "Enter a valid URL"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1514
+#: crates/gearlever/src/ui/mod.rs:1588
 msgid "Environment variables"
 msgstr "Proměnné prostředí"
 
-#: crates/gearlever/src/ui/mod.rs:1882 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:1923 crates/gearlever/src/ui/welcome.rs:177
 msgid "File management"
 msgstr "Správa souborů"
 
-#: crates/gearlever/src/ui/mod.rs:2201
+#: crates/gearlever/src/ui/mod.rs:2283
 msgid "Filter installed applications"
 msgstr "Filtrovat nainstalované aplikace"
 
-#: crates/gearlever/src/ui/mod.rs:1029
+#: crates/gearlever/src/ui/mod.rs:1032
 msgid "Gear LeverR installed"
 msgstr ""
 
@@ -158,37 +159,33 @@ msgid ""
 "installed and where to keep your AppImages."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2067
+#: crates/gearlever/src/ui/mod.rs:2149
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2036
+#: crates/gearlever/src/ui/mod.rs:2118
 msgid ""
 "Gear LeverR will be removed together with its desktop entry and the "
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1828
+#: crates/gearlever/src/ui/mod.rs:1869
 msgid "General"
 msgstr "Obecné"
 
-#: crates/gearlever/src/ui/mod.rs:2246
+#: crates/gearlever/src/ui/mod.rs:2328
 msgid "Get started"
 msgstr "Začínáme"
-
-#: crates/gearlever/src/ui/mod.rs:1634
-msgid "Hash"
-msgstr "Hash"
 
 #: crates/gearlever/src/ui/welcome.rs:49 crates/gearlever/src/ui/welcome.rs:236
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1220 crates/gearlever/src/ui/mod.rs:2151
-#: crates/gearlever/src/ui/mod.rs:2213
+#: crates/gearlever/src/ui/mod.rs:1287 crates/gearlever/src/ui/mod.rs:2233
+#: crates/gearlever/src/ui/mod.rs:2295
 msgid "Installed applications"
 msgstr "Nainstalované aplikace"
 
@@ -196,152 +193,156 @@ msgstr "Nainstalované aplikace"
 msgid "Installing..."
 msgstr "Instalace..."
 
-#: crates/gearlever/src/ui/mod.rs:475
+#: crates/gearlever/src/ui/mod.rs:495
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:447
+#: crates/gearlever/src/ui/mod.rs:1177
 msgid "Integrating..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1411 crates/gearlever/src/ui/mod.rs:1603
+#: crates/gearlever/src/ui/mod.rs:2085
+msgid "Keep both"
+msgstr "Ponechat obě"
+
+#: crates/gearlever/src/ui/mod.rs:1479 crates/gearlever/src/ui/mod.rs:1665
 msgid "Launch"
 msgstr "Spustit"
 
-#: crates/gearlever/src/ui/mod.rs:2166
+#: crates/gearlever/src/ui/mod.rs:2248
 msgid "Menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:901
+#: crates/gearlever/src/ui/mod.rs:921
 msgid "Metadata reloaded"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1884 crates/gearlever/src/ui/welcome.rs:180
+#: crates/gearlever/src/ui/mod.rs:1925 crates/gearlever/src/ui/welcome.rs:180
 msgid "Move AppImages into the destination folder"
 msgstr "Přesunout soubory AppImage do cílové složky"
 
-#: crates/gearlever/src/ui/mod.rs:1224 crates/gearlever/src/ui/mod.rs:1786
+#: crates/gearlever/src/ui/mod.rs:1291 crates/gearlever/src/ui/mod.rs:1827
 msgid "Move all to the app menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1594
+#: crates/gearlever/src/ui/mod.rs:1672
 msgid "Move to the app menu"
 msgstr "Přesunout do nabídky aplikací"
 
-#: crates/gearlever/src/ui/mod.rs:643
+#: crates/gearlever/src/ui/mod.rs:663
 msgid "No update method was found for this AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:694
+#: crates/gearlever/src/ui/mod.rs:714
 msgid "No updates available"
 msgstr "Nejsou dostupné žádné aktualizace"
-
-#: crates/gearlever/src/ui/mod.rs:1635
-msgid "Not computed"
-msgstr ""
 
 #: crates/gearlever/src/ui/welcome.rs:242
 msgid "Not now"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1517
+#: crates/gearlever/src/ui/mod.rs:1591
 msgid "One KEY=value per line"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1195
+#: crates/gearlever/src/ui/mod.rs:1262
 msgid "Open"
 msgstr "Otevřít"
 
-#: crates/gearlever/src/ui/mod.rs:1447
+#: crates/gearlever/src/ui/mod.rs:1521
 msgid "Open Folder"
 msgstr "Otevřít složku"
 
-#: crates/gearlever/src/ui/mod.rs:2252
+#: crates/gearlever/src/ui/mod.rs:2334
 msgid "Open Preferences"
 msgstr "Otevřít předvolby"
 
-#: crates/gearlever/src/ui/mod.rs:1502
+#: crates/gearlever/src/ui/mod.rs:1576
 msgid "Open URL"
 msgstr "Otevřít adresu URL"
 
-#: crates/gearlever/src/ui/mod.rs:1238 crates/gearlever/src/ui/mod.rs:2155
+#: crates/gearlever/src/ui/mod.rs:1305 crates/gearlever/src/ui/mod.rs:2237
 msgid "Open a new AppImage"
 msgstr "Otevřít nový AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:1189
+#: crates/gearlever/src/ui/mod.rs:1256
 msgid "Open an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1441 crates/gearlever/src/ui/mod.rs:1616
+#: crates/gearlever/src/ui/mod.rs:1515
 msgid "Path"
 msgstr "Cesta"
 
-#: crates/gearlever/src/ui/mod.rs:1821
+#: crates/gearlever/src/ui/mod.rs:1862
 msgid "Preferences"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1908
+#: crates/gearlever/src/ui/mod.rs:1949
 msgid "Preview new apps in a minimal UI"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2173
+#: crates/gearlever/src/ui/mod.rs:2255
 msgid "Quit"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2322
+#: crates/gearlever/src/ui/mod.rs:2404
 msgid "Release to open the AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1559
+#: crates/gearlever/src/ui/mod.rs:1633
 msgid "Reload metadata"
 msgstr "Znovu načíst metadata"
 
-#: crates/gearlever/src/ui/mod.rs:1418 crates/gearlever/src/ui/mod.rs:2012
+#: crates/gearlever/src/ui/mod.rs:1487 crates/gearlever/src/ui/mod.rs:2053
 msgid "Remove"
 msgstr "Odstranit"
 
-#: crates/gearlever/src/ui/mod.rs:2042
+#: crates/gearlever/src/ui/mod.rs:2124
 msgid "Remove Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2035
+#: crates/gearlever/src/ui/mod.rs:2117
 msgid "Remove Gear LeverR?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2041 crates/gearlever/src/ui/mod.rs:2079
+#: crates/gearlever/src/ui/mod.rs:2123 crates/gearlever/src/ui/mod.rs:2161
 msgid "Remove all AppImages"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2077
+#: crates/gearlever/src/ui/mod.rs:2159
 msgid "Remove all AppImages?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2008
+#: crates/gearlever/src/ui/mod.rs:2049
 msgid "Remove application?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:575
+#: crates/gearlever/src/ui/mod.rs:595
 msgid "Removed {path}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1457 crates/gearlever/src/ui/mod.rs:1486
-#: crates/gearlever/src/ui/mod.rs:1717
+#: crates/gearlever/src/ui/mod.rs:2086
+msgid "Replace"
+msgstr "Nahradit"
+
+#: crates/gearlever/src/ui/mod.rs:1531 crates/gearlever/src/ui/mod.rs:1560
+#: crates/gearlever/src/ui/mod.rs:1758
 msgid "Save"
 msgstr "Uložit"
 
-#: crates/gearlever/src/ui/mod.rs:1530
+#: crates/gearlever/src/ui/mod.rs:1604
 msgid "Save environment"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2160
+#: crates/gearlever/src/ui/mod.rs:2242
 msgid "Search"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1855 crates/gearlever/src/ui/welcome.rs:158
+#: crates/gearlever/src/ui/mod.rs:1896 crates/gearlever/src/ui/welcome.rs:158
 msgid "Select"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1842 crates/gearlever/src/ui/mod.rs:1849
+#: crates/gearlever/src/ui/mod.rs:1883 crates/gearlever/src/ui/mod.rs:1890
 #: crates/gearlever/src/ui/welcome.rs:147
 #: crates/gearlever/src/ui/welcome.rs:152
 msgid "Select a folder"
@@ -351,27 +352,29 @@ msgstr "Vyberte složku"
 msgid "Set the AppImage location"
 msgstr "Nastavte umístění AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:1875
+#: crates/gearlever/src/ui/mod.rs:1916
 msgid "Show integrated AppImages outside the default folder"
 msgstr "Zobrazit integrované AppImage mimo výchozí složku"
 
-#: crates/gearlever/src/ui/mod.rs:1664
+#: crates/gearlever/src/ui/mod.rs:1705
 msgid "Source"
 msgstr "Zdroj"
 
-#: crates/gearlever/src/ui/mod.rs:638
+#: crates/gearlever/src/ui/mod.rs:658
 msgid "The application is running, close it first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:328
-msgid "This AppImage is already integrated"
+#: crates/gearlever/src/ui/mod.rs:2080
+msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr ""
+"Ve vašem systému se již nachází aplikace se stejným názvem, jak chcete "
+"pokračovat?"
 
-#: crates/gearlever/src/ui/mod.rs:1738
+#: crates/gearlever/src/ui/mod.rs:1779
 msgid "This application includes update information provided by the developer"
 msgstr "Tato aplikace obsahuje informace o aktualizaci poskytnuté vývojářem"
 
-#: crates/gearlever/src/ui/mod.rs:2071
+#: crates/gearlever/src/ui/mod.rs:2153
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
@@ -381,19 +384,19 @@ msgstr ""
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1426
+#: crates/gearlever/src/ui/mod.rs:1496
 msgid "Update"
 msgstr "Aktualizovat"
 
-#: crates/gearlever/src/ui/mod.rs:2224
+#: crates/gearlever/src/ui/mod.rs:2306
 msgid "Update all"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:779
+#: crates/gearlever/src/ui/mod.rs:799
 msgid "Update cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1560
+#: crates/gearlever/src/ui/mod.rs:1634
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -401,43 +404,43 @@ msgstr ""
 "Aktualizovat informace jako je ikona, verze a popis.\n"
 "Užitečné, pokud se aplikace sama aktualizovala."
 
-#: crates/gearlever/src/ui/mod.rs:1646
+#: crates/gearlever/src/ui/mod.rs:1687
 msgid "Update management"
 msgstr "Správa aktualizací"
 
-#: crates/gearlever/src/ui/mod.rs:870
+#: crates/gearlever/src/ui/mod.rs:890
 msgid "Update source saved"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:817
+#: crates/gearlever/src/ui/mod.rs:837
 msgid "Updates cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:820
+#: crates/gearlever/src/ui/mod.rs:840
 msgid "Updates installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1897 crates/gearlever/src/ui/welcome.rs:198
+#: crates/gearlever/src/ui/mod.rs:1938 crates/gearlever/src/ui/welcome.rs:198
 msgid "Updates management"
 msgstr "Správa aktualizací"
 
-#: crates/gearlever/src/ui/mod.rs:1227 crates/gearlever/src/ui/mod.rs:1793
+#: crates/gearlever/src/ui/mod.rs:1294 crates/gearlever/src/ui/mod.rs:1834
 msgid "Updating applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:659 crates/gearlever/src/ui/mod.rs:737
+#: crates/gearlever/src/ui/mod.rs:679 crates/gearlever/src/ui/mod.rs:757
 msgid "Updating {name}..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1890
+#: crates/gearlever/src/ui/mod.rs:1931
 msgid "Use executable name for integrated terminal apps"
 msgstr "Použít název příkazu pro integrované terminálové aplikace"
 
-#: crates/gearlever/src/ui/mod.rs:1914
+#: crates/gearlever/src/ui/mod.rs:1955
 msgid "Use safe mechanisms to load metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:861
+#: crates/gearlever/src/ui/mod.rs:881
 msgid "Website saved"
 msgstr ""
 
@@ -445,18 +448,18 @@ msgstr ""
 msgid "Welcome to Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2172
+#: crates/gearlever/src/ui/mod.rs:2254
 msgid "_About Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2171
+#: crates/gearlever/src/ui/mod.rs:2253
 msgid "_Open Log File"
 msgstr "_Otevřít soubor protokolu"
 
-#: crates/gearlever/src/ui/mod.rs:2170
+#: crates/gearlever/src/ui/mod.rs:2252
 msgid "_Preferences"
 msgstr "_Předvolby"
 
-#: crates/gearlever/src/ui/mod.rs:799
+#: crates/gearlever/src/ui/mod.rs:819
 msgid "{name} updated"
 msgstr ""

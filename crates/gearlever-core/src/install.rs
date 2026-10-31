@@ -104,7 +104,7 @@ pub fn integrate(
     let destination = options.appimages_dir.join(&file_name);
 
     if source != destination {
-        fs::copy(source, &destination)?;
+        copy_image(source, &destination)?;
     }
     set_executable(&destination)?;
 
@@ -130,6 +130,12 @@ pub fn integrate(
 
     let destination_text = destination.to_string_lossy();
     let mut desktop = DesktopFile::parse(&metadata.desktop_contents);
+
+    // Gear LeverR can replace its own integration from the file list; keep the
+    // marker so `scan` and the self-removal dialog still recognise it.
+    if previous.is_some_and(previous_was_self) {
+        desktop.set("Desktop Entry", crate::self_install::SELF_MARKER, "true");
+    }
 
     if let Some(suffix) = &options.name_suffix {
         desktop.set(
@@ -384,6 +390,46 @@ fn set_executable(path: &Path) -> Result<()> {
     fs::set_permissions(path, permissions)?;
 
     Ok(())
+}
+
+/// Copies an AppImage through a temporary file, then renames it into place.
+///
+/// Renaming over the destination works even when the old file is still running,
+/// which happens when a manual update replaces the current version.
+fn copy_image(source: &Path, destination: &Path) -> Result<()> {
+    let temporary = temporary_path(destination);
+
+    let result = (|| -> Result<()> {
+        fs::copy(source, &temporary)?;
+        set_executable(&temporary)?;
+        fs::rename(&temporary, destination)?;
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+
+    result
+}
+
+fn temporary_path(path: &Path) -> PathBuf {
+    path.file_name().map_or_else(
+        || path.to_path_buf(),
+        |name| path.with_file_name(format!("{}.tmp", name.to_string_lossy())),
+    )
+}
+
+fn previous_was_self(previous: &PreviousInstall) -> bool {
+    fs::read_to_string(&previous.desktop_path)
+        .ok()
+        .map(|contents| DesktopFile::parse(&contents))
+        .and_then(|desktop| {
+            desktop
+                .value("Desktop Entry", crate::self_install::SELF_MARKER)
+                .map(|value| value.eq_ignore_ascii_case("true"))
+        })
+        .unwrap_or(false)
 }
 
 fn directory_names(directory: &Path) -> std::collections::BTreeSet<String> {

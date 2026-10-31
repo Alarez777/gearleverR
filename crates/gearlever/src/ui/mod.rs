@@ -34,8 +34,8 @@ use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, is_runnin
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
 use gearlever_core::format::size;
-use gearlever_core::hash::{Algorithm, hash_file};
-use gearlever_core::install::{self, Conflict, IntegrateOptions};
+use gearlever_core::hash::same_content;
+use gearlever_core::install::{self, Conflict, IntegrateOptions, PreviousInstall};
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::self_install;
@@ -76,6 +76,14 @@ enum DetailsItem {
     },
 }
 
+/// One AppImage read from the command line, the chooser or a drop.
+#[derive(Debug)]
+struct LoadedFile {
+    path: PathBuf,
+    metadata: AppMetadata,
+    installed: Option<PathBuf>,
+}
+
 #[derive(Debug)]
 enum Msg {
     Refresh,
@@ -86,12 +94,16 @@ enum Msg {
     SearchChanged(String),
     OpenChooser,
     FilesChosen(Vec<PathBuf>),
-    FilesLoaded(Vec<(PathBuf, AppMetadata)>, Vec<String>),
+    FilesLoaded(Vec<LoadedFile>, Vec<String>),
     DragActive(bool),
     CheckUpdates,
     UpdateChecked(PathBuf, bool),
     CheckDone,
     InstallCandidate(PathBuf),
+    InstallWithConflict {
+        path: PathBuf,
+        replace: bool,
+    },
     InstallAll,
     Installed(Result<(InstalledApp, Config), String>),
     MultiInstalled(Result<Config, String>),
@@ -129,8 +141,6 @@ enum Msg {
         kind: ManagerKind,
         values: BTreeMap<String, String>,
     },
-    ComputeHashes(PathBuf),
-    Hashes(String),
     OpenFolder(PathBuf),
     OpenUrl(String),
     ShowPreferences,
@@ -155,7 +165,6 @@ struct AppModel {
     page: Page,
     details: Option<DetailsItem>,
     details_source: Option<ManagerKind>,
-    hashes: Option<String>,
     search: String,
     updates: HashSet<PathBuf>,
     checking: bool,
@@ -253,7 +262,6 @@ impl Component for AppModel {
             Msg::ShowList => {
                 self.page = Page::List;
                 self.details = None;
-                self.hashes = None;
                 self.reloaded = None;
                 Self::show_page(self, widgets);
                 Self::rebuild_list(self, widgets);
@@ -262,7 +270,6 @@ impl Component for AppModel {
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == path) {
                     self.details = Some(DetailsItem::Installed(app.clone()));
                     self.details_source = None;
-                    self.hashes = None;
                     self.reloaded = None;
                     self.page = Page::Details;
                     Self::show_page(self, widgets);
@@ -291,10 +298,12 @@ impl Component for AppModel {
             Msg::FilesChosen(paths) => {
                 widgets.drop_revealer.set_reveal_child(false);
                 widgets.drop_revealer.set_visible(false);
+                let installed = self.apps.iter().map(|app| app.image_path.clone()).collect();
                 Self::load_files(
                     paths,
                     !self.settings.values().block_unsafe_extractor,
                     self.paths.temp_dir().join("metadata"),
+                    installed,
                     &sender,
                 );
             }
@@ -306,26 +315,36 @@ impl Component for AppModel {
                 let mut fresh = Vec::new();
                 let mut already_installed = 0;
 
-                for (path, metadata) in loaded {
-                    if let Some(app) = self
-                        .apps
-                        .iter()
-                        .find(|app| same_file(&app.image_path, &path))
-                    {
-                        already_installed += 1;
-                        if self.apps.len() == 1 || already_installed == 1 {
-                            self.details = Some(DetailsItem::Installed(app.clone()));
+                for file in loaded {
+                    let installed = file.installed.or_else(|| {
+                        self.apps
+                            .iter()
+                            .find(|app| same_file(&app.image_path, &file.path))
+                            .map(|app| app.image_path.clone())
+                    });
+
+                    if let Some(installed) = installed {
+                        if let Some(app) = self.apps.iter().find(|app| app.image_path == installed)
+                        {
+                            already_installed += 1;
+                            if self.apps.len() == 1 || already_installed == 1 {
+                                self.details = Some(DetailsItem::Installed(app.clone()));
+                                self.details_source = None;
+                                self.reloaded = None;
+                            }
                         }
                     } else {
-                        fresh.push((path, metadata));
+                        fresh.push((file.path, file.metadata));
                     }
                 }
 
                 if already_installed > 0 && fresh.is_empty() {
                     self.page = Page::Details;
                     Self::show_page(self, widgets);
+                    if self.minimal_preview() {
+                        Self::minimal_ui(widgets);
+                    }
                     Self::rebuild_details(self, widgets, &sender);
-                    Self::toast(widgets, &t("This AppImage is already integrated"));
                     return;
                 }
 
@@ -338,12 +357,11 @@ impl Component for AppModel {
                                 metadata: Box::new(metadata),
                             });
                             self.details_source = None;
-                            self.hashes = None;
                             self.reloaded = None;
                             self.page = Page::Details;
                             Self::show_page(self, widgets);
                             Self::rebuild_details(self, widgets, &sender);
-                            if self.opened_from_file && self.settings.values().preview_minimal_ui {
+                            if self.minimal_preview() {
                                 Self::minimal_ui(widgets);
                             }
                         }
@@ -441,18 +459,20 @@ impl Component for AppModel {
                     return;
                 };
 
-                let options = self.integrate_options(Conflict::KeepBoth, None);
-                let config = self.config.clone();
-                widgets.progress.set_visible(true);
-                widgets.progress.set_text(Some(&t("Integrating...")));
+                if self.apps.iter().any(|app| app.name == metadata.name) {
+                    Self::confirm_conflict(widgets, path, &metadata.name, &sender);
+                    return;
+                }
 
-                std::thread::spawn(move || {
-                    let mut config = config;
-                    let result = install::integrate(&path, &metadata, None, &options, &mut config)
-                        .map(|app| (app, config))
-                        .map_err(|error| error.to_string());
-                    sender.input(Msg::Installed(result));
-                });
+                Self::start_install(self, widgets, path, Conflict::KeepBoth, &sender);
+            }
+            Msg::InstallWithConflict { path, replace } => {
+                let conflict = if replace {
+                    Conflict::Replace
+                } else {
+                    Conflict::KeepBoth
+                };
+                Self::start_install(self, widgets, path, conflict, &sender);
             }
             Msg::InstallAll => {
                 let pending = self.pending.clone();
@@ -928,23 +948,6 @@ impl Component for AppModel {
                     Err(error) => Self::toast(widgets, &error.to_string()),
                 }
             }
-            Msg::ComputeHashes(path) => {
-                std::thread::spawn(move || {
-                    let result = (|| {
-                        let md5 = hash_file(&path, Algorithm::Md5).ok()?;
-                        let sha1 = hash_file(&path, Algorithm::Sha1).ok()?;
-                        let sha256 = hash_file(&path, Algorithm::Sha256).ok()?;
-                        Some(format!("md5: {md5}\nsha1: {sha1}\nsha256: {sha256}"))
-                    })();
-                    sender.input(Msg::Hashes(
-                        result.unwrap_or_else(|| "Cannot compute hashes".to_owned()),
-                    ));
-                });
-            }
-            Msg::Hashes(text) => {
-                self.hashes = Some(text);
-                Self::rebuild_details(self, widgets, &sender);
-            }
             Msg::OpenFolder(path) => {
                 if let Some(parent) = path.parent() {
                     let uri = gio::File::for_path(parent).uri();
@@ -1052,6 +1055,11 @@ impl AppModel {
         let paths = Paths::from_env().unwrap_or_else(|_| Paths::with_home(glib::home_dir()));
         let settings = Settings::load(&paths);
         let _ = Config::import_legacy(&paths);
+        if self_install::is_installed(&paths)
+            && let Err(error) = self_install::refresh_icon(&paths)
+        {
+            tracing::warn!(%error, "cannot refresh the Gear LeverR icon");
+        }
         let config = Config::load_or_default(&paths.config_file()).unwrap_or_default();
 
         let mut model = Self {
@@ -1062,7 +1070,6 @@ impl AppModel {
             page: Page::List,
             details: None,
             details_source: None,
-            hashes: None,
             search: String::new(),
             updates: HashSet::new(),
             checking: false,
@@ -1083,6 +1090,11 @@ impl AppModel {
         !self.opened_from_file
             && running_appimage().is_some()
             && !self_install::is_installed(&self.paths)
+    }
+
+    /// Returns whether a file opened from the file manager uses the small preview.
+    fn minimal_preview(&self) -> bool {
+        self.opened_from_file && self.settings.values().preview_minimal_ui
     }
 
     fn refresh_apps(&mut self) {
@@ -1133,6 +1145,48 @@ impl AppModel {
         }
     }
 
+    fn start_install(
+        &self,
+        widgets: &Widgets,
+        path: PathBuf,
+        conflict: Conflict,
+        sender: &ComponentSender<Self>,
+    ) {
+        let Some(metadata) = self.pending_metadata(&path).cloned() else {
+            Self::toast(widgets, &t("Cannot read the AppImage metadata"));
+            return;
+        };
+
+        let previous = if conflict == Conflict::Replace {
+            self.apps
+                .iter()
+                .find(|app| app.name == metadata.name)
+                .map(|app| PreviousInstall {
+                    image_path: app.image_path.clone(),
+                    desktop_path: app.desktop_path.clone(),
+                    exec_arguments: app.exec_arguments.clone(),
+                    env_variables: app.env_variables.clone(),
+                })
+        } else {
+            None
+        };
+
+        let options = self.integrate_options(conflict, None);
+        let config = self.config.clone();
+        widgets.progress.set_visible(true);
+        widgets.progress.set_text(Some(&t("Integrating...")));
+
+        let sender = sender.clone();
+        std::thread::spawn(move || {
+            let mut config = config;
+            let result =
+                install::integrate(&path, &metadata, previous.as_ref(), &options, &mut config)
+                    .map(|app| (app, config))
+                    .map_err(|error| error.to_string());
+            sender.input(Msg::Installed(result));
+        });
+    }
+
     fn update_options(&self) -> UpdateOptions {
         UpdateOptions {
             appimages_dir: self.settings.values().appimages_dir.clone(),
@@ -1157,6 +1211,7 @@ impl AppModel {
         paths: Vec<PathBuf>,
         allow_unsafe_extractor: bool,
         work_dir: PathBuf,
+        installed: Vec<PathBuf>,
         sender: &ComponentSender<Self>,
     ) {
         if paths.is_empty() {
@@ -1175,7 +1230,19 @@ impl AppModel {
                 };
 
                 match AppImage::open(&path).and_then(|appimage| appimage.metadata_with(&options)) {
-                    Ok(metadata) => loaded.push((path, metadata)),
+                    Ok(metadata) => {
+                        let duplicate = installed
+                            .iter()
+                            .find(|candidate| {
+                                same_file(candidate, &path) || same_content(candidate, &path)
+                            })
+                            .cloned();
+                        loaded.push(LoadedFile {
+                            path,
+                            metadata,
+                            installed: duplicate,
+                        });
+                    }
                     Err(error) => errors.push(format!("{}: {error}", path.display())),
                 }
             }
@@ -1351,7 +1418,7 @@ impl AppModel {
                 self.build_installed_details(app, &content, sender);
             }
             DetailsItem::Candidate { path, metadata } => {
-                self.build_candidate_details(path, metadata, &content, sender);
+                Self::build_candidate_details(path, metadata, &content, sender);
             }
         }
 
@@ -1393,16 +1460,18 @@ impl AppModel {
             ),
         };
 
-        content.append(&details_header(
-            &name,
-            &description,
-            &icon,
-            &[
+        let minimal = self.minimal_preview();
+        let pills = if minimal {
+            Vec::new()
+        } else {
+            vec![
                 version,
                 Some(size(app.size)),
                 is_running(&app.image_path).then(|| "Running".to_owned()),
-            ],
-        ));
+            ]
+        };
+
+        content.append(&details_header(&name, &description, &icon, &pills));
 
         let terminal = app.terminal;
         let actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
@@ -1410,6 +1479,7 @@ impl AppModel {
 
         let launch = gtk::Button::with_label(&t("Launch"));
         launch.set_sensitive(!terminal);
+        launch.set_size_request(ACTION_BUTTON_WIDTH, -1);
         let sender_launch = sender.clone();
         let path = app.image_path.clone();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path.clone())));
@@ -1417,12 +1487,13 @@ impl AppModel {
 
         let remove = gtk::Button::with_label(&t("Remove"));
         remove.add_css_class("destructive-action");
+        remove.set_size_request(ACTION_BUTTON_WIDTH, -1);
         let sender_remove = sender.clone();
         let path = app.image_path.clone();
         remove.connect_clicked(move |_| sender_remove.input(Msg::Remove(path.clone())));
         actions.append(&remove);
 
-        if self.updates.contains(&app.image_path) {
+        if !minimal && self.updates.contains(&app.image_path) {
             let update = gtk::Button::with_label(&t("Update"));
             update.add_css_class("suggested-action");
             let sender_update = sender.clone();
@@ -1432,6 +1503,10 @@ impl AppModel {
         }
 
         content.append(&actions);
+
+        if minimal {
+            return;
+        }
 
         let list = gtk::ListBox::new();
         list.add_css_class("boxed-list");
@@ -1573,26 +1648,31 @@ impl AppModel {
     }
 
     fn build_candidate_details(
-        &self,
         path: &Path,
         metadata: &AppMetadata,
         content: &gtk::Box,
         sender: &ComponentSender<Self>,
     ) {
-        let size_value = fs::metadata(path).map_or(0, |metadata| metadata.len());
-
         content.append(&details_header(
             &metadata.name,
-            &metadata.comment,
+            "",
             &util::candidate_icon(metadata, util::DETAILS_ICON),
-            &[metadata.version.clone(), Some(size(size_value))],
+            &[],
         ));
 
-        let actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let actions = gtk::Box::new(gtk::Orientation::Vertical, 10);
         actions.set_halign(gtk::Align::Center);
+
+        let launch = gtk::Button::with_label(&t("Launch"));
+        launch.set_size_request(ACTION_BUTTON_WIDTH, -1);
+        let sender_launch = sender.clone();
+        let path_buf = path.to_path_buf();
+        launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path_buf.clone())));
+        actions.append(&launch);
 
         let install = gtk::Button::with_label(&t("Move to the app menu"));
         install.add_css_class("suggested-action");
+        install.set_size_request(ACTION_BUTTON_WIDTH, -1);
         let sender_install = sender.clone();
         let path_buf = path.to_path_buf();
         install.connect_clicked(move |_| {
@@ -1600,45 +1680,7 @@ impl AppModel {
         });
         actions.append(&install);
 
-        let launch = gtk::Button::with_label(&t("Launch"));
-        let sender_launch = sender.clone();
-        let path_buf = path.to_path_buf();
-        launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path_buf.clone())));
-        actions.append(&launch);
-
         content.append(&actions);
-
-        let list = gtk::ListBox::new();
-        list.add_css_class("boxed-list");
-        list.set_selection_mode(gtk::SelectionMode::None);
-
-        let path_row = adw::ActionRow::builder()
-            .title(t("Path"))
-            .subtitle(path.to_string_lossy().into_owned())
-            .build();
-        path_row.add_prefix(&gtk::Image::from_icon_name("folder-symbolic"));
-        let open = gtk::Button::from_icon_name("folder-open-symbolic");
-        open.set_valign(gtk::Align::Center);
-        let sender_open = sender.clone();
-        let path_buf = path.to_path_buf();
-        open.connect_clicked(move |_| sender_open.input(Msg::OpenFolder(path_buf.clone())));
-        path_row.add_suffix(&open);
-        list.append(&path_row);
-
-        let hashes = gtk::Button::with_label(&t("Compute hashes"));
-        let sender_hashes = sender.clone();
-        let path_buf = path.to_path_buf();
-        hashes.connect_clicked(move |_| sender_hashes.input(Msg::ComputeHashes(path_buf.clone())));
-
-        let hash_row = adw::ActionRow::builder()
-            .title(t("Hash"))
-            .subtitle(self.hashes.clone().unwrap_or_else(|| t("Not computed")))
-            .build();
-        hash_row.add_prefix(&gtk::Image::from_icon_name("dialog-password-symbolic"));
-        hash_row.add_suffix(&hashes);
-        list.append(&hash_row);
-
-        content.append(&list);
     }
 
     fn update_group(&self, path: &Path, sender: &ComponentSender<Self>) -> adw::PreferencesGroup {
@@ -2018,6 +2060,47 @@ impl AppModel {
         dialog.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
             if response == "remove" {
                 sender.input(Msg::RemoveConfirmed(path.clone()));
+            }
+            dialog.close();
+        });
+        dialog.present();
+    }
+
+    fn confirm_conflict(
+        widgets: &Widgets,
+        path: PathBuf,
+        app_name: &str,
+        sender: &ComponentSender<Self>,
+    ) {
+        let dialog = adw::MessageDialog::new(
+            Some(&widgets.window),
+            Some(&tf(
+                "Conflict with \"{app_name}\"",
+                &[("app_name", app_name)],
+            )),
+            Some(&t(
+                "There is already an app with the same name, how do you want to proceed?",
+            )),
+        );
+        dialog.add_response("cancel", &t("Cancel"));
+        dialog.add_response("keep", &t("Keep both"));
+        dialog.add_response("replace", &t("Replace"));
+        dialog.set_response_appearance("replace", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+
+        let sender = sender.clone();
+        dialog.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
+            match response {
+                "keep" => sender.input(Msg::InstallWithConflict {
+                    path: path.clone(),
+                    replace: false,
+                }),
+                "replace" => sender.input(Msg::InstallWithConflict {
+                    path: path.clone(),
+                    replace: true,
+                }),
+                _ => {}
             }
             dialog.close();
         });
@@ -2426,6 +2509,9 @@ impl FieldWidget {
 fn fraction(done: usize, total: usize) -> f64 {
     done as f64 / total as f64
 }
+
+/// Width shared by the primary action buttons.
+const ACTION_BUTTON_WIDTH: i32 = 200;
 
 fn same_file(left: &Path, right: &Path) -> bool {
     match (fs::canonicalize(left), fs::canonicalize(right)) {

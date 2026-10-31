@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://github.com/alarez/gear-leverR/issues\n"
-"POT-Creation-Date: 2026-10-31 22:11+0000\n"
+"POT-Creation-Date: 2026-10-31 23:07+0000\n"
 "PO-Revision-Date: 2026-05-28 20:59+0300\n"
 "Last-Translator: Omer I.S. <omeritzicschwartz@gmail.com>\n"
 "Language-Team: \n"
@@ -18,82 +18,83 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 3.9\n"
 
-#: crates/gearlever/src/ui/mod.rs:1906
+#: crates/gearlever/src/ui/mod.rs:1947
 msgid "Advanced"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:629 crates/gearlever/src/ui/mod.rs:682
+#: crates/gearlever/src/ui/mod.rs:649 crates/gearlever/src/ui/mod.rs:702
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1999
+#: crates/gearlever/src/ui/mod.rs:2040
 msgid "An utility to manage AppImages with ease!"
 msgstr "כלי לניהול יישומי ה־AppImage בקלות!"
 
-#: crates/gearlever/src/ui/mod.rs:1221
+#: crates/gearlever/src/ui/mod.rs:1288
 msgid "App details"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1831 crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/mod.rs:1872 crates/gearlever/src/ui/welcome.rs:134
 msgid "AppImage default location"
 msgstr "מיקום ברירת המחדל של קובצי ה־AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:505
+#: crates/gearlever/src/ui/mod.rs:525
 msgid "AppImage integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:521
+#: crates/gearlever/src/ui/mod.rs:541
 msgid "AppImages integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:615
+#: crates/gearlever/src/ui/mod.rs:635
 msgid "AppImages removed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1719
+#: crates/gearlever/src/ui/mod.rs:1760
 msgid "Apply changes"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1767
+#: crates/gearlever/src/ui/mod.rs:1808
 msgid "Apps to integrate"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1240
+#: crates/gearlever/src/ui/mod.rs:1307
 msgid "Back"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1194 crates/gearlever/src/ui/mod.rs:1854
-#: crates/gearlever/src/ui/mod.rs:2011 crates/gearlever/src/ui/mod.rs:2040
-#: crates/gearlever/src/ui/mod.rs:2078 crates/gearlever/src/ui/welcome.rs:157
+#: crates/gearlever/src/ui/mod.rs:1261 crates/gearlever/src/ui/mod.rs:1895
+#: crates/gearlever/src/ui/mod.rs:2052 crates/gearlever/src/ui/mod.rs:2084
+#: crates/gearlever/src/ui/mod.rs:2122 crates/gearlever/src/ui/mod.rs:2160
+#: crates/gearlever/src/ui/welcome.rs:157
 msgid "Cancel"
 msgstr "ביטול"
 
-#: crates/gearlever/src/ui/mod.rs:2130 crates/gearlever/src/ui/mod.rs:2137
-#: crates/gearlever/src/ui/mod.rs:2300
+#: crates/gearlever/src/ui/mod.rs:2212 crates/gearlever/src/ui/mod.rs:2219
+#: crates/gearlever/src/ui/mod.rs:2382
 msgid "Cancel update"
 msgstr "ביטול העדכון"
 
-#: crates/gearlever/src/ui/mod.rs:773
+#: crates/gearlever/src/ui/mod.rs:793
 msgid "Cancelling..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:994
+#: crates/gearlever/src/ui/mod.rs:997
 msgid "Cannot determine the running AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:440
+#: crates/gearlever/src/ui/mod.rs:458 crates/gearlever/src/ui/mod.rs:1156
 msgid "Cannot read the AppImage metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2219
+#: crates/gearlever/src/ui/mod.rs:2301
 msgid "Check for updates"
 msgstr "לבדוק אם יש עדכונים"
 
-#: crates/gearlever/src/ui/mod.rs:1899 crates/gearlever/src/ui/welcome.rs:201
+#: crates/gearlever/src/ui/mod.rs:1940 crates/gearlever/src/ui/welcome.rs:201
 msgid "Check updates on system startup"
 msgstr "לבדוק אם יש עדכונים בעת עליית המערכת"
 
-#: crates/gearlever/src/ui/mod.rs:374
+#: crates/gearlever/src/ui/mod.rs:392
 msgid "Checking updates..."
 msgstr "מתבצעת בדיקת עדכונים..."
 
@@ -101,55 +102,55 @@ msgstr "מתבצעת בדיקת עדכונים..."
 msgid "Close"
 msgstr "סגירה"
 
-#: crates/gearlever/src/ui/mod.rs:1455
+#: crates/gearlever/src/ui/mod.rs:1529
 msgid "Command line arguments"
 msgstr "ארגומנטים לשורת הפקודה"
 
-#: crates/gearlever/src/ui/mod.rs:836
+#: crates/gearlever/src/ui/mod.rs:856
 msgid "Command line updated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1628
-msgid "Compute hashes"
-msgstr ""
+#: crates/gearlever/src/ui/mod.rs:2076
+msgid "Conflict with \"{app_name}\""
+msgstr "היישום מתנגש עם „{app_name}”"
 
-#: crates/gearlever/src/ui/mod.rs:1655
+#: crates/gearlever/src/ui/mod.rs:1696
 msgid "Default"
 msgstr "ברירת מחדל"
 
-#: crates/gearlever/src/ui/mod.rs:2009
+#: crates/gearlever/src/ui/mod.rs:2050
 msgid "Do you really want to remove this app?"
 msgstr "להסיר יישום זה?"
 
-#: crates/gearlever/src/ui/mod.rs:2247
+#: crates/gearlever/src/ui/mod.rs:2329
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "יש לגרור קובץ AppImage לכאן ולשחרר או ללחוץ על הסמל „+”."
 
-#: crates/gearlever/src/ui/mod.rs:2321
+#: crates/gearlever/src/ui/mod.rs:2403
 msgid "Drop your file here"
 msgstr "אפשר לשחרר כאן את הקובץ"
 
-#: crates/gearlever/src/ui/mod.rs:1920
+#: crates/gearlever/src/ui/mod.rs:1961
 msgid "Enable debug logs"
 msgstr "הצגת יומני ניפוי שגיאות"
 
-#: crates/gearlever/src/ui/mod.rs:847
+#: crates/gearlever/src/ui/mod.rs:867
 msgid "Enter a valid URL"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1514
+#: crates/gearlever/src/ui/mod.rs:1588
 msgid "Environment variables"
 msgstr "משתנים סביבתיים"
 
-#: crates/gearlever/src/ui/mod.rs:1882 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:1923 crates/gearlever/src/ui/welcome.rs:177
 msgid "File management"
 msgstr "ניהול קבצים"
 
-#: crates/gearlever/src/ui/mod.rs:2201
+#: crates/gearlever/src/ui/mod.rs:2283
 msgid "Filter installed applications"
 msgstr "סינון יישומים מותקנים"
 
-#: crates/gearlever/src/ui/mod.rs:1029
+#: crates/gearlever/src/ui/mod.rs:1032
 msgid "Gear LeverR installed"
 msgstr ""
 
@@ -159,37 +160,33 @@ msgid ""
 "installed and where to keep your AppImages."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2067
+#: crates/gearlever/src/ui/mod.rs:2149
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2036
+#: crates/gearlever/src/ui/mod.rs:2118
 msgid ""
 "Gear LeverR will be removed together with its desktop entry and the "
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1828
+#: crates/gearlever/src/ui/mod.rs:1869
 msgid "General"
 msgstr "כללי"
 
-#: crates/gearlever/src/ui/mod.rs:2246
+#: crates/gearlever/src/ui/mod.rs:2328
 msgid "Get started"
 msgstr "תחילת העבודה"
-
-#: crates/gearlever/src/ui/mod.rs:1634
-msgid "Hash"
-msgstr "גיבוב"
 
 #: crates/gearlever/src/ui/welcome.rs:49 crates/gearlever/src/ui/welcome.rs:236
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1220 crates/gearlever/src/ui/mod.rs:2151
-#: crates/gearlever/src/ui/mod.rs:2213
+#: crates/gearlever/src/ui/mod.rs:1287 crates/gearlever/src/ui/mod.rs:2233
+#: crates/gearlever/src/ui/mod.rs:2295
 msgid "Installed applications"
 msgstr "יישומים מותקנים"
 
@@ -197,152 +194,156 @@ msgstr "יישומים מותקנים"
 msgid "Installing..."
 msgstr "בהתקנה..."
 
-#: crates/gearlever/src/ui/mod.rs:475
+#: crates/gearlever/src/ui/mod.rs:495
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:447
+#: crates/gearlever/src/ui/mod.rs:1177
 msgid "Integrating..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1411 crates/gearlever/src/ui/mod.rs:1603
+#: crates/gearlever/src/ui/mod.rs:2085
+msgid "Keep both"
+msgstr "להשאיר את שניהם"
+
+#: crates/gearlever/src/ui/mod.rs:1479 crates/gearlever/src/ui/mod.rs:1665
 msgid "Launch"
 msgstr "הפעלה"
 
-#: crates/gearlever/src/ui/mod.rs:2166
+#: crates/gearlever/src/ui/mod.rs:2248
 msgid "Menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:901
+#: crates/gearlever/src/ui/mod.rs:921
 msgid "Metadata reloaded"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1884 crates/gearlever/src/ui/welcome.rs:180
+#: crates/gearlever/src/ui/mod.rs:1925 crates/gearlever/src/ui/welcome.rs:180
 msgid "Move AppImages into the destination folder"
 msgstr "העברת קובצי ה־AppImage לתיקיית היעד"
 
-#: crates/gearlever/src/ui/mod.rs:1224 crates/gearlever/src/ui/mod.rs:1786
+#: crates/gearlever/src/ui/mod.rs:1291 crates/gearlever/src/ui/mod.rs:1827
 msgid "Move all to the app menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1594
+#: crates/gearlever/src/ui/mod.rs:1672
 msgid "Move to the app menu"
 msgstr "העברה לתפריט היישומים"
 
-#: crates/gearlever/src/ui/mod.rs:643
+#: crates/gearlever/src/ui/mod.rs:663
 msgid "No update method was found for this AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:694
+#: crates/gearlever/src/ui/mod.rs:714
 msgid "No updates available"
 msgstr "אין עדכונים זמינים"
-
-#: crates/gearlever/src/ui/mod.rs:1635
-msgid "Not computed"
-msgstr ""
 
 #: crates/gearlever/src/ui/welcome.rs:242
 msgid "Not now"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1517
+#: crates/gearlever/src/ui/mod.rs:1591
 msgid "One KEY=value per line"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1195
+#: crates/gearlever/src/ui/mod.rs:1262
 msgid "Open"
 msgstr "פתיחה"
 
-#: crates/gearlever/src/ui/mod.rs:1447
+#: crates/gearlever/src/ui/mod.rs:1521
 msgid "Open Folder"
 msgstr "פתיחת תיקייה"
 
-#: crates/gearlever/src/ui/mod.rs:2252
+#: crates/gearlever/src/ui/mod.rs:2334
 msgid "Open Preferences"
 msgstr "פתיחת ההעדפות"
 
-#: crates/gearlever/src/ui/mod.rs:1502
+#: crates/gearlever/src/ui/mod.rs:1576
 msgid "Open URL"
 msgstr "פתיחה מכתובת"
 
-#: crates/gearlever/src/ui/mod.rs:1238 crates/gearlever/src/ui/mod.rs:2155
+#: crates/gearlever/src/ui/mod.rs:1305 crates/gearlever/src/ui/mod.rs:2237
 msgid "Open a new AppImage"
 msgstr "פתיחת קובץ AppImage חדש"
 
-#: crates/gearlever/src/ui/mod.rs:1189
+#: crates/gearlever/src/ui/mod.rs:1256
 msgid "Open an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1441 crates/gearlever/src/ui/mod.rs:1616
+#: crates/gearlever/src/ui/mod.rs:1515
 msgid "Path"
 msgstr "נתיב"
 
-#: crates/gearlever/src/ui/mod.rs:1821
+#: crates/gearlever/src/ui/mod.rs:1862
 msgid "Preferences"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1908
+#: crates/gearlever/src/ui/mod.rs:1949
 msgid "Preview new apps in a minimal UI"
 msgstr "תצוגה מקדימה של יישומים חדשים בממשק משתמש מצומצם"
 
-#: crates/gearlever/src/ui/mod.rs:2173
+#: crates/gearlever/src/ui/mod.rs:2255
 msgid "Quit"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2322
+#: crates/gearlever/src/ui/mod.rs:2404
 msgid "Release to open the AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1559
+#: crates/gearlever/src/ui/mod.rs:1633
 msgid "Reload metadata"
 msgstr "רענון מידע על"
 
-#: crates/gearlever/src/ui/mod.rs:1418 crates/gearlever/src/ui/mod.rs:2012
+#: crates/gearlever/src/ui/mod.rs:1487 crates/gearlever/src/ui/mod.rs:2053
 msgid "Remove"
 msgstr "הסרה"
 
-#: crates/gearlever/src/ui/mod.rs:2042
+#: crates/gearlever/src/ui/mod.rs:2124
 msgid "Remove Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2035
+#: crates/gearlever/src/ui/mod.rs:2117
 msgid "Remove Gear LeverR?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2041 crates/gearlever/src/ui/mod.rs:2079
+#: crates/gearlever/src/ui/mod.rs:2123 crates/gearlever/src/ui/mod.rs:2161
 msgid "Remove all AppImages"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2077
+#: crates/gearlever/src/ui/mod.rs:2159
 msgid "Remove all AppImages?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2008
+#: crates/gearlever/src/ui/mod.rs:2049
 msgid "Remove application?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:575
+#: crates/gearlever/src/ui/mod.rs:595
 msgid "Removed {path}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1457 crates/gearlever/src/ui/mod.rs:1486
-#: crates/gearlever/src/ui/mod.rs:1717
+#: crates/gearlever/src/ui/mod.rs:2086
+msgid "Replace"
+msgstr "החלפה"
+
+#: crates/gearlever/src/ui/mod.rs:1531 crates/gearlever/src/ui/mod.rs:1560
+#: crates/gearlever/src/ui/mod.rs:1758
 msgid "Save"
 msgstr "שמירה"
 
-#: crates/gearlever/src/ui/mod.rs:1530
+#: crates/gearlever/src/ui/mod.rs:1604
 msgid "Save environment"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2160
+#: crates/gearlever/src/ui/mod.rs:2242
 msgid "Search"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1855 crates/gearlever/src/ui/welcome.rs:158
+#: crates/gearlever/src/ui/mod.rs:1896 crates/gearlever/src/ui/welcome.rs:158
 msgid "Select"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1842 crates/gearlever/src/ui/mod.rs:1849
+#: crates/gearlever/src/ui/mod.rs:1883 crates/gearlever/src/ui/mod.rs:1890
 #: crates/gearlever/src/ui/welcome.rs:147
 #: crates/gearlever/src/ui/welcome.rs:152
 msgid "Select a folder"
@@ -352,27 +353,27 @@ msgstr "נא לבחור תיקייה"
 msgid "Set the AppImage location"
 msgstr "הגדרת מיקום קובץ ה־AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:1875
+#: crates/gearlever/src/ui/mod.rs:1916
 msgid "Show integrated AppImages outside the default folder"
 msgstr "הצגת קובצי AppImage ששולבו בתפריט אך נמצאים מחוץ לתיקיית ברירת המחדל"
 
-#: crates/gearlever/src/ui/mod.rs:1664
+#: crates/gearlever/src/ui/mod.rs:1705
 msgid "Source"
 msgstr "מקור"
 
-#: crates/gearlever/src/ui/mod.rs:638
+#: crates/gearlever/src/ui/mod.rs:658
 msgid "The application is running, close it first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:328
-msgid "This AppImage is already integrated"
-msgstr ""
+#: crates/gearlever/src/ui/mod.rs:2080
+msgid "There is already an app with the same name, how do you want to proceed?"
+msgstr "כבר יש יישום באותו שם, איך ברצונך להמשיך?"
 
-#: crates/gearlever/src/ui/mod.rs:1738
+#: crates/gearlever/src/ui/mod.rs:1779
 msgid "This application includes update information provided by the developer"
 msgstr "יישום זה מכיל מידע עדכון שסיפקו המפתחים"
 
-#: crates/gearlever/src/ui/mod.rs:2071
+#: crates/gearlever/src/ui/mod.rs:2153
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
@@ -382,19 +383,19 @@ msgstr ""
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1426
+#: crates/gearlever/src/ui/mod.rs:1496
 msgid "Update"
 msgstr "עדכון"
 
-#: crates/gearlever/src/ui/mod.rs:2224
+#: crates/gearlever/src/ui/mod.rs:2306
 msgid "Update all"
 msgstr "לעדכן הכול"
 
-#: crates/gearlever/src/ui/mod.rs:779
+#: crates/gearlever/src/ui/mod.rs:799
 msgid "Update cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1560
+#: crates/gearlever/src/ui/mod.rs:1634
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -402,43 +403,43 @@ msgstr ""
 "מידע עדכון כגון סמל, גרסה ותיאור.\n"
 "שימושי אם היישום התעדכן מעצמו."
 
-#: crates/gearlever/src/ui/mod.rs:1646
+#: crates/gearlever/src/ui/mod.rs:1687
 msgid "Update management"
 msgstr "ניהול עדכונים"
 
-#: crates/gearlever/src/ui/mod.rs:870
+#: crates/gearlever/src/ui/mod.rs:890
 msgid "Update source saved"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:817
+#: crates/gearlever/src/ui/mod.rs:837
 msgid "Updates cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:820
+#: crates/gearlever/src/ui/mod.rs:840
 msgid "Updates installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1897 crates/gearlever/src/ui/welcome.rs:198
+#: crates/gearlever/src/ui/mod.rs:1938 crates/gearlever/src/ui/welcome.rs:198
 msgid "Updates management"
 msgstr "ניהול עדכונים"
 
-#: crates/gearlever/src/ui/mod.rs:1227 crates/gearlever/src/ui/mod.rs:1793
+#: crates/gearlever/src/ui/mod.rs:1294 crates/gearlever/src/ui/mod.rs:1834
 msgid "Updating applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:659 crates/gearlever/src/ui/mod.rs:737
+#: crates/gearlever/src/ui/mod.rs:679 crates/gearlever/src/ui/mod.rs:757
 msgid "Updating {name}..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1890
+#: crates/gearlever/src/ui/mod.rs:1931
 msgid "Use executable name for integrated terminal apps"
 msgstr "שימוש בשם להרצה עבור יישומי מסוף שמשולבים במערכת"
 
-#: crates/gearlever/src/ui/mod.rs:1914
+#: crates/gearlever/src/ui/mod.rs:1955
 msgid "Use safe mechanisms to load metadata"
 msgstr "שימוש במכניקה בטוחה לטעינת נתוני העל"
 
-#: crates/gearlever/src/ui/mod.rs:861
+#: crates/gearlever/src/ui/mod.rs:881
 msgid "Website saved"
 msgstr ""
 
@@ -446,18 +447,18 @@ msgstr ""
 msgid "Welcome to Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2172
+#: crates/gearlever/src/ui/mod.rs:2254
 msgid "_About Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2171
+#: crates/gearlever/src/ui/mod.rs:2253
 msgid "_Open Log File"
 msgstr "_פתיחת קובץ יומן"
 
-#: crates/gearlever/src/ui/mod.rs:2170
+#: crates/gearlever/src/ui/mod.rs:2252
 msgid "_Preferences"
 msgstr "ה_עדפות"
 
-#: crates/gearlever/src/ui/mod.rs:799
+#: crates/gearlever/src/ui/mod.rs:819
 msgid "{name} updated"
 msgstr ""

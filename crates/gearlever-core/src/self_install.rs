@@ -9,11 +9,14 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::appimage::{AppImage, AppMetadata, detect};
+use crate::appimage::{AppImage, AppMetadata, PayloadKind, SquashfsImage, detect};
 use crate::args;
 use crate::desktop::DesktopFile;
 use crate::error::{Error, Result};
 use crate::paths::Paths;
+
+/// Sizes tried when looking for a sharp icon, best first.
+const ICON_SIZES: [&str; 5] = ["scalable", "512x512", "256x256", "128x128", "96x96"];
 
 /// File name of the desktop entry written for Gear LeverR.
 pub const DESKTOP_ID: &str = "io.github.alarez777.GearLeverR.desktop";
@@ -105,13 +108,14 @@ pub fn installed_image(desktop_path: &Path) -> Option<PathBuf> {
 /// Returns [`Error::Io`] when the files cannot be written and the errors
 /// documented on [`AppImage::metadata`] when the image cannot be inspected.
 pub fn install(image: &Path, options: &InstallOptions) -> Result<Installation> {
-    let metadata = AppImage::open(image)?.metadata()?;
+    let appimage = AppImage::open(image)?;
+    let metadata = appimage.metadata()?;
 
     fs::create_dir_all(&options.appimages_dir)?;
     fs::create_dir_all(&options.applications_dir)?;
 
     let image_path = place_image(image, &options.appimages_dir)?;
-    let icon_path = write_icon(&metadata, &options.icons_dir)?;
+    let icon_path = write_icon(&appimage, &metadata, &options.icons_dir)?;
 
     let desktop = desktop_entry(&metadata, &image_path, icon_path.as_deref());
     let desktop_path = options.applications_dir.join(DESKTOP_ID);
@@ -188,8 +192,41 @@ fn unique_destination(directory: &Path, name: &OsStr) -> PathBuf {
         .unwrap_or_else(|| directory.join(format!("{stem}-{}", std::process::id())))
 }
 
-/// Writes the icon shipped by the AppImage into the `hicolor` theme.
-fn write_icon(metadata: &AppMetadata, icons_dir: &Path) -> Result<Option<PathBuf>> {
+/// Installs every icon size shipped by the AppImage into the `hicolor` theme.
+///
+/// Installs the sharpest icon shipped by the AppImage into the `hicolor` theme.
+///
+/// Only one file is written so removing the entry removes every icon it owns.
+/// Returns the icon for the desktop entry.
+fn write_icon(
+    appimage: &AppImage,
+    metadata: &AppMetadata,
+    icons_dir: &Path,
+) -> Result<Option<PathBuf>> {
+    if appimage.payload_kind() == PayloadKind::Squashfs {
+        let image = SquashfsImage::open(appimage.path(), appimage.payload_offset())?;
+
+        for size in ICON_SIZES {
+            for extension in ["png", "svg"] {
+                let source = PathBuf::from(format!(
+                    "/usr/share/icons/hicolor/{size}/apps/{ICON_NAME}.{extension}"
+                ));
+                let Some(bytes) = image.read(&source)? else {
+                    continue;
+                };
+
+                let destination = icons_dir
+                    .join(size)
+                    .join("apps")
+                    .join(format!("{ICON_NAME}.{extension}"));
+                write_icon_file(&destination, &bytes)?;
+                update_icon_cache(icons_dir);
+
+                return Ok(Some(destination));
+            }
+        }
+    }
+
     let Some(icon) = &metadata.icon else {
         return Ok(None);
     };
@@ -198,19 +235,123 @@ fn write_icon(metadata: &AppMetadata, icons_dir: &Path) -> Result<Option<PathBuf
         .extension()
         .and_then(OsStr::to_str)
         .unwrap_or("png");
-    let size = if extension.eq_ignore_ascii_case("svg") {
-        "scalable"
-    } else {
-        "512x512"
+    let size = icon_size_directory(extension, &icon.bytes);
+    let destination = icons_dir
+        .join(size)
+        .join("apps")
+        .join(format!("{ICON_NAME}.{extension}"));
+
+    write_icon_file(&destination, &icon.bytes)?;
+    update_icon_cache(icons_dir);
+
+    Ok(Some(destination))
+}
+
+/// Rewrites the `Icon` of an existing entry when it still uses a themed name.
+///
+/// This repairs installations created before the entry stored an absolute path,
+/// and refreshes the icon theme cache so the shell can find the icon.
+///
+/// # Errors
+///
+/// Returns [`Error::Io`] when the desktop entry or the icon cannot be written.
+pub fn refresh_icon(paths: &Paths) -> Result<()> {
+    let desktop_path = paths.applications_dir().join(DESKTOP_ID);
+    let Ok(contents) = fs::read_to_string(&desktop_path) else {
+        return Ok(());
     };
 
-    let directory = icons_dir.join(size).join("apps");
-    fs::create_dir_all(&directory)?;
+    let mut desktop = DesktopFile::parse(&contents);
 
-    let path = directory.join(format!("{ICON_NAME}.{extension}"));
-    write_atomic(&path, &icon.bytes)?;
+    // A real absolute path already works, whether it points at the hicolor
+    // theme or at the `.icons` copy written when the entry was replaced.
+    if desktop
+        .value("Desktop Entry", "Icon")
+        .map(Path::new)
+        .is_some_and(|icon| icon.is_absolute() && icon.is_file())
+    {
+        return Ok(());
+    }
 
-    Ok(Some(path))
+    let Some(icon) = best_installed_icon(&paths.hicolor_icons_dir()) else {
+        return Ok(());
+    };
+
+    let icon_text = icon.to_string_lossy();
+    desktop.set("Desktop Entry", "Icon", icon_text.as_ref());
+    write_atomic(&desktop_path, desktop.to_string().as_bytes())?;
+    update_icon_cache(&paths.hicolor_icons_dir());
+
+    tracing::debug!(path = %icon.display(), "refreshed the Gear LeverR icon");
+    Ok(())
+}
+
+fn best_installed_icon(icons_dir: &Path) -> Option<PathBuf> {
+    [
+        "512x512", "scalable", "256x256", "128x128", "64x64", "48x48", "32x32", "24x24", "16x16",
+    ]
+    .into_iter()
+    .flat_map(|size| {
+        ["png", "svg"].map(move |extension| {
+            icons_dir
+                .join(size)
+                .join("apps")
+                .join(format!("{ICON_NAME}.{extension}"))
+        })
+    })
+    .find(|candidate| candidate.is_file())
+}
+
+fn write_icon_file(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    write_atomic(path, bytes)
+}
+
+/// Returns the theme directory that matches the icon bytes.
+fn icon_size_directory(extension: &str, bytes: &[u8]) -> &'static str {
+    if extension.eq_ignore_ascii_case("svg") {
+        return "scalable";
+    }
+
+    png_size(bytes).map_or("512x512", |size| match size {
+        16 => "16x16",
+        24 => "24x24",
+        32 => "32x32",
+        48 => "48x48",
+        64 => "64x64",
+        128 => "128x128",
+        256 => "256x256",
+        _ => "512x512",
+    })
+}
+
+fn png_size(bytes: &[u8]) -> Option<u32> {
+    const PNG_MAGIC: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+
+    if !bytes.starts_with(&PNG_MAGIC) {
+        return None;
+    }
+
+    let width = u32::from_be_bytes(bytes.get(16..20)?.try_into().ok()?);
+    let height = u32::from_be_bytes(bytes.get(20..24)?.try_into().ok()?);
+
+    (width == height).then_some(width)
+}
+
+fn update_icon_cache(icons_dir: &Path) {
+    let status = std::process::Command::new("gtk-update-icon-cache")
+        .arg("-f")
+        .arg("-t")
+        .arg("-q")
+        .arg(icons_dir)
+        .status();
+
+    if let Err(error) = status {
+        tracing::debug!(%error, "cannot refresh the icon theme cache");
+    }
 }
 
 /// Builds the desktop entry, reusing the one shipped inside the AppImage.
@@ -321,6 +462,62 @@ mod tests {
             ),
             icon: None,
         }
+    }
+
+    #[test]
+    fn rewrites_a_themed_icon_to_an_absolute_path() {
+        let directory = tempfile::tempdir().expect("temporary home");
+        let paths = Paths::with_home(directory.path());
+        fs::create_dir_all(paths.applications_dir()).expect("applications directory");
+
+        let icon_directory = paths.hicolor_icons_dir().join("512x512").join("apps");
+        fs::create_dir_all(&icon_directory).expect("icon directory");
+        let icon = icon_directory.join(format!("{ICON_NAME}.png"));
+        fs::write(&icon, b"icon").expect("icon file");
+
+        fs::write(
+            paths.applications_dir().join(DESKTOP_ID),
+            format!("[Desktop Entry]\nName=Gear LeverR\nIcon={ICON_NAME}\n"),
+        )
+        .expect("desktop entry");
+
+        refresh_icon(&paths).expect("refresh the icon");
+
+        let contents =
+            fs::read_to_string(paths.applications_dir().join(DESKTOP_ID)).expect("read entry");
+        let desktop = DesktopFile::parse(&contents);
+        assert_eq!(
+            desktop.value("Desktop Entry", "Icon"),
+            Some(icon.to_string_lossy().as_ref())
+        );
+    }
+
+    #[test]
+    fn keeps_a_valid_absolute_icon() {
+        let directory = tempfile::tempdir().expect("temporary home");
+        let paths = Paths::with_home(directory.path());
+        fs::create_dir_all(paths.applications_dir()).expect("applications directory");
+
+        let icon = directory.path().join("custom.png");
+        fs::write(&icon, b"icon").expect("icon file");
+        fs::write(
+            paths.applications_dir().join(DESKTOP_ID),
+            format!(
+                "[Desktop Entry]\nName=Gear LeverR\nIcon={}\n",
+                icon.display()
+            ),
+        )
+        .expect("desktop entry");
+
+        refresh_icon(&paths).expect("refresh the icon");
+
+        let contents =
+            fs::read_to_string(paths.applications_dir().join(DESKTOP_ID)).expect("read entry");
+        let desktop = DesktopFile::parse(&contents);
+        assert_eq!(
+            desktop.value("Desktop Entry", "Icon"),
+            Some(icon.to_string_lossy().as_ref())
+        );
     }
 
     #[test]

@@ -16,7 +16,7 @@ use gearlever_core::scan::InstalledApp;
 /// Icon size used in list rows.
 pub const ROW_ICON: i32 = 40;
 /// Icon size used on the details page.
-pub const DETAILS_ICON: i32 = 112;
+pub const DETAILS_ICON: i32 = 128;
 
 /// Lower-cases and removes spaces, matching the search in the original.
 #[must_use]
