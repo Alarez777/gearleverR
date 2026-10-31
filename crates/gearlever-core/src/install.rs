@@ -407,7 +407,7 @@ fn sanitize(value: &str) -> String {
         .collect()
 }
 
-fn refresh_desktop_database(directory: &Path) {
+pub(crate) fn refresh_desktop_database(directory: &Path) {
     let _ = std::process::Command::new("update-desktop-database")
         .arg(directory)
         .arg("-q")

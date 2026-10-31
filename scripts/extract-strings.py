@@ -48,11 +48,12 @@ def main() -> int:
 
     for path in sorted(SRC.rglob("*.rs")):
         relative = path.relative_to(ROOT)
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            for match in CALL.finditer(line):
-                message = unescape(match.group(1))
-                if message:
-                    messages.setdefault(message, []).append(f"{relative}:{number}")
+        source = path.read_text(encoding="utf-8")
+        for match in CALL.finditer(source):
+            message = unescape(match.group(1))
+            if message:
+                line = source.count("\n", 0, match.start()) + 1
+                messages.setdefault(message, []).append(f"{relative}:{line}")
 
     output = [
         "# Translation template for Gear LeverR.",

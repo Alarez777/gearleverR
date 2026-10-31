@@ -15,6 +15,7 @@ pub mod hash;
 pub mod install;
 pub mod paths;
 pub mod scan;
+pub mod self_install;
 pub mod uninstall;
 pub mod update;
 

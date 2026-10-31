@@ -134,11 +134,26 @@ msgstr "Actualizaciones canceladas"
 msgid "_About Gear LeverR"
 msgstr "_Acerca de Gear LeverR"
 
-msgid "Hi, welcome to Gear LeverR"
-msgstr "Hola, te damos la bienvenida a Gear LeverR"
+msgid "Welcome to Gear LeverR"
+msgstr "Bienvenido a Gear LeverR"
 
-msgid "An app that helps you integrate AppImages into your system."
-msgstr "Una app que te ayuda a integrar AppImages en tu sistema."
+msgid "Gear LeverR is not integrated into your desktop yet. Choose how it should be installed and where to keep your AppImages."
+msgstr "Gear LeverR todavía no está integrado en tu escritorio. Elige cómo instalarlo y dónde guardar tus AppImages."
 
-msgid "Gear LeverR groups all your AppImages into a specific folder and keeps them organized."
-msgstr "Gear LeverR agrupa todas tus AppImages en una carpeta concreta y las mantiene organizadas."
+msgid "When adding an AppImage"
+msgstr "Al añadir un AppImage"
+
+msgid "Turn it off to keep the original file and clone it instead."
+msgstr "Desactívalo para conservar el archivo original y clonarlo en su lugar."
+
+msgid "Install and open Gear LeverR"
+msgstr "Instalar y abrir Gear LeverR"
+
+msgid "Not now"
+msgstr "Ahora no"
+
+msgid "Cannot determine the running AppImage"
+msgstr "No se puede determinar el AppImage en ejecución"
+
+msgid "Gear LeverR installed"
+msgstr "Gear LeverR instalado"

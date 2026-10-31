@@ -38,6 +38,7 @@ use gearlever_core::hash::{Algorithm, hash_file};
 use gearlever_core::install::{self, Conflict, IntegrateOptions};
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
+use gearlever_core::self_install;
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
@@ -128,10 +129,17 @@ enum Msg {
     OpenFolder(PathBuf),
     OpenUrl(String),
     ShowPreferences,
-    ShowWelcome,
     ShowAbout,
     ShowLog,
     Toast(String),
+    Welcome,
+    WelcomeFolder(PathBuf),
+    WelcomeMove(bool),
+    WelcomeFetchUpdates(bool),
+    WelcomeInstall,
+    WelcomeInstalled(Result<self_install::Installation, String>),
+    WelcomeSkip,
+    WelcomeClosed,
 }
 
 struct AppModel {
@@ -171,6 +179,7 @@ struct Widgets {
     progress: gtk::ProgressBar,
     cancel_button: gtk::Button,
     drop_revealer: gtk::Revealer,
+    welcome: Option<welcome::Welcome>,
 }
 
 impl Component for AppModel {
@@ -208,6 +217,8 @@ impl Component for AppModel {
 
         if !files.is_empty() {
             sender.input(Msg::FilesChosen(files));
+        } else if model.should_show_welcome() {
+            sender.input(Msg::Welcome);
         }
 
         ComponentParts { model, widgets }
@@ -884,13 +895,96 @@ impl Component for AppModel {
             }
             Msg::OpenUrl(url) => Self::open_uri(&url),
             Msg::ShowPreferences => Self::show_preferences(self, widgets, &sender),
-            Msg::ShowWelcome => welcome::present(&widgets.window),
             Msg::ShowAbout => Self::show_about(&widgets.window),
             Msg::ShowLog => {
                 let uri = gio::File::for_path(self.paths.log_file()).uri();
                 Self::open_uri(uri.as_str());
             }
             Msg::Toast(message) => Self::toast(widgets, &message),
+            Msg::Welcome => {
+                widgets.window.present();
+                widgets.welcome = Some(welcome::present(&widgets.window, &self.settings, &sender));
+            }
+            Msg::WelcomeFolder(path) => {
+                self.settings.set_appimages_dir(&path);
+                if let Some(welcome) = &widgets.welcome {
+                    welcome.folder_row.set_subtitle(&path.to_string_lossy());
+                }
+                self.refresh_apps();
+                Self::rebuild_list(self, widgets);
+            }
+            Msg::WelcomeMove(move_source) => {
+                self.settings
+                    .set_boolean(keys::MOVE_ON_INTEGRATION, move_source);
+            }
+            Msg::WelcomeFetchUpdates(enabled) => {
+                match crate::autostart::apply(&self.paths, enabled) {
+                    Ok(()) => self
+                        .settings
+                        .set_boolean(keys::FETCH_IN_BACKGROUND, enabled),
+                    Err(error) => {
+                        if let Some(welcome) = &widgets.welcome {
+                            welcome.revert_fetch_updates();
+                            welcome.toast(&error);
+                        }
+                    }
+                }
+            }
+            Msg::WelcomeInstall => {
+                let Some(image) = running_appimage() else {
+                    if let Some(welcome) = &widgets.welcome {
+                        welcome.toast(&t("Cannot determine the running AppImage"));
+                    }
+                    return;
+                };
+
+                let options = self_install::InstallOptions {
+                    appimages_dir: self.settings.values().appimages_dir.clone(),
+                    applications_dir: self.paths.applications_dir(),
+                    icons_dir: self.paths.hicolor_icons_dir(),
+                    move_source: self.settings.values().move_on_integration,
+                    update_desktop_database: true,
+                };
+
+                if let Some(welcome) = &widgets.welcome {
+                    welcome.begin_install();
+                }
+
+                std::thread::spawn(move || {
+                    let result =
+                        self_install::install(&image, &options).map_err(|error| error.to_string());
+                    sender.input(Msg::WelcomeInstalled(result));
+                });
+            }
+            Msg::WelcomeInstalled(result) => match result {
+                Ok(installation) => {
+                    if let Some(welcome) = widgets.welcome.take() {
+                        welcome.window.close();
+                    }
+                    tracing::info!(
+                        image = %installation.image_path.display(),
+                        desktop = %installation.desktop_path.display(),
+                        "Gear LeverR installed"
+                    );
+                    self.refresh_apps();
+                    Self::rebuild_list(self, widgets);
+                    Self::toast(widgets, &t("Gear LeverR installed"));
+                }
+                Err(error) => {
+                    if let Some(welcome) = &widgets.welcome {
+                        welcome.end_install();
+                        welcome.toast(&error);
+                    }
+                }
+            },
+            Msg::WelcomeSkip => {
+                if let Some(welcome) = widgets.welcome.take() {
+                    welcome.window.close();
+                }
+            }
+            Msg::WelcomeClosed => {
+                widgets.welcome = None;
+            }
         }
     }
 }
@@ -923,6 +1017,13 @@ impl AppModel {
 
         model.refresh_apps();
         model
+    }
+
+    /// Returns whether the first-run window should be shown.
+    fn should_show_welcome(&self) -> bool {
+        !self.opened_from_file
+            && running_appimage().is_some()
+            && !self_install::is_installed(&self.paths)
     }
 
     fn refresh_apps(&mut self) {
@@ -1941,7 +2042,6 @@ impl AppModel {
 
         let menu = gio::Menu::new();
         menu.append(Some(&t("_Preferences")), Some("win.preferences"));
-        menu.append(Some(&t("_Show tutorial")), Some("win.welcome"));
         menu.append(Some(&t("_Open Log File")), Some("win.log"));
         menu.append(Some(&t("_About Gear LeverR")), Some("win.about"));
         menu.append(Some(&t("Quit")), Some("win.quit"));
@@ -1955,11 +2055,6 @@ impl AppModel {
         let sender_preferences = sender.clone();
         preferences.connect_activate(move |_, _| sender_preferences.input(Msg::ShowPreferences));
         root.add_action(&preferences);
-
-        let welcome = gio::SimpleAction::new("welcome", None);
-        let sender_welcome = sender.clone();
-        welcome.connect_activate(move |_, _| sender_welcome.input(Msg::ShowWelcome));
-        root.add_action(&welcome);
 
         let about = gio::SimpleAction::new("about", None);
         let sender_about = sender.clone();
@@ -2028,15 +2123,10 @@ impl AppModel {
             ))
             .build();
         let empty_buttons = gtk::Box::new(gtk::Orientation::Vertical, 6);
-        let welcome = gtk::Button::with_label(&t("Show welcome screen"));
-        welcome.add_css_class("pill");
-        let sender_welcome = sender.clone();
-        welcome.connect_clicked(move |_| sender_welcome.input(Msg::ShowWelcome));
         let preferences = gtk::Button::with_label(&t("Open Preferences"));
         preferences.add_css_class("pill");
         let sender_prefs = sender.clone();
         preferences.connect_clicked(move |_| sender_prefs.input(Msg::ShowPreferences));
-        empty_buttons.append(&welcome);
         empty_buttons.append(&preferences);
         empty.set_child(Some(&empty_buttons));
 
@@ -2176,6 +2266,7 @@ impl AppModel {
             progress,
             cancel_button,
             drop_revealer,
+            welcome: None,
         }
     }
 }
@@ -2215,6 +2306,13 @@ fn same_file(left: &Path, right: &Path) -> bool {
         (Ok(left), Ok(right)) => left == right,
         _ => left == right,
     }
+}
+
+/// Returns the AppImage this process was started from, when there is one.
+fn running_appimage() -> Option<PathBuf> {
+    std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .filter(|path| path.is_file())
 }
 
 fn clear_listbox(listbox: &gtk::ListBox) {

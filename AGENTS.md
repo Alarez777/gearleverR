@@ -55,7 +55,7 @@ Debian 13. Debian 13 binaries are for testing only. Use
 ```
 crates/gearlever-core/   GTK-free logic: appimage, desktop, config, updates, install
 crates/gearlever/        binary: CLI (clap) + UI (Relm4)
-  src/ui/                window, details, preferences, tutorial, autostart
+  src/ui/                window, details, preferences, first-run setup, autostart
   tests/                 CLI integration tests
 crates/gearlever-core/tests/  core and end-to-end tests
 data/                    .desktop, GSettings schema, icons (16..512 px)

@@ -104,6 +104,12 @@ impl Paths {
         self.data_dir.join("applications")
     }
 
+    /// Returns the user's `hicolor` icon theme root.
+    #[must_use]
+    pub fn hicolor_icons_dir(&self) -> PathBuf {
+        self.data_dir.join("icons").join("hicolor")
+    }
+
     /// Returns the default folder where AppImages are kept.
     #[must_use]
     pub fn default_appimages_dir(&self) -> PathBuf {
@@ -182,6 +188,10 @@ mod tests {
         assert_eq!(
             paths.applications_dir(),
             PathBuf::from("/home/tester/.local/share/applications")
+        );
+        assert_eq!(
+            paths.hicolor_icons_dir(),
+            PathBuf::from("/home/tester/.local/share/icons/hicolor")
         );
         assert_eq!(
             paths.default_appimages_dir(),

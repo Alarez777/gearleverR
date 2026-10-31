@@ -100,6 +100,14 @@ fn read_entry(path: &Path, options: &ScanOptions<'_>) -> Option<InstalledApp> {
     let desktop = DesktopFile::parse(&contents);
     let main = desktop.section("Desktop Entry")?;
 
+    // Gear LeverR installs its own entry outside the managed collection.
+    if main
+        .get(crate::self_install::SELF_MARKER)
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    {
+        return None;
+    }
+
     let try_exec = main
         .get("TryExec")
         .map(|value| value.trim())
@@ -266,6 +274,42 @@ mod tests {
         .unwrap();
         assert_eq!(shown.len(), 1);
         assert!(shown[0].external);
+    }
+
+    #[test]
+    fn ignores_the_self_installed_desktop_entry() {
+        let directory = tempfile::tempdir().unwrap();
+        let paths = Paths::with_home(directory.path());
+        let appimages = paths.default_appimages_dir();
+        fs::create_dir_all(&appimages).unwrap();
+        fs::create_dir_all(paths.applications_dir()).unwrap();
+
+        let image = appimages.join("GearLeverR.AppImage");
+        write_fake_appimage(&image);
+        fs::write(
+            paths
+                .applications_dir()
+                .join(crate::self_install::DESKTOP_ID),
+            format!(
+                "[Desktop Entry]\nName=Gear LeverR\nTryExec={}\nExec={}\n{}={}\n",
+                image.display(),
+                image.display(),
+                crate::self_install::SELF_MARKER,
+                "true"
+            ),
+        )
+        .unwrap();
+
+        let apps = scan(
+            &paths,
+            &ScanOptions {
+                appimages_dir: &appimages,
+                include_external: true,
+            },
+        )
+        .unwrap();
+
+        assert!(apps.is_empty());
     }
 
     #[test]

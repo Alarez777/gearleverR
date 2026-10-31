@@ -13,6 +13,7 @@ use gearlever_core::config::Config;
 use gearlever_core::install::{IntegrateOptions, integrate};
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{ScanOptions, scan};
+use gearlever_core::self_install::{self, InstallOptions};
 use gearlever_core::uninstall::{Removal, uninstall};
 
 fn test_appimage() -> Option<PathBuf> {
@@ -74,4 +75,41 @@ fn integrates_scans_and_removes_a_real_appimage() {
     assert!(!installed.image_path.exists());
     assert!(!installed.desktop_path.exists());
     assert!(config.app(&installed.image_path).is_empty());
+}
+
+#[test]
+fn installs_itself_and_stays_out_of_the_list() {
+    let Some(source) = test_appimage() else {
+        return;
+    };
+
+    let directory = tempfile::tempdir().expect("temporary home");
+    let paths = Paths::with_home(directory.path());
+    let mut options = InstallOptions::new(&paths, paths.default_appimages_dir());
+    options.move_source = false;
+    options.update_desktop_database = false;
+
+    let installation =
+        self_install::install(&source, &options).expect("the self installation succeeds");
+
+    assert!(installation.image_path.exists(), "the AppImage is copied");
+    assert!(
+        installation.desktop_path.exists(),
+        "the desktop entry is written"
+    );
+    assert!(self_install::is_installed(&paths));
+
+    let apps = scan(
+        &paths,
+        &ScanOptions {
+            appimages_dir: &options.appimages_dir,
+            include_external: true,
+        },
+    )
+    .expect("scan succeeds");
+
+    assert!(
+        apps.is_empty(),
+        "Gear LeverR must not manage its own desktop entry"
+    );
 }

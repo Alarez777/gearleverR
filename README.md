@@ -32,7 +32,9 @@ updates from six sources, a compatible CLI and the full interface. See
 - Update everything at once, with progress, cancellation and a check for running apps.
 - Edit arguments, environment variables, the website and the update source.
 - Reload metadata, move an app to the trash and open its folder.
-- Preferences, tutorial, about dialog, search and update notifications.
+- Preferences, about dialog, search and update notifications.
+- First-run window that integrates Gear LeverR into the application menu and asks for
+  the AppImages folder and the move/clone policy.
 - gettext translations based on the original Gear Lever catalogs (22 languages).
 - Update checks at login through `org.freedesktop.portal.Background`, with a classic
   `~/.config/autostart` entry as a fallback.
@@ -54,6 +56,11 @@ Download `GearLeverR-<version>-x86_64.AppImage`, make it executable and open it:
 chmod +x GearLeverR-0.1.0-x86_64.AppImage
 ./GearLeverR-0.1.0-x86_64.AppImage
 ```
+
+The first launch shows a welcome window: it installs Gear LeverR in the application menu
+(a `.desktop` entry plus the icons in `~/.local/share/icons/hicolor`) and lets you choose
+the AppImages folder, whether new AppImages are moved or cloned, and whether updates are
+checked at login. Once the entry exists the window is not shown again.
 
 You can also pass an AppImage directly:
 
@@ -175,8 +182,6 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
 - The interface is translated by reusing the original catalogs. Spanish is complete;
   in other languages, new Gear LeverR strings may appear in English until they are
   translated (see `po/`).
-- The tutorial has three pages (the original has four) and does not include the demo
-  AppImage.
 - Environment variables are edited as `KEY=value` lines, not row by row.
 - There are no delta updates: the whole AppImage is downloaded.
 - DwarFS and ISO9660 require `dwarfsextract` or `7zz` to be installed.
