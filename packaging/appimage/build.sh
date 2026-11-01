@@ -160,6 +160,36 @@ build_bundled() {
         exit 1
     fi
 
+    # GLib and the system libraries its host modules link against are provided
+    # by the distribution. Bundling them hides the host's GIO modules: the
+    # dconf backend then fails to load, which silently turns every GSettings
+    # key into its schema default (window buttons, fonts, icon theme) and stops
+    # the app settings from persisting. The GTK plugin copies them anyway, so
+    # drop them afterwards.
+    local system_libs=(
+        'libglib-2.0.so*'
+        'libgio-2.0.so*'
+        'libgobject-2.0.so*'
+        'libgmodule-2.0.so*'
+        'libmount.so*'
+        'libblkid.so*'
+        'libselinux.so*'
+        'libpcre2-8.so*'
+        'libffi.so*'
+    )
+
+    local lib
+    for lib in "${system_libs[@]}"; do
+        find "$BUNDLED_APPDIR" -name "$lib" -delete
+    done
+
+    for lib in "${system_libs[@]}"; do
+        if find "$BUNDLED_APPDIR" -name "$lib" -print -quit | grep -q .; then
+            echo "error: linuxdeploy bundled $lib; it must come from the host" >&2
+            exit 1
+        fi
+    done
+
     install_common "$BUNDLED_APPDIR"
     install_bundled_resources "$BUNDLED_APPDIR"
     package_appimage "$BUNDLED_APPDIR" "$BUNDLED_OUTPUT" "gtk-included"
