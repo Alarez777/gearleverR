@@ -95,6 +95,14 @@ cargo test --workspace --all-features
   must be mockable.
 - Before packaging, compile translations with `scripts/compile-translations.sh`.
 
+## Git workflow
+
+- Every change starts in its own branch created from `develop` (`fix/...`,
+  `feat/...`, `chore/...`). Never commit directly to `develop` or `main`.
+- Do not merge until it is tested: the quality commands above and, for UI or
+  packaging changes, `scripts/ui-smoke.sh` in the Debian 12 container.
+- Merge the branch into `develop`, then into `main`, and push both.
+
 ## Conventions
 
 - Speak Spanish with the user; use English for identifiers, docs and commit messages.

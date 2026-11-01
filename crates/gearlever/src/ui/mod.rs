@@ -2384,9 +2384,9 @@ impl AppModel {
             .application_icon("io.github.alarez777.GearLeverR")
             .version(env!("CARGO_PKG_VERSION"))
             .developer_name("Gear LeverR contributors")
-            .website("https://github.com/alarez/gear-leverR")
-            .issue_url("https://github.com/alarez/gear-leverR/issues")
-            .license_type(gtk::License::Gpl30)
+            .website(env!("CARGO_PKG_REPOSITORY"))
+            .issue_url(concat!(env!("CARGO_PKG_REPOSITORY"), "/issues"))
+            .license(t("GPL-3.0-or-later — free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."))
             .comments(t("An utility to manage AppImages with ease!"))
             .build();
         about.set_transient_for(Some(parent));
