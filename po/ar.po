@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: unnamed project\n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-01 20:23+0000\n"
+"POT-Creation-Date: 2026-11-01 21:17+0000\n"
 "PO-Revision-Date: 2026-02-04 23:57+0200\n"
 "Last-Translator: Muhammed Al-Basha <contact.mu7basha@gmail.com>\n"
 "Language-Team: Arabic\n"
@@ -19,6 +19,23 @@ msgstr ""
 "Plural-Forms: nplurals=6; plural= n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
 "X-Generator: Gtranslator 49.0\n"
+
+#: crates/gearlever/src/ui/mod.rs:2389
+msgid ""
+"<b>About</b>\n"
+"An AppImage manager inspired by Gear Lever, but an independent project: it "
+"shares neither its code, its name nor its icon.\n"
+"\n"
+"<b>Built with</b>\n"
+"Rust, GTK 4, libadwaita, Relm4, backhand and ureq."
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:2390
+msgid ""
+"<b>GPL-3.0-or-later</b>\n"
+"Free software: you can redistribute it and/or modify it under the terms of "
+"the GNU General Public License, version 3 or later."
+msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1746
 msgid "Add a website"
@@ -32,10 +49,6 @@ msgstr "اضف أو خصص بيئة هذا التطبيق"
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2390
-msgid "An utility to manage AppImages with ease!"
-msgstr "أداة لإدارة حزم AppImage بسهولة!"
-
 #: crates/gearlever/src/ui/mod.rs:1417
 msgid "App details"
 msgstr ""
@@ -46,6 +59,10 @@ msgstr "المكان الافتراضي للأبايميج"
 
 #: crates/gearlever/src/ui/mod.rs:585
 msgid "AppImage integrated"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:2386
+msgid "AppImage manager written in Rust"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:601
@@ -155,12 +172,6 @@ msgstr "إدارة الملفات"
 #: crates/gearlever/src/ui/mod.rs:2664
 msgid "Filter installed applications"
 msgstr "رشّح التطبيقات المثبَّتة"
-
-#: crates/gearlever/src/ui/mod.rs:2389
-msgid ""
-"GPL-3.0-or-later — free software: you can redistribute it and/or modify it "
-"under the terms of the GNU General Public License, version 3 or later."
-msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1139
 msgid "Gear LeverR installed"

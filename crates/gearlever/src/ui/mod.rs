@@ -2383,11 +2383,11 @@ impl AppModel {
             .application_name("Gear LeverR")
             .application_icon("io.github.alarez777.GearLeverR")
             .version(env!("CARGO_PKG_VERSION"))
-            .developer_name("Gear LeverR contributors")
+            .developer_name(t("AppImage manager written in Rust"))
             .website(env!("CARGO_PKG_REPOSITORY"))
             .issue_url(concat!(env!("CARGO_PKG_REPOSITORY"), "/issues"))
-            .license(t("GPL-3.0-or-later — free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."))
-            .comments(t("An utility to manage AppImages with ease!"))
+            .comments(t("<b>About</b>\nAn AppImage manager inspired by Gear Lever, but an independent project: it shares neither its code, its name nor its icon.\n\n<b>Built with</b>\nRust, GTK 4, libadwaita, Relm4, backhand and ureq."))
+            .license(t("<b>GPL-3.0-or-later</b>\nFree software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."))
             .build();
         about.set_transient_for(Some(parent));
         about.present();

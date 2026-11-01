@@ -4,10 +4,18 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gearlever-r 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-01 20:23+0000\n"
+"POT-Creation-Date: 2026-11-01 21:17+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: crates/gearlever/src/ui/mod.rs:2389
+msgid "<b>About</b>\nAn AppImage manager inspired by Gear Lever, but an independent project: it shares neither its code, its name nor its icon.\n\n<b>Built with</b>\nRust, GTK 4, libadwaita, Relm4, backhand and ureq."
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:2390
+msgid "<b>GPL-3.0-or-later</b>\nFree software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."
+msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1746
 msgid "Add a website"
@@ -22,10 +30,6 @@ msgstr ""
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2390
-msgid "An utility to manage AppImages with ease!"
-msgstr ""
-
 #: crates/gearlever/src/ui/mod.rs:1417
 msgid "App details"
 msgstr ""
@@ -37,6 +41,10 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:585
 msgid "AppImage integrated"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:2386
+msgid "AppImage manager written in Rust"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:601
@@ -153,10 +161,6 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:2664
 msgid "Filter installed applications"
-msgstr ""
-
-#: crates/gearlever/src/ui/mod.rs:2389
-msgid "GPL-3.0-or-later — free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1139

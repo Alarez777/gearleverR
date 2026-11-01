@@ -18,6 +18,9 @@ msgstr "Avanzado"
 msgid "App details"
 msgstr "Detalles de la aplicación"
 
+msgid "AppImage manager written in Rust"
+msgstr "Administrador de AppImages escrito en Rust"
+
 msgid "AppImage integrated"
 msgstr "AppImage integrada"
 
@@ -43,11 +46,13 @@ msgid "Compute hashes"
 msgstr "Calcular hashes"
 
 msgid ""
-"GPL-3.0-or-later — free software: you can redistribute it and/or modify it "
-"under the terms of the GNU General Public License, version 3 or later."
+"<b>GPL-3.0-or-later</b>\n"
+"Free software: you can redistribute it and/or modify it under the terms of "
+"the GNU General Public License, version 3 or later."
 msgstr ""
-"GPL-3.0-or-later — software libre: puedes redistribuirlo y/o modificarlo "
-"bajo los términos de la GNU GPL, versión 3 o posterior."
+"<b>GPL-3.0-or-later</b>\n"
+"Software libre: puedes redistribuirlo y/o modificarlo bajo los términos de "
+"la GNU GPL, versión 3 o posterior."
 
 msgid "Integrating..."
 msgstr "Integrando..."
@@ -240,6 +245,21 @@ msgstr ""
 "afectando potencialmente al rendimiento.\n"
 "Requiere un reinicio."
 
+msgid ""
+"<b>About</b>\n"
+"An AppImage manager inspired by Gear Lever, but an independent project: it "
+"shares neither its code, its name nor its icon.\n"
+"\n"
+"<b>Built with</b>\n"
+"Rust, GTK 4, libadwaita, Relm4, backhand and ureq."
+msgstr ""
+"<b>Acerca de</b>\n"
+"Un administrador de AppImages inspirado en Gear Lever, pero un proyecto "
+"independiente: no comparte ni su código, ni su nombre ni su icono.\n"
+"\n"
+"<b>Hecho con</b>\n"
+"Rust, GTK 4, libadwaita, Relm4, backhand y ureq."
+
 #: crates/gearlever/src/ui/mod.rs:1746
 msgid "Add a website"
 msgstr "Agregar un sitio web"
@@ -247,10 +267,6 @@ msgstr "Agregar un sitio web"
 #: crates/gearlever/src/ui/mod.rs:1971
 msgid "Add or customize environment for this application"
 msgstr "Añadir o personalizar el entorno para esta aplicación"
-
-#: crates/gearlever/src/ui/mod.rs:2390
-msgid "An utility to manage AppImages with ease!"
-msgstr "¡Una utilidad para gestionar AppImages con facilidad!"
 
 #: crates/gearlever/src/ui/mod.rs:2150 crates/gearlever/src/ui/welcome.rs:134
 msgid "AppImage default location"
