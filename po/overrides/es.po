@@ -183,6 +183,9 @@ msgid "AppImages removed"
 msgstr "AppImages eliminadas"
 
 # Corrections for upstream strings, matching the text shown by Gear Lever.
+msgid "Reload metadata"
+msgstr "Recargar metadata"
+
 msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
