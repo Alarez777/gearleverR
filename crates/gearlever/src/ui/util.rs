@@ -152,6 +152,18 @@ pub fn install_css() {
             background-color: alpha(@theme_fg_color, 0.1);
             border-radius: 9999px;
             padding: 4px 12px;
+        }
+        .multi-progress {
+            margin: 0;
+            padding: 0;
+        }
+        .multi-progress > trough {
+            min-height: 4px;
+            border-radius: 0;
+        }
+        .multi-progress > trough > progress {
+            min-height: 4px;
+            border-radius: 0;
         }",
     );
     gtk::style_context_add_provider_for_display(

@@ -129,6 +129,7 @@ enum Msg {
     CancelUpdate,
     UpdateCancelled,
     Updated(Result<(InstalledApp, Config), String>),
+    MultiAppUpdated(PathBuf),
     MultiUpdated(Result<Config, String>, bool),
     SaveExec {
         path: PathBuf,
@@ -181,6 +182,7 @@ struct AppModel {
     updates: HashSet<PathBuf>,
     checking: bool,
     pending: Vec<(PathBuf, AppMetadata)>,
+    multi_done: HashSet<PathBuf>,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
     reloaded: Option<(PathBuf, AppMetadata)>,
@@ -203,6 +205,7 @@ struct Widgets {
     update_all_button: gtk::Button,
     details: gtk::Box,
     multi: gtk::Box,
+    multi_progress: gtk::ProgressBar,
     progress: gtk::ProgressBar,
     cancel_button: gtk::Button,
     drop_revealer: gtk::Revealer,
@@ -729,6 +732,7 @@ impl Component for AppModel {
                     return;
                 }
 
+                self.multi_done.clear();
                 self.update_queue.clone_from(&queue);
                 self.page = Page::MultiUpdate;
                 Self::show_page(self, widgets);
@@ -739,7 +743,8 @@ impl Component for AppModel {
                 let download_dir = self.paths.temp_dir().join("downloads");
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
-                Self::show_progress(widgets);
+                widgets.multi_progress.set_visible(true);
+                widgets.multi_progress.set_fraction(0.0);
 
                 std::thread::spawn(move || {
                     let mut config = config;
@@ -781,7 +786,7 @@ impl Component for AppModel {
                             &mut progress,
                             Arc::clone(&cancel),
                         ) {
-                            Ok(_) => {}
+                            Ok(_) => sender.input(Msg::MultiAppUpdated(app.image_path.clone())),
                             Err(CoreError::Cancelled) => {
                                 cancelled = true;
                                 break;
@@ -796,15 +801,22 @@ impl Component for AppModel {
                 });
             }
             Msg::Progress(fraction, text) => {
-                Self::show_progress(widgets);
-                widgets.progress.set_fraction(fraction);
-                widgets.progress.set_text(Some(&text));
+                if self.page == Page::MultiUpdate {
+                    widgets.multi_progress.set_visible(true);
+                    widgets.multi_progress.set_fraction(fraction);
+                } else {
+                    Self::show_progress(widgets);
+                    widgets.progress.set_fraction(fraction);
+                    widgets.progress.set_text(Some(&text));
+                }
             }
             Msg::CancelUpdate => {
                 if let Some(cancel) = &self.cancel_token {
                     cancel.store(true, Ordering::Relaxed);
-                    widgets.cancel_button.set_sensitive(false);
-                    widgets.cancel_button.set_label(&t("Cancelling..."));
+                    if self.page != Page::MultiUpdate {
+                        widgets.cancel_button.set_sensitive(false);
+                        widgets.cancel_button.set_label(&t("Cancelling..."));
+                    }
                 }
             }
             Msg::UpdateCancelled => {
@@ -835,13 +847,27 @@ impl Component for AppModel {
                     Err(error) => Self::toast(widgets, &error),
                 }
             }
+            Msg::MultiAppUpdated(path) => {
+                self.multi_done.insert(path.clone());
+                self.updates.remove(&path);
+                if self.page == Page::MultiUpdate {
+                    Self::rebuild_multi(self, widgets, &sender);
+                }
+            }
             Msg::MultiUpdated(result, cancelled) => {
                 self.cancel_token = None;
+                widgets.multi_progress.set_visible(false);
                 Self::hide_progress(widgets);
                 match result {
                     Ok(config) => {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
+                        // Clear the badges before rebuilding the list; otherwise
+                        // the rows keep the update icon that was already applied.
+                        if !cancelled {
+                            self.updates.clear();
+                        }
+                        self.multi_done.clear();
                         self.update_queue.clear();
                         self.page = Page::List;
                         self.refresh_apps();
@@ -850,7 +876,6 @@ impl Component for AppModel {
                         if cancelled {
                             Self::toast(widgets, &t("Updates cancelled"));
                         } else {
-                            self.updates.clear();
                             Self::toast(widgets, &t("Updates installed"));
                         }
                     }
@@ -1113,6 +1138,7 @@ impl AppModel {
             updates: HashSet::new(),
             checking: false,
             pending: Vec::new(),
+            multi_done: HashSet::new(),
             update_queue: Vec::new(),
             opened_from_file: false,
             reloaded: None,
@@ -1335,10 +1361,20 @@ impl AppModel {
 
         widgets.stack.set_visible_child_name(name);
         widgets.title.set_label(&title);
-        widgets.title.set_visible(self.page != Page::Details);
+        widgets
+            .title
+            .set_visible(!matches!(self.page, Page::Details | Page::MultiUpdate));
         widgets.left_button.set_icon_name(icon);
-        widgets.search_button.set_visible(self.page == Page::List);
+        widgets
+            .left_button
+            .set_visible(self.page != Page::MultiUpdate);
+        widgets
+            .search_button
+            .set_visible(matches!(self.page, Page::List | Page::MultiUpdate));
         widgets.search_bar.set_search_mode(false);
+        if self.page != Page::MultiUpdate {
+            widgets.multi_progress.set_visible(false);
+        }
         widgets
             .left_button
             .set_tooltip_text(Some(&if self.page == Page::List {
@@ -1925,11 +1961,11 @@ impl AppModel {
             widgets.multi.remove(&child);
         }
 
-        let content = gtk::Box::new(gtk::Orientation::Vertical, 16);
-        content.set_margin_top(24);
-        content.set_margin_bottom(24);
-        content.set_margin_start(24);
-        content.set_margin_end(24);
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
+        content.set_margin_top(30);
+        content.set_margin_bottom(10);
+        content.set_margin_start(20);
+        content.set_margin_end(20);
 
         if self.page == Page::MultiInstall {
             let title = gtk::Label::new(Some(&t("Apps to integrate")));
@@ -1958,23 +1994,73 @@ impl AppModel {
             all.connect_clicked(move |_| sender.input(Msg::InstallAll));
             content.append(&all);
         } else if self.page == Page::MultiUpdate {
-            let title = gtk::Label::new(Some(&t("Updating applications")));
-            title.add_css_class("title-2");
-            title.set_halign(gtk::Align::Start);
-            content.append(&title);
+            let cancel = gtk::Button::with_label(&t("Cancel update"));
+            cancel.set_halign(gtk::Align::Center);
+            let sender_cancel = sender.clone();
+            cancel.connect_clicked(move |_| sender_cancel.input(Msg::CancelUpdate));
+            content.append(&cancel);
 
             let list = gtk::ListBox::new();
             list.add_css_class("boxed-list");
             list.set_selection_mode(gtk::SelectionMode::None);
+
             for app in &self.update_queue {
-                let row = adw::ActionRow::builder().title(app.name.clone()).build();
+                let done = self.multi_done.contains(&app.image_path);
+                let row = gtk::ListBoxRow::new();
+                row.set_activatable(false);
+                row.set_opacity(if done { 1.0 } else { 0.5 });
+
+                let line = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+                line.set_margin_top(6);
+                line.set_margin_bottom(6);
+                line.set_margin_start(6);
+                line.set_margin_end(6);
+                line.append(&util::app_image(
+                    app,
+                    &self.paths.metadata_cache_dir(),
+                    MULTI_ROW_ICON,
+                ));
+
+                let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
+                text.set_hexpand(true);
+                text.set_valign(gtk::Align::Center);
+
+                let name = gtk::Label::new(Some(&app.name));
+                name.set_halign(gtk::Align::Start);
+                name.add_css_class("heading");
+                name.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                name.set_max_width_chars(70);
+                text.append(&name);
+
+                if !app.description.trim().is_empty() {
+                    let description = gtk::Label::new(Some(&app.description));
+                    description.set_halign(gtk::Align::Start);
+                    description.add_css_class("dim-label");
+                    description.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                    description.set_lines(1);
+                    description.set_max_width_chars(100);
+                    text.append(&description);
+                }
+
+                line.append(&text);
+
+                if done {
+                    let check = gtk::Image::from_icon_name("object-select-symbolic");
+                    check.set_pixel_size(16);
+                    check.set_valign(gtk::Align::Center);
+                    check.set_margin_end(6);
+                    check.add_css_class("success");
+                    line.append(&check);
+                }
+
+                row.set_child(Some(&line));
                 list.append(&row);
             }
             content.append(&list);
         }
 
         let clamp = adw::Clamp::builder()
-            .maximum_size(640)
+            .maximum_size(600)
             .child(&content)
             .build();
         widgets.multi.append(&clamp);
@@ -2597,12 +2683,24 @@ impl AppModel {
         let multi = gtk::Box::new(gtk::Orientation::Vertical, 0);
         multi_scroll.set_child(Some(&multi));
 
+        let multi_progress = gtk::ProgressBar::new();
+        multi_progress.set_visible(false);
+        multi_progress.set_show_text(false);
+        multi_progress.set_height_request(4);
+        multi_progress.set_valign(gtk::Align::Start);
+        multi_progress.set_hexpand(true);
+        multi_progress.add_css_class("multi-progress");
+
+        let multi_overlay = gtk::Overlay::new();
+        multi_overlay.set_child(Some(&multi_scroll));
+        multi_overlay.add_overlay(&multi_progress);
+
         let stack = gtk::Stack::new();
         stack.set_transition_type(gtk::StackTransitionType::Crossfade);
         stack.set_vexpand(true);
         stack.add_named(&list_view, Some("list"));
         stack.add_named(&details_scroll, Some("details"));
-        stack.add_named(&multi_scroll, Some("multi"));
+        stack.add_named(&multi_overlay, Some("multi"));
 
         let progress = gtk::ProgressBar::new();
         progress.set_visible(false);
@@ -2701,6 +2799,7 @@ impl AppModel {
             update_all_button,
             details,
             multi,
+            multi_progress,
             progress,
             cancel_button,
             drop_revealer,
@@ -2871,6 +2970,9 @@ fn fraction(done: usize, total: usize) -> f64 {
 
 /// Width shared by the primary action buttons.
 const ACTION_BUTTON_WIDTH: i32 = 200;
+
+/// Icon size used by the rows of the multi-update page.
+const MULTI_ROW_ICON: i32 = 45;
 
 /// Width and height of the buttons in the small preview windows.
 const PREVIEW_BUTTON_WIDTH: i32 = 240;
