@@ -100,6 +100,13 @@ enum Preview {
     Installed,
 }
 
+/// Where the files came from: the external open signal or an in-app chooser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoadSource {
+    Chosen,
+    External,
+}
+
 #[expect(
     clippy::large_enum_variant,
     reason = "the installed path is the common case and cloning is cheap enough"
@@ -201,6 +208,10 @@ enum Msg {
     WelcomeClosed,
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the model tracks independent one-shot UI flags"
+)]
 struct AppModel {
     paths: Paths,
     settings: Settings,
@@ -216,6 +227,7 @@ struct AppModel {
     multi_done: HashSet<PathBuf>,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
+    external_open: bool,
     reloaded: Option<(PathBuf, AppMetadata)>,
     cancel_token: Option<Arc<AtomicBool>>,
     removing_self: bool,
@@ -311,6 +323,7 @@ impl Component for AppModel {
                 Self::rebuild_details(self, widgets, &sender);
             }
             Msg::ShowList => {
+                self.external_open = false;
                 self.page = Page::List;
                 self.details = None;
                 self.reloaded = None;
@@ -318,6 +331,7 @@ impl Component for AppModel {
                 Self::rebuild_list(self, widgets);
             }
             Msg::OpenPath(path) => {
+                self.external_open = false;
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == path) {
                     self.details = Some(DetailsItem::Installed(app.clone()));
                     self.details_source = None;
@@ -348,19 +362,10 @@ impl Component for AppModel {
             Msg::OpenChooser => Self::open_chooser(root, &sender),
             Msg::OpenedFiles(paths) => {
                 widgets.window.present();
-                sender.input(Msg::FilesChosen(paths));
+                self.files_chosen(widgets, &sender, paths, LoadSource::External);
             }
             Msg::FilesChosen(paths) => {
-                widgets.drop_revealer.set_reveal_child(false);
-                widgets.drop_revealer.set_visible(false);
-                let installed = self.apps.iter().map(|app| app.image_path.clone()).collect();
-                Self::load_files(
-                    paths,
-                    !self.settings.values().block_unsafe_extractor,
-                    self.paths.temp_dir().join("metadata"),
-                    installed,
-                    &sender,
-                );
+                self.files_chosen(widgets, &sender, paths, LoadSource::Chosen);
             }
             Msg::FilesLoaded(loaded, errors) => {
                 for error in errors {
@@ -1179,6 +1184,7 @@ impl AppModel {
             multi_done: HashSet::new(),
             update_queue: Vec::new(),
             opened_from_file: false,
+            external_open: false,
             reloaded: None,
             cancel_token: None,
             removing_self: false,
@@ -1304,6 +1310,26 @@ impl AppModel {
         update::resolve(path, &self.config.update_manager(path))
             .map_err(|error| error.to_string())?
             .ok_or_else(|| "No update method was found for this AppImage".to_owned())
+    }
+
+    fn files_chosen(
+        &mut self,
+        widgets: &Widgets,
+        sender: &ComponentSender<Self>,
+        paths: Vec<PathBuf>,
+        source: LoadSource,
+    ) {
+        self.external_open = source == LoadSource::External;
+        widgets.drop_revealer.set_reveal_child(false);
+        widgets.drop_revealer.set_visible(false);
+        let installed = self.apps.iter().map(|app| app.image_path.clone()).collect();
+        Self::load_files(
+            paths,
+            !self.settings.values().block_unsafe_extractor,
+            self.paths.temp_dir().join("metadata"),
+            installed,
+            sender,
+        );
     }
 
     #[expect(
@@ -1574,7 +1600,8 @@ impl AppModel {
             ),
         };
 
-        let minimal = self.minimal_preview();
+        let minimal = self.minimal_preview()
+            || (self.external_open && self.settings.values().preview_minimal_ui);
         let mut pills = Vec::new();
         if !minimal {
             if let Some(version) = version {
@@ -3061,7 +3088,6 @@ fn details_header(
         subtitle.add_css_class("subtitle");
         subtitle.set_justify(gtk::Justification::Center);
         subtitle.set_wrap(true);
-        subtitle.set_selectable(true);
         subtitle.set_lines(2);
         subtitle.set_ellipsize(gtk::pango::EllipsizeMode::End);
         subtitle.set_max_width_chars(50);
