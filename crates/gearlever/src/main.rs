@@ -13,7 +13,6 @@ mod ui;
 
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
@@ -32,10 +31,9 @@ fn main() -> ExitCode {
         .any(|argument| argument.to_string_lossy().starts_with('-'));
 
     if !has_option {
-        let files: Vec<PathBuf> = arguments
+        let files: Vec<String> = arguments
             .iter()
-            .map(PathBuf::from)
-            .filter(|path| path.is_file())
+            .map(|argument| argument.to_string_lossy().into_owned())
             .collect();
 
         ui::run(files);

@@ -47,12 +47,42 @@ use crate::settings::{APP_ID, Settings, keys};
 use util::{normalize, pill};
 
 /// Starts the graphical application.
-pub(crate) fn run(files: Vec<PathBuf>) {
+pub(crate) fn run(arguments: Vec<String>) {
     crate::i18n::init();
     tracing::info!("starting the Gear LeverR interface");
-    RelmApp::new(APP_ID)
-        .with_args(vec![APP_ID.to_owned()])
-        .run::<AppModel>(files);
+
+    let opened_from_file = !arguments.is_empty();
+    let relm = RelmApp::new(APP_ID);
+
+    let app = relm4::main_application();
+    app.set_flags(app.flags() | gio::ApplicationFlags::HANDLES_OPEN);
+    app.connect_open(|_, files, _| {
+        let paths: Vec<PathBuf> = files
+            .iter()
+            .filter_map(gio::prelude::FileExt::path)
+            .collect();
+        if paths.is_empty() {
+            return;
+        }
+
+        let sender = OPEN_SENDER.with(|slot| slot.borrow().clone());
+        if let Some(sender) = sender {
+            sender.input(Msg::OpenedFiles(paths));
+        } else {
+            PENDING_OPEN.with(|pending| pending.borrow_mut().extend(paths));
+        }
+    });
+
+    let mut args = Vec::with_capacity(arguments.len() + 1);
+    args.push(APP_ID.to_owned());
+    args.extend(arguments);
+
+    relm.with_args(args).run::<AppModel>(opened_from_file);
+}
+
+thread_local! {
+    static OPEN_SENDER: RefCell<Option<ComponentSender<AppModel>>> = const { RefCell::new(None) };
+    static PENDING_OPEN: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,6 +131,7 @@ enum Msg {
     SearchChanged(String),
     OpenChooser,
     FilesChosen(Vec<PathBuf>),
+    OpenedFiles(Vec<PathBuf>),
     FilesLoaded(Vec<LoadedFile>, Vec<String>),
     DragActive(bool),
     CheckUpdates,
@@ -216,7 +247,7 @@ impl Component for AppModel {
     type CommandOutput = ();
     type Input = Msg;
     type Output = ();
-    type Init = Vec<PathBuf>;
+    type Init = bool;
     type Root = adw::ApplicationWindow;
     type Widgets = Widgets;
 
@@ -229,16 +260,19 @@ impl Component for AppModel {
     }
 
     fn init(
-        files: Self::Init,
+        opened_from_file: bool,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         util::install_css();
 
         let mut model = Self::new();
-        if !files.is_empty() {
-            model.opened_from_file = true;
-        }
+        model.opened_from_file = opened_from_file;
+
+        OPEN_SENDER.with(|slot| *slot.borrow_mut() = Some(sender.clone()));
+        let pending =
+            PENDING_OPEN.with(|pending| pending.borrow_mut().drain(..).collect::<Vec<_>>());
+
         let widgets = Self::build_shell(&root, &sender);
         Self::rebuild_list(&model, &widgets);
         Self::show_page(&model, &widgets);
@@ -247,9 +281,9 @@ impl Component for AppModel {
             root.maximize();
         }
 
-        if !files.is_empty() {
-            sender.input(Msg::FilesChosen(files));
-        } else if model.should_show_welcome() {
+        if !pending.is_empty() {
+            sender.input(Msg::OpenedFiles(pending));
+        } else if !opened_from_file && model.should_show_welcome() {
             sender.input(Msg::Welcome);
         }
 
@@ -312,6 +346,10 @@ impl Component for AppModel {
                 Self::rebuild_list(self, widgets);
             }
             Msg::OpenChooser => Self::open_chooser(root, &sender),
+            Msg::OpenedFiles(paths) => {
+                widgets.window.present();
+                sender.input(Msg::FilesChosen(paths));
+            }
             Msg::FilesChosen(paths) => {
                 widgets.drop_revealer.set_reveal_child(false);
                 widgets.drop_revealer.set_visible(false);
