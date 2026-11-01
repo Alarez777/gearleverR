@@ -27,16 +27,20 @@ echo ":: building inside $IMAGE"
     -w /src \
     -e CARGO_TARGET_DIR=/src/target-debian12 \
     -e RUSTFLAGS="-C link-arg=-L/usr/lib/x86_64-linux-gnu" \
+    -e VARIANTS="${VARIANTS:-all}" \
     "$IMAGE" bash -c '
         export PATH=/usr/local/cargo/bin:$PATH
         apt-get update -qq >/dev/null
         apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
-            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev gettext >/dev/null
+            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev gettext \
+            curl file librsvg2-dev libgirepository1.0-dev \
+            libgdk-pixbuf2.0-bin adwaita-icon-theme libgtk-4-bin >/dev/null
         cargo build --release --locked -p gearlever
-    '
 
-echo ":: packaging"
-GEARLEVER_R_BINARY="$ROOT/target-debian12/release/gearlever-r" \
-APPIMAGETOOL="$TOOL" \
-APPIMAGE_EXTRACT_AND_RUN=1 \
-    "$ROOT/packaging/appimage/build.sh"
+        echo ":: packaging inside $IMAGE"
+        GEARLEVER_R_BINARY=/src/target-debian12/release/gearlever-r \
+        APPIMAGETOOL=/src/.cache/appimagetool-x86_64.AppImage \
+        APPIMAGE_EXTRACT_AND_RUN=1 \
+        VARIANT="$VARIANTS" \
+            ./packaging/appimage/build.sh
+    '

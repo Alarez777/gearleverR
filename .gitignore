@@ -4,6 +4,7 @@
 *.AppImage.zsync
 /dist
 /packaging/appimage/AppDir
+/packaging/appimage/AppDir-bundled
 /packaging/appimage/*.AppImage
 /target-debian12
 

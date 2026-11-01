@@ -1,18 +1,31 @@
 #!/usr/bin/env bash
-# Assembles the thin AppImage (GTK4/libadwaita provided by the system).
+# Assembles the Gear LeverR AppImages.
+#
+# VARIANT=system   GTK 4 and libadwaita are provided by the host.
+# VARIANT=bundled  GTK 4, libadwaita and their dependencies are inside.
+# VARIANT=all      Build both variants (default).
 #
 # Usage:
 #   packaging/appimage/build.sh
+#   VARIANT=system packaging/appimage/build.sh
 #   APPIMAGETOOL=/path/to/appimagetool packaging/appimage/build.sh
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ARCH=${ARCH:-x86_64}
-APPDIR="$ROOT/packaging/appimage/AppDir"
+VARIANT=${VARIANT:-all}
 VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/Cargo.toml" | head -n 1)
-OUTPUT="$ROOT/dist/GearLeverR-${VERSION}-${ARCH}.AppImage"
-
+DIST="$ROOT/dist"
+SYSTEM_APPDIR="$ROOT/packaging/appimage/AppDir"
+BUNDLED_APPDIR="$ROOT/packaging/appimage/AppDir-bundled"
+SYSTEM_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}-gtk-required.AppImage"
+BUNDLED_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}-gtk-included.AppImage"
 APPIMAGETOOL=${APPIMAGETOOL:-appimagetool}
+LINUXDEPLOY=${LINUXDEPLOY:-$ROOT/.cache/linuxdeploy-x86_64.AppImage}
+LINUXDEPLOY_PLUGIN=${LINUXDEPLOY_PLUGIN:-$ROOT/.cache/linuxdeploy-plugin-gtk.sh}
+
+export APPIMAGE_EXTRACT_AND_RUN=${APPIMAGE_EXTRACT_AND_RUN:-1}
+
 if ! command -v "$APPIMAGETOOL" >/dev/null 2>&1 && [ ! -x "$APPIMAGETOOL" ]; then
     echo "error: appimagetool not found; set APPIMAGETOOL=/path/to/appimagetool" >&2
     exit 1
@@ -27,36 +40,146 @@ else
     BINARY="$ROOT/target/release/gearlever-r"
 fi
 
-rm -rf "$APPDIR"
-install -Dm755 "$BINARY" "$APPDIR/gearlever-r"
-install -Dm755 "$ROOT/packaging/appimage/AppRun" "$APPDIR/AppRun"
-install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.desktop" \
-    "$APPDIR/io.github.alarez777.GearLeverR.desktop"
-install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
-    "$APPDIR/io.github.alarez777.GearLeverR.png"
-ln -sf io.github.alarez777.GearLeverR.png "$APPDIR/.DirIcon"
-
-for size in 16 24 32 48 64 128 256 512; do
-    install -Dm644 "$ROOT/data/icons/hicolor/${size}x${size}/apps/io.github.alarez777.GearLeverR.png" \
-        "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/io.github.alarez777.GearLeverR.png"
-done
-install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.gschema.xml" \
-    "$APPDIR/usr/share/glib-2.0/schemas/io.github.alarez777.GearLeverR.gschema.xml"
-
-if command -v glib-compile-schemas >/dev/null 2>&1; then
-    glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas"
-else
-    echo "warning: glib-compile-schemas not found; settings will fall back to defaults" >&2
+if [ ! -x "$BINARY" ]; then
+    echo "error: binary not found or not executable: $BINARY" >&2
+    exit 1
 fi
 
-if command -v msgfmt >/dev/null 2>&1; then
-    "$ROOT/scripts/compile-translations.sh" "$APPDIR/usr/share/locale"
-else
-    echo "warning: msgfmt not found; the AppImage will only show English" >&2
-fi
+install_common() {
+    local appdir=$1
 
-mkdir -p "$ROOT/dist"
-echo ":: packaging $OUTPUT"
-ARCH="$ARCH" "$APPIMAGETOOL" "$APPDIR" "$OUTPUT"
+    install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.desktop" \
+        "$appdir/io.github.alarez777.GearLeverR.desktop"
+    install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
+        "$appdir/io.github.alarez777.GearLeverR.png"
+    ln -sf io.github.alarez777.GearLeverR.png "$appdir/.DirIcon"
 
-echo ":: done: $OUTPUT"
+    for size in 16 24 32 48 64 128 256 512; do
+        install -Dm644 "$ROOT/data/icons/hicolor/${size}x${size}/apps/io.github.alarez777.GearLeverR.png" \
+            "$appdir/usr/share/icons/hicolor/${size}x${size}/apps/io.github.alarez777.GearLeverR.png"
+    done
+
+    install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.gschema.xml" \
+        "$appdir/usr/share/glib-2.0/schemas/io.github.alarez777.GearLeverR.gschema.xml"
+
+    if command -v glib-compile-schemas >/dev/null 2>&1; then
+        glib-compile-schemas "$appdir/usr/share/glib-2.0/schemas"
+    else
+        echo "warning: glib-compile-schemas not found; settings will fall back to defaults" >&2
+    fi
+
+    if command -v msgfmt >/dev/null 2>&1; then
+        "$ROOT/scripts/compile-translations.sh" "$appdir/usr/share/locale"
+    else
+        echo "warning: msgfmt not found; the AppImage will only show English" >&2
+    fi
+
+    install -Dm755 "$ROOT/packaging/appimage/AppRun" "$appdir/AppRun"
+}
+
+install_bundled_resources() {
+    local appdir=$1
+
+    if [ -d /usr/share/icons/Adwaita ]; then
+        mkdir -p "$appdir/usr/share/icons"
+        cp -a /usr/share/icons/Adwaita "$appdir/usr/share/icons/"
+    else
+        echo "warning: Adwaita icon theme not found; the bundled AppImage will miss stock icons" >&2
+    fi
+
+    if command -v gtk4-update-icon-cache >/dev/null 2>&1; then
+        gtk4-update-icon-cache -f -t "$appdir/usr/share/icons/Adwaita" >/dev/null 2>&1 || true
+        gtk4-update-icon-cache -f -t "$appdir/usr/share/icons/hicolor" >/dev/null 2>&1 || true
+    fi
+}
+
+package_appimage() {
+    local appdir=$1
+    local output=$2
+    local label=$3
+
+    mkdir -p "$DIST"
+    echo ":: packaging $label AppImage: $output"
+    ARCH="$ARCH" "$APPIMAGETOOL" "$appdir" "$output"
+    (cd "$DIST" && sha256sum "$(basename "$output")" >"$(basename "$output").sha256")
+}
+
+ensure_linuxdeploy() {
+    if [ ! -x "$LINUXDEPLOY" ]; then
+        echo ":: downloading linuxdeploy"
+        mkdir -p "$(dirname "$LINUXDEPLOY")"
+        curl -fsSL -o "$LINUXDEPLOY" \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+        chmod +x "$LINUXDEPLOY"
+    fi
+
+    if [ ! -x "$LINUXDEPLOY_PLUGIN" ]; then
+        echo ":: downloading linuxdeploy-plugin-gtk"
+        mkdir -p "$(dirname "$LINUXDEPLOY_PLUGIN")"
+        curl -fsSL -o "$LINUXDEPLOY_PLUGIN" \
+            https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
+        chmod +x "$LINUXDEPLOY_PLUGIN"
+    fi
+
+    # linuxdeploy discovers plugins next to its own AppImage, with or without
+    # the .sh suffix depending on the version.
+    ln -sf "$(basename "$LINUXDEPLOY_PLUGIN")" \
+        "$(dirname "$LINUXDEPLOY_PLUGIN")/linuxdeploy-plugin-gtk"
+}
+
+build_system() {
+    echo ":: assembling the gtk-required variant"
+    rm -rf "$SYSTEM_APPDIR"
+    install -Dm755 "$BINARY" "$SYSTEM_APPDIR/gearlever-r"
+    install_common "$SYSTEM_APPDIR"
+    package_appimage "$SYSTEM_APPDIR" "$SYSTEM_OUTPUT" "gtk-required"
+}
+
+build_bundled() {
+    echo ":: assembling the gtk-included variant"
+    ensure_linuxdeploy
+    rm -rf "$BUNDLED_APPDIR"
+
+    local extra_libs=()
+    local adwaita_libdir
+    adwaita_libdir=$(pkg-config --variable=libdir libadwaita-1 2>/dev/null || true)
+    if [ -n "$adwaita_libdir" ] && [ -e "$adwaita_libdir/libadwaita-1.so.0" ]; then
+        extra_libs=(--library "$adwaita_libdir/libadwaita-1.so.0")
+    fi
+
+    DEPLOY_GTK_VERSION=4 "$LINUXDEPLOY" \
+        --appdir "$BUNDLED_APPDIR" \
+        --executable "$BINARY" \
+        --desktop-file "$ROOT/data/io.github.alarez777.GearLeverR.desktop" \
+        --icon-file "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
+        "${extra_libs[@]}" \
+        --plugin gtk
+
+    if ! find "$BUNDLED_APPDIR" -name 'libgtk-4.so*' -print -quit | grep -q .; then
+        echo "error: linuxdeploy did not bundle libgtk-4" >&2
+        exit 1
+    fi
+
+    install_common "$BUNDLED_APPDIR"
+    install_bundled_resources "$BUNDLED_APPDIR"
+    package_appimage "$BUNDLED_APPDIR" "$BUNDLED_OUTPUT" "gtk-included"
+}
+
+case "$VARIANT" in
+    system|required)
+        build_system
+        ;;
+    bundled|included)
+        build_bundled
+        ;;
+    all)
+        build_system
+        build_bundled
+        ;;
+    *)
+        echo "error: VARIANT must be system, bundled or all (got '$VARIANT')" >&2
+        exit 1
+        ;;
+esac
+
+echo ":: done"

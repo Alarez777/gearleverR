@@ -1,11 +1,36 @@
-#!/bin/sh
-# Gear LeverR launcher for the AppImage build.
+#!/bin/bash
+# Gear LeverR launcher for the AppImage builds.
 #
-# The AppImage links against the distribution's GTK4 and libadwaita, so a
-# missing library is reported here instead of as a dynamic-loader error.
+# The gtk-required variant links against the distribution's GTK4 and libadwaita,
+# so a missing library is reported here instead of as a dynamic-loader error.
+# The gtk-included variant ships those libraries and their resources inside the
+# AppImage, where linuxdeploy installs the environment hooks consumed below.
 set -eu
 
 HERE=$(dirname "$(readlink -f "$0")")
+APPDIR="$HERE"
+export APPDIR
+
+# Prefer the bundled libraries when they exist. linuxdeploy writes them to
+# usr/lib; the second path is kept for distributions that use a multiarch dir.
+for dir in "$HERE/usr/lib" "$HERE/usr/lib/x86_64-linux-gnu" "$HERE/lib"; do
+    if [ -d "$dir" ]; then
+        LD_LIBRARY_PATH="$dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    fi
+done
+export LD_LIBRARY_PATH
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# linuxdeploy-plugin-gtk prepares GTK_PATH, GDK_PIXBUF_MODULE_FILE,
+# GSETTINGS_SCHEMA_DIR and similar variables here.
+if [ -d "$HERE/apprun-hooks" ]; then
+    for hook in "$HERE"/apprun-hooks/*.sh; do
+        if [ -r "$hook" ]; then
+            # shellcheck source=/dev/null
+            . "$hook"
+        fi
+    done
+fi
 
 fail() {
     printf 'Gear LeverR: %s\n' "$1" >&2
@@ -17,8 +42,18 @@ fail() {
     exit 1
 }
 
+BUNDLED=0
+for lib in \
+    "$HERE/usr/lib/libgtk-4.so.1" \
+    "$HERE/usr/lib/x86_64-linux-gnu/libgtk-4.so.1"; do
+    if [ -e "$lib" ]; then
+        BUNDLED=1
+        break
+    fi
+done
+
 # Escape hatch for testing inside containers without ldconfig.
-if [ "${GEARLEVER_R_SKIP_DEPS:-0}" != "1" ]; then
+if [ "${GEARLEVER_R_SKIP_DEPS:-0}" != "1" ] && [ "$BUNDLED" != "1" ]; then
     if ! ldconfig -p 2>/dev/null | grep -q 'libgtk-4\.so\.1'; then
         fail "GTK 4 is not installed. Install your distribution's gtk4 package (4.8 or newer) and run Gear LeverR again."
     fi
@@ -34,4 +69,9 @@ fi
 export GEARLEVER_R_LOCALEDIR="$HERE/usr/share"
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
-exec "$HERE/gearlever-r" "$@"
+BIN="$HERE/gearlever-r"
+if [ ! -x "$BIN" ]; then
+    BIN="$HERE/usr/bin/gearlever-r"
+fi
+
+exec "$BIN" "$@"

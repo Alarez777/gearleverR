@@ -7,7 +7,8 @@ para ser más rápida y consumir menos memoria, manteniendo las mismas funciones
 los mismos archivos de configuración y la misma interfaz.
 
 - **UI**: GTK4 + libadwaita + Relm4
-- **AppImage**: enlazado contra el GTK del sistema (AppImage de ~4 MB)
+- **AppImage**: dos variantes: `gtk-required` (usa el GTK del sistema) y
+  `gtk-included` (incluye GTK/libadwaita y sus dependencias)
 - **Licencia**: GPL-3.0-or-later
 
 ## Estado
@@ -49,31 +50,37 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 
 ## Uso
 
-Descarga `GearLeverR-<version>-x86_64.AppImage`, dale permisos de ejecución y ábrelo:
+Descarga una de las dos variantes, dale permisos de ejecución y ábrela:
+
+- `GearLeverR-<version>-x86_64-gtk-included.AppImage`: incluye GTK 4 y
+  libadwaita dentro del AppImage. Úsala si tu distribución no tiene GTK 4.8 +
+  libadwaita 1.2.
+- `GearLeverR-<version>-x86_64-gtk-required.AppImage`: más pequeña y usa el
+  GTK 4.8 + libadwaita 1.2 del sistema.
 
 ```sh
-chmod +x GearLeverR-0.1.0-x86_64.AppImage
-./GearLeverR-0.1.0-x86_64.AppImage
+chmod +x GearLeverR-0.1.0-x86_64-gtk-required.AppImage
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage
 ```
 
 También puedes pasarle un AppImage directamente:
 
 ```sh
-./GearLeverR-0.1.0-x86_64.AppImage ~/Descargas/App.AppImage
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage ~/Descargas/App.AppImage
 ```
 
 ### CLI
 
 ```sh
-./GearLeverR-0.1.0-x86_64.AppImage --integrate App.AppImage
-./GearLeverR-0.1.0-x86_64.AppImage --list-installed
-./GearLeverR-0.1.0-x86_64.AppImage --list-installed --json
-./GearLeverR-0.1.0-x86_64.AppImage --update App.AppImage
-./GearLeverR-0.1.0-x86_64.AppImage --update --all
-./GearLeverR-0.1.0-x86_64.AppImage --remove App.AppImage
-./GearLeverR-0.1.0-x86_64.AppImage --set-update-source App.AppImage \
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --integrate App.AppImage
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --list-installed
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --list-installed --json
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --update App.AppImage
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --update --all
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --remove App.AppImage
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --set-update-source App.AppImage \
     --manager GithubUpdater repo=owner/repo repo_filename=App-*.AppImage allow_prereleases=false
-./GearLeverR-0.1.0-x86_64.AppImage --list-update-managers
+./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --list-update-managers
 ```
 
 Los documentos `--json` tienen `schema_version: 1` y las mismas claves que la
@@ -96,8 +103,10 @@ Builds de release (compatibles con Debian 12; glibc 2.36, GTK 4.8, Adw 1.2):
 packaging/appimage/build-in-debian12.sh
 ```
 
-El script compila dentro de `rust:1.98-bookworm` y empaqueta el AppImage en
-`dist/`. El binario resultante funciona también en distros más nuevas.
+El script compila dentro de `rust:1.98-bookworm` y empaqueta las dos variantes en
+`dist/`: `...-gtk-required.AppImage` y `...-gtk-included.AppImage`. La variante
+`gtk-included` se monta con `linuxdeploy` y su plugin de GTK, que se descargan
+automáticamente. Los binarios resultantes funcionan también en distros más nuevas.
 
 Si ejecutas el binario directamente (sin AppImage), instala el esquema para que
 las preferencias persistan:

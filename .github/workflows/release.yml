@@ -22,7 +22,9 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
-            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev gettext curl file
+            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev gettext curl file \
+            librsvg2-dev libgirepository1.0-dev libgdk-pixbuf2.0-bin \
+            adwaita-icon-theme libgtk-4-bin
 
       - name: Build
         run: cargo build --release --locked -p gearlever
@@ -40,4 +42,6 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.AppImage
+          files: |
+            dist/*.AppImage
+            dist/*.sha256
