@@ -181,3 +181,32 @@ msgstr "Se eliminarán los {count} AppImages integrados, incluida Gear LeverR, y
 
 msgid "AppImages removed"
 msgstr "AppImages eliminadas"
+
+# Corrections for upstream strings, matching the text shown by Gear Lever.
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Lista de AppImages que han sido integradas en el menú del sistema, pero "
+"están fuera de la carpeta por defecto"
+
+msgid ""
+"If enabled, apps that run in the terminal are renamed as their executable.\n"
+"You would need to add the aforementioned folder to your $PATH manually.\n"
+"\n"
+"For example, \"golang_x86_64.appimage\" will be saved as \"go\""
+msgstr ""
+"Si se activa, las aplicaciones que se ejecutan en el terminal se renombran "
+"como su ejecutable.\n"
+"Tendrás que añadir manualmente la carpeta mencionada a tu $PATH.\n"
+"\n"
+"Por ejemplo, \"golang_x86_64.appimage\" sera guardado como \"go\""
+
+msgid ""
+"Increases log verbosity, occupying more disk space and potentially impacting "
+"performance.\n"
+"Requires a restart."
+msgstr ""
+"Aumenta la verbosidad del registro, ocupando más espacio en disco y "
+"afectando potencialmente al rendimiento.\n"
+"Requiere un reinicio."
