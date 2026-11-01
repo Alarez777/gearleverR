@@ -61,7 +61,7 @@ def main() -> int:
         'msgid ""',
         'msgstr ""',
         '"Project-Id-Version: gearlever-r 0.1.0\\n"',
-        '"Report-Msgid-Bugs-To: https://github.com/alarez/gear-leverR/issues\\n"',
+        '"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\\n"',
         f'"POT-Creation-Date: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M+0000")}\\n"',
         '"MIME-Version: 1.0\\n"',
         '"Content-Type: text/plain; charset=UTF-8\\n"',

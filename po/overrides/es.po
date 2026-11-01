@@ -3,6 +3,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: gearlever-r 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
 "PO-Revision-Date: 2026-10-30 00:00+0000\n"
 "Last-Translator: Gear LeverR contributors\n"
 "Language-Team: Spanish\n"
@@ -40,6 +41,9 @@ msgstr "Línea de comandos actualizada"
 
 msgid "Compute hashes"
 msgstr "Calcular hashes"
+
+msgid "GPL-3.0-or-later — free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."
+msgstr "GPL-3.0-or-later — software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la GNU GPL, versión 3 o posterior."
 
 msgid "Integrating..."
 msgstr "Integrando..."

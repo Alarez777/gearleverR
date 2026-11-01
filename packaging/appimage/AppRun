@@ -21,6 +21,15 @@ done
 export LD_LIBRARY_PATH
 export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
+# The linuxdeploy GTK hook exports GTK_THEME (Adwaita:light or Adwaita:dark)
+# and GDK_BACKEND=x11. libadwaita only loads its own stylesheet when GTK_THEME
+# is unset, so the forced theme leaves the window in the plain, light GTK theme
+# and hides the system color scheme; forcing X11 also bypasses Wayland. Keep
+# the values the user chose and drop the ones the hook invents.
+user_gtk_theme=${GTK_THEME-}
+user_gdk_backend=${GDK_BACKEND-}
+user_appimage_gtk_theme=${APPIMAGE_GTK_THEME-}
+
 # linuxdeploy-plugin-gtk prepares GTK_PATH, GDK_PIXBUF_MODULE_FILE,
 # GSETTINGS_SCHEMA_DIR and similar variables here.
 if [ -d "$HERE/apprun-hooks" ]; then
@@ -30,6 +39,21 @@ if [ -d "$HERE/apprun-hooks" ]; then
             . "$hook"
         fi
     done
+fi
+
+# APPIMAGE_GTK_THEME is the hook's documented opt-in for a fixed theme.
+if [ -z "$user_appimage_gtk_theme" ]; then
+    if [ -n "$user_gtk_theme" ]; then
+        export GTK_THEME="$user_gtk_theme"
+    else
+        unset GTK_THEME
+    fi
+fi
+
+if [ -n "$user_gdk_backend" ]; then
+    export GDK_BACKEND="$user_gdk_backend"
+else
+    unset GDK_BACKEND
 fi
 
 fail() {
