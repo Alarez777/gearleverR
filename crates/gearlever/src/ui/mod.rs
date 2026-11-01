@@ -1879,18 +1879,15 @@ impl AppModel {
 
         let page = adw::PreferencesPage::new();
 
+        // The original leaves the first group untitled, so keep it that way.
         let general = adw::PreferencesGroup::new();
-        general.set_title(&t("General"));
 
         let folder_row = adw::ActionRow::builder()
             .title(t("AppImage default location"))
-            .subtitle(
-                self.settings
-                    .values()
-                    .appimages_dir
-                    .to_string_lossy()
-                    .into_owned(),
-            )
+            .subtitle(util::home_relative(
+                &self.settings.values().appimages_dir,
+                self.paths.home(),
+            ))
             .build();
         let choose = gtk::Button::from_icon_name("folder-open-symbolic");
         choose.set_valign(gtk::Align::Center);
@@ -1899,6 +1896,7 @@ impl AppModel {
         let settings_folder = self.settings.clone();
         let window_folder = window.clone();
         let row_folder = folder_row.clone();
+        let home = self.paths.home().to_path_buf();
         choose.connect_clicked(move |_| {
             let dialog = gtk::FileChooserDialog::builder()
                 .title(t("Select a folder"))
@@ -1911,13 +1909,14 @@ impl AppModel {
             let sender = sender_folder.clone();
             let settings = settings_folder.clone();
             let row = row_folder.clone();
+            let home = home.clone();
             dialog.connect_response(move |dialog, response| {
                 if response == gtk::ResponseType::Accept
                     && let Some(file) = dialog.file()
                     && let Some(path) = file.path()
                 {
                     settings.store_appimages_dir(&path);
-                    row.set_subtitle(&path.to_string_lossy());
+                    row.set_subtitle(&util::home_relative(&path, &home));
                     sender.input(Msg::Refresh);
                 }
                 dialog.destroy();
@@ -1928,23 +1927,27 @@ impl AppModel {
         general.add(&folder_row);
         general.add(&self.switch_row(
             &t("Show integrated AppImages outside the default folder"),
+            Some(&t(
+                "List AppImages that have been integrated into the system menu but are located outside the default folder",
+            )),
             keys::MANAGE_OUTSIDE,
             self.settings.values().manage_outside,
             sender,
         ));
-
-        let files = adw::PreferencesGroup::new();
-        files.set_title(&t("File management"));
-        files.add(&self.switch_row(
-            &t("Move AppImages into the destination folder"),
-            keys::MOVE_ON_INTEGRATION,
-            self.settings.values().move_on_integration,
+        general.add(&self.switch_row(
+            &t("Preview new apps in a minimal UI"),
+            None,
+            keys::PREVIEW_MINIMAL_UI,
+            self.settings.values().preview_minimal_ui,
             sender,
         ));
-        files.add(&self.switch_row(
-            &t("Use executable name for integrated terminal apps"),
-            keys::EXEC_AS_NAME,
-            self.settings.values().exec_name_terminal,
+        general.add(&self.switch_row(
+            &t("Use safe mechanisms to load metadata"),
+            Some(&t(
+                "If enabled, the app will try to load an Appimage without using the built-in appimage-extract command.\nDisable only if you trust your sources: malicious apps could execute code when loading the metadata.",
+            )),
+            keys::BLOCK_UNSAFE_EXTRACTOR,
+            self.settings.values().block_unsafe_extractor,
             sender,
         ));
 
@@ -1952,36 +1955,79 @@ impl AppModel {
         updates.set_title(&t("Updates management"));
         updates.add(&self.switch_row(
             &t("Check updates on system startup"),
+            Some(&t(
+                "Receive a notification when a new update is detected; updates will not be installed automatically",
+            )),
             keys::FETCH_IN_BACKGROUND,
             self.settings.values().fetch_in_background,
             sender,
         ));
 
-        let advanced = adw::PreferencesGroup::new();
-        advanced.set_title(&t("Advanced"));
-        advanced.add(&self.switch_row(
-            &t("Preview new apps in a minimal UI"),
-            keys::PREVIEW_MINIMAL_UI,
-            self.settings.values().preview_minimal_ui,
+        let files = adw::PreferencesGroup::new();
+        files.set_title(&t("File management"));
+        let move_check = gtk::CheckButton::new();
+        move_check.set_active(self.settings.values().move_on_integration);
+        let clone_check = gtk::CheckButton::new();
+        clone_check.set_group(Some(&move_check));
+        clone_check.set_active(!self.settings.values().move_on_integration);
+
+        let settings_move = self.settings.clone();
+        let sender_move = sender.clone();
+        move_check.connect_toggled(move |check| {
+            if check.is_active() {
+                settings_move.store_boolean(keys::MOVE_ON_INTEGRATION, true);
+                sender_move.input(Msg::Refresh);
+            }
+        });
+        let settings_clone = self.settings.clone();
+        let sender_clone = sender.clone();
+        clone_check.connect_toggled(move |check| {
+            if check.is_active() {
+                settings_clone.store_boolean(keys::MOVE_ON_INTEGRATION, false);
+                sender_clone.input(Msg::Refresh);
+            }
+        });
+
+        files.add(&Self::choice_row(
+            &t("Move AppImages into the destination folder"),
+            &t("Reduce disk usage"),
+            &move_check,
+        ));
+        files.add(&Self::choice_row(
+            &t("Clone AppImages into the destination folder"),
+            &t("Keep the original file and create a copy in the destination folder"),
+            &clone_check,
+        ));
+
+        let naming = adw::PreferencesGroup::new();
+        naming.set_title(&t("Naming conventions"));
+        naming.add(&self.switch_row(
+            &t("Use executable name for integrated terminal apps"),
+            Some(&t(
+                "If enabled, apps that run in the terminal are renamed as their executable.\nYou would need to add the aforementioned folder to your $PATH manually.\n\nFor example, \"golang_x86_64.appimage\" will be saved as \"go\"",
+            )),
+            keys::EXEC_AS_NAME,
+            self.settings.values().exec_name_terminal,
             sender,
         ));
-        advanced.add(&self.switch_row(
-            &t("Use safe mechanisms to load metadata"),
-            keys::BLOCK_UNSAFE_EXTRACTOR,
-            self.settings.values().block_unsafe_extractor,
-            sender,
-        ));
-        advanced.add(&self.switch_row(
+
+        let debugging = adw::PreferencesGroup::new();
+        debugging.set_title(&t("Debugging"));
+        debugging.add(&self.switch_row(
             &t("Enable debug logs"),
+            Some(&t(
+                "Increases log verbosity, occupying more disk space and potentially impacting performance.\nRequires a restart.",
+            )),
             keys::DEBUG_LOGS,
             self.settings.values().debug_logs,
             sender,
         ));
 
         page.add(&general);
-        page.add(&files);
         page.add(&updates);
-        page.add(&advanced);
+        page.add(&files);
+        page.add(&naming);
+        page.add(&debugging);
         window.add(&page);
         window.present();
     }
@@ -1993,17 +2039,28 @@ impl AppModel {
     fn switch_row(
         &self,
         title: &str,
+        subtitle: Option<&str>,
         key: &'static str,
         active: bool,
         sender: &ComponentSender<Self>,
     ) -> adw::ActionRow {
         let row = adw::ActionRow::builder().title(title).build();
-        row.set_activatable(false);
+        row.set_activatable(true);
+        if let Some(subtitle) = subtitle {
+            row.set_subtitle(subtitle);
+        }
 
         let toggle = gtk::Switch::new();
         toggle.set_valign(gtk::Align::Center);
         toggle.set_active(active);
         row.add_suffix(&toggle);
+
+        // AdwSwitchRow (libadwaita 1.4) toggles when the row is activated; the
+        // equivalent built from ActionRow needs the handler explicitly.
+        let toggle_for_row = toggle.clone();
+        row.connect_activated(move |_| {
+            toggle_for_row.set_active(!toggle_for_row.is_active());
+        });
 
         let settings = self.settings.clone();
         let sender = sender.clone();
@@ -2038,6 +2095,21 @@ impl AppModel {
             settings.store_boolean(key, active);
             sender.input(Msg::Refresh);
         });
+
+        row
+    }
+
+    fn choice_row(title: &str, subtitle: &str, check: &gtk::CheckButton) -> adw::ActionRow {
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(subtitle)
+            .build();
+        row.set_activatable(true);
+        check.set_valign(gtk::Align::Center);
+        row.add_prefix(check);
+
+        let check_for_row = check.clone();
+        row.connect_activated(move |_| check_for_row.set_active(true));
 
         row
     }

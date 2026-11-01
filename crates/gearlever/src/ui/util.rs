@@ -24,6 +24,16 @@ pub fn normalize(value: &str) -> String {
     value.to_lowercase().replace(' ', "")
 }
 
+/// Replaces the home directory prefix with `~` for display.
+#[must_use]
+pub fn home_relative(path: &Path, home: &Path) -> String {
+    match path.strip_prefix(home) {
+        Ok(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
+        Ok(rest) => format!("~/{}", rest.display()),
+        Err(_) => path.display().to_string(),
+    }
+}
+
 /// Builds the icon of an integrated application.
 ///
 /// The order matches the original: the desktop entry path, then the themed icon
@@ -125,4 +135,34 @@ pub fn pill(text: &str) -> gtk::Label {
     let label = gtk::Label::new(Some(text));
     label.add_css_class("pill");
     label
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::home_relative;
+
+    #[test]
+    fn abbreviates_paths_inside_home() {
+        assert_eq!(
+            home_relative(
+                Path::new("/home/alarez/AppImages"),
+                Path::new("/home/alarez")
+            ),
+            "~/AppImages"
+        );
+        assert_eq!(
+            home_relative(Path::new("/home/alarez"), Path::new("/home/alarez")),
+            "~"
+        );
+    }
+
+    #[test]
+    fn keeps_paths_outside_home_untouched() {
+        assert_eq!(
+            home_relative(Path::new("/opt/AppImages"), Path::new("/home/alarez")),
+            "/opt/AppImages"
+        );
+    }
 }
