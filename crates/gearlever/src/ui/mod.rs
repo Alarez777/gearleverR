@@ -2389,6 +2389,7 @@ impl AppModel {
             .comments(t("<b>About</b>\nAn AppImage manager inspired by Gear Lever, but an independent project: it shares neither its code, its name nor its icon.\n\n<b>Built with</b>\nRust, GTK 4, libadwaita, Relm4, backhand and ureq."))
             .license(t("<b>GPL-3.0-or-later</b>\nFree software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."))
             .build();
+        arrange_about_rows(&about);
         about.set_transient_for(Some(parent));
         about.present();
     }
@@ -3057,6 +3058,106 @@ fn running_appimage() -> Option<PathBuf> {
     std::env::var_os("APPIMAGE")
         .map(PathBuf::from)
         .filter(|path| path.is_file())
+}
+
+/// Lays the about window out like the original Gear Lever.
+///
+/// `AdwAboutWindow` builds its rows and groups in a fixed order and offers no
+/// API to rearrange them. The original shows the issue link alone and then one
+/// group with "Credits" and "Legal"; here the same group holds "Details" and
+/// "Legal". Rows are located by their action target, and anything that does not
+/// match leaves the window as libadwaita built it.
+fn arrange_about_rows(about: &adw::AboutWindow) {
+    let root: &gtk::Widget = about.upcast_ref();
+    let (Some(details), Some(legal), Some(issue)) = (
+        about_row(root, "details"),
+        about_row(root, "legal"),
+        about_row(root, "issue-url"),
+    ) else {
+        return;
+    };
+    let (Some(legal_group), Some(support_group)) = (
+        ancestor_group(legal.upcast_ref()),
+        ancestor_group(issue.upcast_ref()),
+    ) else {
+        return;
+    };
+    let Some(list) = details
+        .parent()
+        .and_then(|parent| parent.downcast::<gtk::ListBox>().ok())
+    else {
+        return;
+    };
+
+    // One group with "Details" and "Legal", then drop the group left empty.
+    legal.unparent();
+    list.insert(&legal, details.index() + 1);
+    if !has_visible_rows(&legal_group) {
+        legal_group.set_visible(false);
+    }
+
+    // The issue link goes first, above that group.
+    if let Some(container) = support_group
+        .parent()
+        .and_then(|parent| parent.downcast::<gtk::Box>().ok())
+    {
+        container.reorder_child_after(&support_group, gtk::Widget::NONE);
+    }
+}
+
+/// Finds the about row with the given action target.
+fn about_row(root: &gtk::Widget, target: &str) -> Option<adw::ActionRow> {
+    if let Ok(row) = root.clone().downcast::<adw::ActionRow>() {
+        let matches = row
+            .property::<Option<glib::Variant>>("action-target")
+            .and_then(|value| value.get::<String>())
+            .as_deref()
+            == Some(target);
+        if matches {
+            return Some(row);
+        }
+    }
+
+    let mut child = root.first_child();
+    while let Some(widget) = child {
+        if let Some(found) = about_row(&widget, target) {
+            return Some(found);
+        }
+        child = widget.next_sibling();
+    }
+
+    None
+}
+
+/// Walks up from a widget to the preferences group that holds it.
+fn ancestor_group(widget: &gtk::Widget) -> Option<adw::PreferencesGroup> {
+    let mut current = widget.parent();
+    while let Some(parent) = current {
+        if let Ok(group) = parent.clone().downcast::<adw::PreferencesGroup>() {
+            return Some(group);
+        }
+        current = parent.parent();
+    }
+
+    None
+}
+
+/// Returns whether the group still has a row of its own on screen.
+fn has_visible_rows(group: &adw::PreferencesGroup) -> bool {
+    let mut pending = vec![group.clone().upcast::<gtk::Widget>()];
+    while let Some(widget) = pending.pop() {
+        if widget.is::<adw::ActionRow>() && widget.is_visible() {
+            return true;
+        }
+
+        let mut child = widget.first_child();
+        while let Some(next) = child {
+            pending.push(next.clone());
+            child = next.next_sibling();
+        }
+    }
+
+    false
 }
 
 fn clear_listbox(listbox: &gtk::ListBox) {
