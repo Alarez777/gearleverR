@@ -102,6 +102,8 @@ cargo test --workspace --all-features
 - Do not merge until it is tested: the quality commands above and, for UI or
   packaging changes, `scripts/ui-smoke.sh` in the Debian 12 container.
 - Merge the branch into `develop`, then into `main`, and push both.
+- Delete the branch (local and remote) once it is merged: a branch reaching
+  `develop` means it is tested and its purpose is fulfilled.
 
 ## Conventions
 
