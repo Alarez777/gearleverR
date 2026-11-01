@@ -8,13 +8,13 @@
 
 #![allow(
     deprecated,
-    reason = "FileChooserNative and ComboBoxText are deprecated only in GTK 4.10; staying on them keeps Debian 12 (GTK 4.8) supported"
+    reason = "FileChooserDialog is deprecated only in GTK 4.10; staying on it keeps Debian 12 (GTK 4.8) supported"
 )]
 
 mod util;
 mod welcome;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -30,7 +30,7 @@ use relm4::prelude::*;
 use relm4::{adw, gtk};
 
 use gearlever_core::Error as CoreError;
-use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, is_running};
+use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, detect, is_running};
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
 use gearlever_core::format::size;
@@ -135,6 +135,11 @@ enum Msg {
         env: Vec<String>,
         arguments: String,
     },
+    SaveArguments {
+        path: PathBuf,
+        env: Vec<String>,
+        arguments: String,
+    },
     SaveWebsite {
         path: PathBuf,
         website: String,
@@ -225,6 +230,8 @@ impl Component for AppModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        util::install_css();
+
         let mut model = Self::new();
         if !files.is_empty() {
             model.opened_from_file = true;
@@ -855,12 +862,42 @@ impl Component for AppModel {
                 env,
                 arguments,
             } => {
-                if let Some(app) = self.apps.iter().find(|app| app.image_path == path) {
-                    match install::set_exec(app, &env, &arguments) {
+                if let Some(app) = self.apps.iter().find(|app| app.image_path == path).cloned() {
+                    match install::set_exec(&app, &env, &arguments) {
                         Ok(()) => {
                             self.refresh_apps();
+                            self.details = self
+                                .apps
+                                .iter()
+                                .find(|candidate| candidate.image_path == path)
+                                .cloned()
+                                .map(DetailsItem::Installed);
                             Self::rebuild_details(self, widgets, &sender);
-                            Self::toast(widgets, &t("Command line updated"));
+                        }
+                        Err(error) => Self::toast(widgets, &error.to_string()),
+                    }
+                }
+            }
+            Msg::SaveArguments {
+                path,
+                env,
+                arguments,
+            } => {
+                if let Some(app) = self.apps.iter().find(|app| app.image_path == path).cloned() {
+                    match install::set_exec(&app, &env, &arguments) {
+                        Ok(()) => {
+                            if let Some(app) = self
+                                .apps
+                                .iter_mut()
+                                .find(|candidate| candidate.image_path == path)
+                            {
+                                app.exec_arguments.clone_from(&arguments);
+                            }
+                            if let Some(DetailsItem::Installed(app)) = &mut self.details
+                                && app.image_path == path
+                            {
+                                app.exec_arguments.clone_from(&arguments);
+                            }
                         }
                         Err(error) => Self::toast(widgets, &error.to_string()),
                     }
@@ -871,7 +908,6 @@ impl Component for AppModel {
                     && !website.starts_with("http://")
                     && !website.starts_with("https://")
                 {
-                    Self::toast(widgets, &t("Enter a valid URL"));
                     return;
                 }
 
@@ -882,12 +918,8 @@ impl Component for AppModel {
                     values.insert("website".to_owned(), website);
                 }
                 self.config.set_app(&path, values);
-                match self.config.save(&self.paths.config_file()) {
-                    Ok(()) => {
-                        Self::rebuild_details(self, widgets, &sender);
-                        Self::toast(widgets, &t("Website saved"));
-                    }
-                    Err(error) => Self::toast(widgets, &error.to_string()),
+                if let Err(error) = self.config.save(&self.paths.config_file()) {
+                    Self::toast(widgets, &error.to_string());
                 }
             }
             Msg::ConfigSaved(result) => match result {
@@ -1303,6 +1335,7 @@ impl AppModel {
 
         widgets.stack.set_visible_child_name(name);
         widgets.title.set_label(&title);
+        widgets.title.set_visible(self.page != Page::Details);
         widgets.left_button.set_icon_name(icon);
         widgets.search_button.set_visible(self.page == Page::List);
         widgets.search_bar.set_search_mode(false);
@@ -1430,7 +1463,7 @@ impl AppModel {
         }
 
         let clamp = adw::Clamp::builder()
-            .maximum_size(640)
+            .maximum_size(600)
             .child(&content)
             .build();
         widgets.details.append(&clamp);
@@ -1468,21 +1501,24 @@ impl AppModel {
         };
 
         let minimal = self.minimal_preview();
-        let pills = if minimal {
-            Vec::new()
-        } else {
-            vec![
-                version,
-                Some(size(app.size)),
-                is_running(&app.image_path).then(|| "Running".to_owned()),
-            ]
-        };
+        let mut pills = Vec::new();
+        if !minimal {
+            if let Some(version) = version {
+                pills.push(version);
+            }
+            pills.push(size(app.size));
+            if let Ok(kind) = detect::image_type(&app.image_path) {
+                pills.push(format!("AppImage Type. {}", kind.code()));
+            }
+        }
 
         content.append(&details_header(&name, &description, &icon, &pills));
 
         let terminal = app.terminal;
-        let actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let actions = gtk::Box::new(gtk::Orientation::Vertical, 10);
         actions.set_halign(gtk::Align::Center);
+        let primary_actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        primary_actions.set_halign(gtk::Align::Center);
 
         let (button_width, button_height) = if minimal {
             (PREVIEW_BUTTON_WIDTH, PREVIEW_BUTTON_HEIGHT)
@@ -1496,7 +1532,7 @@ impl AppModel {
         let sender_launch = sender.clone();
         let path = app.image_path.clone();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path.clone())));
-        actions.append(&launch);
+        primary_actions.append(&launch);
 
         let remove = gtk::Button::with_label(&t("Remove"));
         remove.add_css_class("destructive-action");
@@ -1504,11 +1540,14 @@ impl AppModel {
         let sender_remove = sender.clone();
         let path = app.image_path.clone();
         remove.connect_clicked(move |_| sender_remove.input(Msg::Remove(path.clone())));
-        actions.append(&remove);
+        primary_actions.append(&remove);
+
+        actions.append(&primary_actions);
 
         if !minimal && self.updates.contains(&app.image_path) {
             let update = gtk::Button::with_label(&t("Update"));
             update.add_css_class("suggested-action");
+            update.set_size_request(ACTION_BUTTON_WIDTH, -1);
             let sender_update = sender.clone();
             let path = app.image_path.clone();
             update.connect_clicked(move |_| sender_update.input(Msg::StartUpdate(path.clone())));
@@ -1520,128 +1559,6 @@ impl AppModel {
         if minimal {
             return;
         }
-
-        let list = gtk::ListBox::new();
-        list.add_css_class("boxed-list");
-        list.set_selection_mode(gtk::SelectionMode::None);
-
-        let path_row = adw::ActionRow::builder()
-            .title(t("Path"))
-            .subtitle(app.image_path.to_string_lossy().into_owned())
-            .build();
-        path_row.add_prefix(&gtk::Image::from_icon_name("folder-symbolic"));
-        let open = gtk::Button::from_icon_name("folder-open-symbolic");
-        open.set_valign(gtk::Align::Center);
-        open.set_tooltip_text(Some(&t("Open Folder")));
-        let sender_open = sender.clone();
-        let path = app.image_path.clone();
-        open.connect_clicked(move |_| sender_open.input(Msg::OpenFolder(path.clone())));
-        path_row.add_suffix(&open);
-        list.append(&path_row);
-
-        let args_row = adw::EntryRow::new();
-        args_row.set_title(&t("Command line arguments"));
-        args_row.set_text(&app.exec_arguments);
-        let save = gtk::Button::with_label(&t("Save"));
-        save.set_valign(gtk::Align::Center);
-        let sender_save = sender.clone();
-        let path = app.image_path.clone();
-        let env = app.env_variables.clone();
-        let entry = args_row.clone();
-        save.connect_clicked(move |_| {
-            sender_save.input(Msg::SaveExec {
-                path: path.clone(),
-                env: env.clone(),
-                arguments: entry.text().to_string(),
-            });
-        });
-        args_row.add_suffix(&save);
-        list.append(&args_row);
-
-        let website = self
-            .config
-            .app(&app.image_path)
-            .get("website")
-            .cloned()
-            .unwrap_or_default();
-        let website_row = adw::EntryRow::new();
-        website_row.set_title(&t(if website.is_empty() {
-            "Add a website"
-        } else {
-            "Website"
-        }));
-        website_row.set_text(&website);
-        let save_website = gtk::Button::with_label(&t("Save"));
-        save_website.set_valign(gtk::Align::Center);
-        let sender_website = sender.clone();
-        let path = app.image_path.clone();
-        let entry = website_row.clone();
-        save_website.connect_clicked(move |_| {
-            sender_website.input(Msg::SaveWebsite {
-                path: path.clone(),
-                website: entry.text().to_string(),
-            });
-        });
-        website_row.add_suffix(&save_website);
-
-        if !website.is_empty() {
-            let open_url = gtk::Button::from_icon_name("adw-external-link-symbolic");
-            open_url.set_valign(gtk::Align::Center);
-            open_url.set_tooltip_text(Some(&t("Open URL")));
-            let sender_url = sender.clone();
-            let url = website;
-            open_url.connect_clicked(move |_| sender_url.input(Msg::OpenUrl(url.clone())));
-            website_row.add_suffix(&open_url);
-        }
-        list.append(&website_row);
-
-        content.append(&list);
-        content.append(&self.update_group(&app.image_path, sender));
-
-        let env_group = gtk::Box::new(gtk::Orientation::Vertical, 6);
-        let env_title = gtk::Label::new(Some(&t("Environment variables")));
-        env_title.set_halign(gtk::Align::Start);
-        env_title.add_css_class("heading");
-        let env_hint = gtk::Label::new(Some(&t("One KEY=value per line")));
-        env_hint.set_halign(gtk::Align::Start);
-        env_hint.add_css_class("dim-label");
-
-        let env_view = gtk::TextView::new();
-        env_view.set_wrap_mode(gtk::WrapMode::Char);
-        env_view.buffer().set_text(&app.env_variables.join("\n"));
-        let env_scroll = gtk::ScrolledWindow::builder()
-            .min_content_height(96)
-            .child(&env_view)
-            .build();
-        env_scroll.add_css_class("card");
-
-        let env_save = gtk::Button::with_label(&t("Save environment"));
-        env_save.set_halign(gtk::Align::End);
-        let sender_env = sender.clone();
-        let path = app.image_path.clone();
-        let args = app.exec_arguments.clone();
-        let buffer = env_view.buffer();
-        env_save.connect_clicked(move |_| {
-            let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
-            let env: Vec<String> = text
-                .lines()
-                .map(str::trim)
-                .filter(|line| !line.is_empty())
-                .map(ToOwned::to_owned)
-                .collect();
-
-            sender_env.input(Msg::SaveExec {
-                path: path.clone(),
-                env,
-                arguments: args.clone(),
-            });
-        });
-
-        env_group.append(&env_title);
-        env_group.append(&env_hint);
-        env_group.append(&env_scroll);
-        env_group.append(&env_save);
-        content.append(&env_group);
 
         let reload = adw::ActionRow::builder()
             .title(t("Reload metadata"))
@@ -1658,6 +1575,119 @@ impl AppModel {
         reload_list.set_selection_mode(gtk::SelectionMode::None);
         reload_list.append(&reload);
         content.append(&reload_list);
+
+        let list = gtk::ListBox::new();
+        list.add_css_class("boxed-list");
+        list.set_selection_mode(gtk::SelectionMode::None);
+
+        let path_row = adw::ActionRow::builder()
+            .title(t("Path"))
+            .subtitle(app.image_path.to_string_lossy().into_owned())
+            .build();
+        path_row.add_prefix(&gtk::Image::from_icon_name("folder-symbolic"));
+        let open = gtk::Button::from_icon_name("go-next-symbolic");
+        open.set_valign(gtk::Align::Center);
+        open.set_tooltip_text(Some(&t("Open Folder")));
+        let sender_open = sender.clone();
+        let path = app.image_path.clone();
+        open.connect_clicked(move |_| sender_open.input(Msg::OpenFolder(path.clone())));
+        path_row.add_suffix(&open);
+        list.append(&path_row);
+
+        let current_arguments = Rc::new(RefCell::new(app.exec_arguments.clone()));
+
+        let args_row = adw::EntryRow::new();
+        args_row.set_title(&t("Command line arguments"));
+        args_row.set_text(&app.exec_arguments);
+        args_row.add_prefix(&gtk::Image::from_icon_name("utilities-terminal-symbolic"));
+        let sender_args = sender.clone();
+        let path_args = app.image_path.clone();
+        let env_args = app.env_variables.clone();
+        let arguments_for_row = Rc::clone(&current_arguments);
+        let generation = Rc::new(Cell::new(0_u64));
+        let generation_for_timer = Rc::clone(&generation);
+        let generation_for_destroy = Rc::clone(&generation);
+        args_row.connect_destroy(move |_| {
+            generation_for_destroy.set(generation_for_destroy.get().wrapping_add(1));
+        });
+        args_row.connect_changed(move |row| {
+            let text = row.text().to_string();
+            arguments_for_row.borrow_mut().clone_from(&text);
+
+            let current = generation_for_timer.get().wrapping_add(1);
+            generation_for_timer.set(current);
+            let sender = sender_args.clone();
+            let path = path_args.clone();
+            let env = env_args.clone();
+            let generation = Rc::clone(&generation_for_timer);
+            let arguments = text;
+            let _ =
+                glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
+                    if generation.get() == current {
+                        sender.input(Msg::SaveArguments {
+                            path: path.clone(),
+                            env: env.clone(),
+                            arguments: arguments.clone(),
+                        });
+                    }
+                });
+        });
+        list.append(&args_row);
+
+        let website_value = self
+            .config
+            .app(&app.image_path)
+            .get("website")
+            .cloned()
+            .unwrap_or_default();
+        let website_row = adw::EntryRow::new();
+        website_row.set_title(&if website_value.is_empty() {
+            t("Add a website")
+        } else {
+            t("Website")
+        });
+        website_row.set_text(&website_value);
+        website_row.add_prefix(&gtk::Image::from_icon_name("web-browser-symbolic"));
+
+        let open_url = gtk::Button::from_icon_name("go-next-symbolic");
+        open_url.set_valign(gtk::Align::Center);
+        open_url.set_tooltip_text(Some(&t("Open URL")));
+        let sender_url = sender.clone();
+        let entry_url = website_row.clone();
+        open_url.connect_clicked(move |_| {
+            let url = entry_url.text().trim().to_owned();
+            if url.starts_with("http://") || url.starts_with("https://") {
+                sender_url.input(Msg::OpenUrl(url));
+            }
+        });
+        website_row.add_suffix(&open_url);
+
+        let sender_website = sender.clone();
+        let path_website = app.image_path.clone();
+        website_row.connect_changed(move |row| {
+            let text = row.text().trim().to_owned();
+            if !text.is_empty() && !text.starts_with("http://") && !text.starts_with("https://") {
+                row.remove_css_class("success");
+                row.add_css_class("error");
+                return;
+            }
+
+            row.remove_css_class("error");
+            if text.is_empty() {
+                row.remove_css_class("success");
+            } else {
+                row.add_css_class("success");
+            }
+            sender_website.input(Msg::SaveWebsite {
+                path: path_website.clone(),
+                website: text,
+            });
+        });
+        list.append(&website_row);
+
+        content.append(&list);
+        content.append(&self.update_group(&app.image_path, sender));
+        content.append(&Self::env_group(app, sender, current_arguments));
     }
 
     fn build_candidate_details(
@@ -1696,6 +1726,10 @@ impl AppModel {
         content.append(&actions);
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the update editor keeps its form and save button together"
+    )]
     fn update_group(&self, path: &Path, sender: &ComponentSender<Self>) -> adw::PreferencesGroup {
         let group = adw::PreferencesGroup::new();
         group.set_title(&t("Update management"));
@@ -1706,18 +1740,37 @@ impl AppModel {
             .and_then(|name| ManagerKind::from_name(name));
         let selected = self.details_source.or(configured);
 
-        let combo = gtk::ComboBoxText::new();
-        combo.append(Some("default"), &t("Default"));
-        for kind in ManagerKind::ALL {
-            combo.append(Some(kind.name()), kind.label());
+        let embedded = selected.is_none()
+            && update::resolve(path, &config)
+                .ok()
+                .flatten()
+                .is_some_and(|manager| manager.embedded().is_some());
+        if embedded {
+            group.set_description(Some(&t(
+                "This application includes update information provided by the developer",
+            )));
+        } else {
+            group.set_description(Some(&t("Manage update details for this application")));
         }
-        let _ = match selected {
-            Some(kind) => combo.set_active_id(Some(kind.name())),
-            None => combo.set_active_id(Some("default")),
-        };
 
-        let source_row = adw::ActionRow::builder().title(t("Source")).build();
-        source_row.add_suffix(&combo);
+        let model = gtk::StringList::new(&[]);
+        model.append(&t("Default"));
+        for kind in ManagerKind::ALL {
+            model.append(kind.label());
+        }
+
+        let source_row = adw::ComboRow::builder()
+            .title(t("Source"))
+            .subtitle(t("Select the source type"))
+            .model(&model)
+            .build();
+        let position = selected.map_or(0, |kind| {
+            ManagerKind::ALL
+                .iter()
+                .position(|candidate| *candidate == kind)
+                .map_or(0, |index| u32::try_from(index).unwrap_or(0) + 1)
+        });
+        source_row.set_selected(position);
         group.add(&source_row);
 
         if let Some(kind) = selected {
@@ -1789,20 +1842,80 @@ impl AppModel {
                     values,
                 });
             });
-        } else {
-            group.set_description(Some(&t(
-                "This application includes update information provided by the developer",
-            )));
         }
 
         let sender = sender.clone();
-        combo.connect_changed(move |combo| {
-            let kind = combo
-                .active_id()
-                .as_deref()
-                .and_then(ManagerKind::from_name);
+        source_row.connect_selected_notify(move |row| {
+            let index = row.selected();
+            let kind = if index == 0 {
+                None
+            } else {
+                usize::try_from(index - 1)
+                    .ok()
+                    .and_then(|index| ManagerKind::ALL.get(index).copied())
+            };
             sender.input(Msg::SelectSource(kind));
         });
+
+        group
+    }
+
+    fn env_group(
+        app: &InstalledApp,
+        sender: &ComponentSender<Self>,
+        arguments: Rc<RefCell<String>>,
+    ) -> adw::PreferencesGroup {
+        let group = adw::PreferencesGroup::new();
+        group.set_title(&t("Environment variables"));
+        group.set_description(Some(&t(
+            "Add or customize environment for this application",
+        )));
+
+        let add = gtk::Button::from_icon_name("list-add-symbolic");
+        add.set_valign(gtk::Align::Center);
+        let save = gtk::Button::new();
+        save.add_css_class("suggested-action");
+        save.set_valign(gtk::Align::Center);
+        save.set_sensitive(false);
+        let content = adw::ButtonContent::new();
+        content.set_icon_name("object-select-symbolic");
+        content.set_label(&t("Save"));
+        save.set_child(Some(&content));
+
+        let header = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        header.set_valign(gtk::Align::Center);
+        header.append(&add);
+        header.append(&save);
+        group.set_header_suffix(Some(&header));
+
+        let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        card.add_css_class("card");
+        card.set_margin_top(10);
+        group.add(&card);
+
+        let editor = EnvEditor {
+            rows: Rc::new(RefCell::new(Vec::new())),
+            container: card,
+            save: save.clone(),
+            sender: sender.clone(),
+            path: app.image_path.clone(),
+            arguments,
+            next_id: Rc::new(Cell::new(0)),
+        };
+
+        for entry in &app.env_variables {
+            let (key, value) = entry.split_once('=').unwrap_or((entry.as_str(), ""));
+            editor.add(key, value);
+        }
+        editor.refresh();
+
+        let editor_add = editor.clone();
+        add.connect_clicked(move |_| {
+            editor_add.add("", "");
+            editor_add.refresh();
+        });
+        let editor_save = editor;
+        save.connect_clicked(move |_| editor_save.save());
 
         group
     }
@@ -2596,6 +2709,136 @@ impl AppModel {
     }
 }
 
+#[derive(Clone)]
+struct EnvEditor {
+    rows: Rc<RefCell<Vec<EnvRow>>>,
+    container: gtk::Box,
+    save: gtk::Button,
+    sender: ComponentSender<AppModel>,
+    path: PathBuf,
+    arguments: Rc<RefCell<String>>,
+    next_id: Rc<Cell<u64>>,
+}
+
+struct EnvRow {
+    id: u64,
+    key: gtk::Entry,
+    value: gtk::Entry,
+}
+
+impl EnvEditor {
+    fn add(&self, key: &str, value: &str) {
+        let id = self.next_id.get();
+        self.next_id.set(id.wrapping_add(1));
+
+        let key_entry = gtk::Entry::new();
+        key_entry.set_placeholder_text(Some(&t("Key")));
+        key_entry.set_text(key);
+        key_entry.set_hexpand(true);
+
+        let value_entry = gtk::Entry::new();
+        value_entry.set_placeholder_text(Some(&t("Value")));
+        value_entry.set_text(value);
+        value_entry.set_hexpand(true);
+        value_entry.set_sensitive(!key.is_empty());
+
+        let delete = gtk::Button::from_icon_name("user-trash-symbolic");
+        delete.add_css_class("destructive-action");
+        delete.set_valign(gtk::Align::Center);
+
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        row.set_margin_top(6);
+        row.set_margin_bottom(6);
+        row.set_margin_start(12);
+        row.set_margin_end(12);
+        row.append(&key_entry);
+        row.append(&gtk::Label::new(Some("=")));
+        row.append(&value_entry);
+        row.append(&delete);
+
+        self.container.append(&row);
+        self.rows.borrow_mut().push(EnvRow {
+            id,
+            key: key_entry.clone(),
+            value: value_entry.clone(),
+        });
+
+        let editor = self.clone();
+        key_entry.connect_changed(move |_| editor.refresh());
+        let editor = self.clone();
+        value_entry.connect_changed(move |_| editor.refresh());
+        let editor = self.clone();
+        let row_for_delete = row;
+        delete.connect_clicked(move |_| {
+            {
+                let mut rows = editor.rows.borrow_mut();
+                rows.retain(|entry| entry.id != id);
+            }
+            editor.container.remove(&row_for_delete);
+            editor.refresh();
+            editor.save();
+        });
+    }
+
+    fn refresh(&self) {
+        let rows = self.rows.borrow();
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+        for row in rows.iter() {
+            let key = row.key.text().trim().to_owned();
+            if !key.is_empty() {
+                *counts.entry(key).or_default() += 1;
+            }
+        }
+
+        let mut valid = !rows.is_empty();
+        for row in rows.iter() {
+            let key = row.key.text().trim().to_owned();
+            let count = counts.get(&key).copied().unwrap_or(0);
+            let unique = !key.is_empty() && count == 1;
+
+            if !key.is_empty() && count > 1 {
+                row.key.add_css_class("error");
+            } else {
+                row.key.remove_css_class("error");
+            }
+            row.value.set_sensitive(unique);
+            if !unique {
+                valid = false;
+            }
+        }
+
+        self.save.set_sensitive(valid);
+    }
+
+    fn save(&self) {
+        let rows = self.rows.borrow();
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+        for row in rows.iter() {
+            let key = row.key.text().trim().to_owned();
+            if !key.is_empty() {
+                *counts.entry(key).or_default() += 1;
+            }
+        }
+
+        let mut env = Vec::new();
+        for row in rows.iter() {
+            let key = row.key.text().trim().to_owned();
+            if key.is_empty() || counts.get(&key).copied().unwrap_or(0) != 1 {
+                continue;
+            }
+            let value = row.value.text().trim().to_owned();
+            env.push(format!("{key}={}", gearlever_core::args::quote(&value)));
+        }
+
+        let arguments = self.arguments.borrow().clone();
+        self.sender.input(Msg::SaveExec {
+            path: self.path.clone(),
+            env,
+            arguments,
+        });
+    }
+}
+
 #[derive(Debug)]
 enum FieldWidget {
     Text(adw::EntryRow),
@@ -2659,7 +2902,7 @@ fn details_header(
     name: &str,
     description: &str,
     icon: &gtk::Image,
-    pills: &[Option<String>],
+    pills: &[String],
 ) -> gtk::Widget {
     let header = gtk::Box::new(gtk::Orientation::Vertical, 6);
     header.set_halign(gtk::Align::Center);
@@ -2675,24 +2918,22 @@ fn details_header(
     if !description.trim().is_empty() {
         let subtitle = gtk::Label::new(Some(description));
         subtitle.add_css_class("dim-label");
+        subtitle.add_css_class("subtitle");
         subtitle.set_justify(gtk::Justification::Center);
         subtitle.set_wrap(true);
+        subtitle.set_selectable(true);
+        subtitle.set_lines(2);
+        subtitle.set_ellipsize(gtk::pango::EllipsizeMode::End);
         subtitle.set_max_width_chars(50);
         header.append(&subtitle);
     }
 
     let pills_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     pills_box.set_halign(gtk::Align::Center);
-    pills_box.set_margin_top(6);
-    let mut first = true;
-    for value in pills.iter().flatten() {
-        if !first {
-            let dot = gtk::Label::new(Some("·"));
-            dot.add_css_class("dim-label");
-            pills_box.append(&dot);
-        }
+    pills_box.set_margin_top(10);
+    pills_box.set_margin_bottom(4);
+    for value in pills {
         pills_box.append(&pill(value));
-        first = false;
     }
     header.append(&pills_box);
 

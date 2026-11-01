@@ -133,8 +133,32 @@ pub fn candidate_icon(metadata: &gearlever_core::appimage::AppMetadata, pixels: 
 #[must_use]
 pub fn pill(text: &str) -> gtk::Label {
     let label = gtk::Label::new(Some(text));
-    label.add_css_class("pill");
+    label.add_css_class("app-pill");
     label
+}
+
+/// Installs the small stylesheet used by the interface.
+///
+/// libadwaita 1.4 has `AdwToggleGroup`, but the project targets 1.2, so the
+/// details page builds its pills from labels and styles them here.
+pub fn install_css() {
+    let Some(display) = gdk::Display::default() else {
+        return;
+    };
+
+    let provider = gtk::CssProvider::new();
+    provider.load_from_data(
+        ".app-pill {
+            background-color: alpha(@theme_fg_color, 0.1);
+            border-radius: 9999px;
+            padding: 4px 12px;
+        }",
+    );
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 }
 
 #[cfg(test)]
