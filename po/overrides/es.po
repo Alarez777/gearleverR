@@ -39,6 +39,9 @@ msgstr "Atrás"
 msgid "Cannot read the AppImage metadata"
 msgstr "No se pudo leer la metadata de la AppImage"
 
+msgid "Cannot restart Gear LeverR"
+msgstr "No se pudo reiniciar Gear LeverR"
+
 msgid "Command line updated"
 msgstr "Línea de comandos actualizada"
 

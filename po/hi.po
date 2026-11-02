@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gearlever\n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-01 21:17+0000\n"
+"POT-Creation-Date: 2026-11-02 21:10+0000\n"
 "PO-Revision-Date: 2024-07-07 09:34+0530\n"
 "Last-Translator: Scrambled777 <weblate.scrambled777@simplelogin.com>\n"
 "Language-Team: Hindi <indlinux-hindi@lists.sourceforge.net>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Gtranslator 46.1\n"
 
-#: crates/gearlever/src/ui/mod.rs:2389
+#: crates/gearlever/src/ui/mod.rs:2393
 msgid ""
 "<b>About</b>\n"
 "An AppImage manager inspired by Gear Lever, but an independent project: it "
@@ -28,30 +28,30 @@ msgid ""
 "Rust, GTK 4, libadwaita, Relm4, backhand and ureq."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2390
+#: crates/gearlever/src/ui/mod.rs:2394
 msgid ""
 "<b>GPL-3.0-or-later</b>\n"
 "Free software: you can redistribute it and/or modify it under the terms of "
 "the GNU General Public License, version 3 or later."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1746
+#: crates/gearlever/src/ui/mod.rs:1750
 msgid "Add a website"
 msgstr "एक वेबसाइट जोड़ें"
 
-#: crates/gearlever/src/ui/mod.rs:1971
+#: crates/gearlever/src/ui/mod.rs:1975
 msgid "Add or customize environment for this application"
 msgstr "इस अनुप्रयोग के लिए पर्यावरण जोड़ें या अनुकूलित करें"
 
-#: crates/gearlever/src/ui/mod.rs:709 crates/gearlever/src/ui/mod.rs:762
+#: crates/gearlever/src/ui/mod.rs:713 crates/gearlever/src/ui/mod.rs:766
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1417
+#: crates/gearlever/src/ui/mod.rs:1421
 msgid "App details"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2150 crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/mod.rs:2154 crates/gearlever/src/ui/welcome.rs:134
 msgid "AppImage default location"
 msgstr "ऐपइमेज का तयशुदा स्थान"
 
@@ -59,7 +59,7 @@ msgstr "ऐपइमेज का तयशुदा स्थान"
 msgid "AppImage integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2386
+#: crates/gearlever/src/ui/mod.rs:2390
 msgid "AppImage manager written in Rust"
 msgstr ""
 
@@ -71,47 +71,51 @@ msgstr ""
 msgid "AppImages removed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1928
+#: crates/gearlever/src/ui/mod.rs:1932
 msgid "Apply changes"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2036
+#: crates/gearlever/src/ui/mod.rs:2040
 msgid "Apps to integrate"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1447
+#: crates/gearlever/src/ui/mod.rs:1451
 msgid "Back"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1390 crates/gearlever/src/ui/mod.rs:2171
-#: crates/gearlever/src/ui/mod.rs:2402 crates/gearlever/src/ui/mod.rs:2447
-#: crates/gearlever/src/ui/mod.rs:2497 crates/gearlever/src/ui/mod.rs:2535
+#: crates/gearlever/src/ui/mod.rs:1394 crates/gearlever/src/ui/mod.rs:2175
+#: crates/gearlever/src/ui/mod.rs:2407 crates/gearlever/src/ui/mod.rs:2452
+#: crates/gearlever/src/ui/mod.rs:2502 crates/gearlever/src/ui/mod.rs:2540
 #: crates/gearlever/src/ui/welcome.rs:157
 msgid "Cancel"
 msgstr "रद्द करें"
 
-#: crates/gearlever/src/ui/mod.rs:2062 crates/gearlever/src/ui/mod.rs:2593
-#: crates/gearlever/src/ui/mod.rs:2600 crates/gearlever/src/ui/mod.rs:2775
+#: crates/gearlever/src/ui/mod.rs:2066 crates/gearlever/src/ui/mod.rs:2624
+#: crates/gearlever/src/ui/mod.rs:2631 crates/gearlever/src/ui/mod.rs:2806
 msgid "Cancel update"
 msgstr "अद्यतन रद्द करें"
 
-#: crates/gearlever/src/ui/mod.rs:861
+#: crates/gearlever/src/ui/mod.rs:865
 msgid "Cancelling..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1104
+#: crates/gearlever/src/ui/mod.rs:1108
 msgid "Cannot determine the running AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:518 crates/gearlever/src/ui/mod.rs:1265
+#: crates/gearlever/src/ui/mod.rs:518 crates/gearlever/src/ui/mod.rs:1269
 msgid "Cannot read the AppImage metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2682
+#: crates/gearlever/src/ui/mod.rs:2582
+msgid "Cannot restart Gear LeverR"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:2713
 msgid "Check for updates"
 msgstr "अद्यतनों के लिए जांचें"
 
-#: crates/gearlever/src/ui/mod.rs:2221 crates/gearlever/src/ui/welcome.rs:201
+#: crates/gearlever/src/ui/mod.rs:2225 crates/gearlever/src/ui/welcome.rs:201
 msgid "Check updates on system startup"
 msgstr ""
 
@@ -119,7 +123,7 @@ msgstr ""
 msgid "Checking updates..."
 msgstr "अद्यतनों की जांच की जा रही है..."
 
-#: crates/gearlever/src/ui/mod.rs:2261
+#: crates/gearlever/src/ui/mod.rs:2265
 msgid "Clone AppImages into the destination folder"
 msgstr "ऐपइमेज की गंतव्य फोल्डर में प्रतिरूपित करें"
 
@@ -127,51 +131,51 @@ msgstr "ऐपइमेज की गंतव्य फोल्डर मे�
 msgid "Close"
 msgstr "बंद करें"
 
-#: crates/gearlever/src/ui/mod.rs:1701
+#: crates/gearlever/src/ui/mod.rs:1705
 msgid "Command line arguments"
 msgstr "कमांड लाइन तर्क"
 
-#: crates/gearlever/src/ui/mod.rs:2426
+#: crates/gearlever/src/ui/mod.rs:2431
 msgid "Conflict with \"{app_name}\""
 msgstr "\"{app_name}\" के साथ टकराव"
 
-#: crates/gearlever/src/ui/mod.rs:2279
+#: crates/gearlever/src/ui/mod.rs:2283
 msgid "Debugging"
 msgstr "डिबगिंग"
 
-#: crates/gearlever/src/ui/mod.rs:1858
+#: crates/gearlever/src/ui/mod.rs:1862
 msgid "Default"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2400
+#: crates/gearlever/src/ui/mod.rs:2405
 msgid "Do you really want to remove this app?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2710
+#: crates/gearlever/src/ui/mod.rs:2741
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "किसी ऐपइमेज को यहां खींचें और छोड़ें या \"+\" आइकन पर क्लिक करें।"
 
-#: crates/gearlever/src/ui/mod.rs:2796
+#: crates/gearlever/src/ui/mod.rs:2827
 msgid "Drop your file here"
 msgstr "अपनी फाइल यहां छोड़ें"
 
-#: crates/gearlever/src/ui/mod.rs:2281
+#: crates/gearlever/src/ui/mod.rs:2285
 msgid "Enable debug logs"
 msgstr "डिबग लॉग सक्षम करें"
 
-#: crates/gearlever/src/ui/mod.rs:1970
+#: crates/gearlever/src/ui/mod.rs:1974
 msgid "Environment variables"
 msgstr "पर्यावरण वेरिएबल"
 
-#: crates/gearlever/src/ui/mod.rs:2231 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:2235 crates/gearlever/src/ui/welcome.rs:177
 msgid "File management"
 msgstr "फाइल प्रबंधन"
 
-#: crates/gearlever/src/ui/mod.rs:2664
+#: crates/gearlever/src/ui/mod.rs:2695
 msgid "Filter installed applications"
 msgstr "स्थापित अनुप्रयोगों को छाने"
 
-#: crates/gearlever/src/ui/mod.rs:1139
+#: crates/gearlever/src/ui/mod.rs:1143
 msgid "Gear LeverR installed"
 msgstr ""
 
@@ -181,24 +185,24 @@ msgid ""
 "installed and where to keep your AppImages."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2524
+#: crates/gearlever/src/ui/mod.rs:2529
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2493
+#: crates/gearlever/src/ui/mod.rs:2498
 msgid ""
 "Gear LeverR will be removed together with its desktop entry and the "
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2709
+#: crates/gearlever/src/ui/mod.rs:2740
 msgid "Get started"
 msgstr "आरंभ करें"
 
-#: crates/gearlever/src/ui/mod.rs:2270
+#: crates/gearlever/src/ui/mod.rs:2274
 msgid ""
 "If enabled, apps that run in the terminal are renamed as their executable.\n"
 "You would need to add the aforementioned folder to your $PATH manually.\n"
@@ -211,7 +215,7 @@ msgstr ""
 "\n"
 "उदाहरण के लिए, \"golang_x86_64.appimage\" को \"go\" के रूप में सहेजा जाएगा"
 
-#: crates/gearlever/src/ui/mod.rs:2210
+#: crates/gearlever/src/ui/mod.rs:2214
 msgid ""
 "If enabled, the app will try to load an Appimage without using the built-in "
 "appimage-extract command.\n"
@@ -219,7 +223,7 @@ msgid ""
 "when loading the metadata."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2282
+#: crates/gearlever/src/ui/mod.rs:2286
 msgid ""
 "Increases log verbosity, occupying more disk space and potentially impacting "
 "performance.\n"
@@ -233,8 +237,8 @@ msgstr ""
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1416 crates/gearlever/src/ui/mod.rs:2614
-#: crates/gearlever/src/ui/mod.rs:2676
+#: crates/gearlever/src/ui/mod.rs:1420 crates/gearlever/src/ui/mod.rs:2645
+#: crates/gearlever/src/ui/mod.rs:2707
 msgid "Installed applications"
 msgstr "स्थापित अनुप्रयोग"
 
@@ -246,27 +250,27 @@ msgstr "स्थापित किया जा रहा है..."
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1286
+#: crates/gearlever/src/ui/mod.rs:1290
 msgid "Integrating..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2444
+#: crates/gearlever/src/ui/mod.rs:2449
 msgid "Keep both"
 msgstr "दोनों रखें"
 
-#: crates/gearlever/src/ui/mod.rs:2262
+#: crates/gearlever/src/ui/mod.rs:2266
 msgid "Keep the original file and create a copy in the destination folder"
 msgstr "मूल फाइल रखें और गंतव्य फोल्डर में प्रतिलिपि बनाएं"
 
-#: crates/gearlever/src/ui/mod.rs:2899
+#: crates/gearlever/src/ui/mod.rs:2930
 msgid "Key"
 msgstr "कुंजी"
 
-#: crates/gearlever/src/ui/mod.rs:1630 crates/gearlever/src/ui/mod.rs:1810
+#: crates/gearlever/src/ui/mod.rs:1634 crates/gearlever/src/ui/mod.rs:1814
 msgid "Launch"
 msgstr "शुरू करें"
 
-#: crates/gearlever/src/ui/mod.rs:2194
+#: crates/gearlever/src/ui/mod.rs:2198
 msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
@@ -274,39 +278,39 @@ msgstr ""
 "उन ऐपइमेज की सूची बनाएं जिन्हें सिस्टम मेनू में एकीकृत किया गया है लेकिन तयशुदा फोल्डर के "
 "बाहर स्थित हैं"
 
-#: crates/gearlever/src/ui/mod.rs:1854
+#: crates/gearlever/src/ui/mod.rs:1858
 msgid "Manage update details for this application"
 msgstr "इस अनुप्रयोग के लिए अद्यतन विवरण प्रबंधित करें"
 
-#: crates/gearlever/src/ui/mod.rs:2629
+#: crates/gearlever/src/ui/mod.rs:2660
 msgid "Menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1028
+#: crates/gearlever/src/ui/mod.rs:1032
 msgid "Metadata reloaded"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2256 crates/gearlever/src/ui/welcome.rs:180
+#: crates/gearlever/src/ui/mod.rs:2260 crates/gearlever/src/ui/welcome.rs:180
 msgid "Move AppImages into the destination folder"
 msgstr "ऐपइमेज को गंतव्य फोल्डर में ले जाएं"
 
-#: crates/gearlever/src/ui/mod.rs:1420 crates/gearlever/src/ui/mod.rs:2055
+#: crates/gearlever/src/ui/mod.rs:1424 crates/gearlever/src/ui/mod.rs:2059
 msgid "Move all to the app menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1817
+#: crates/gearlever/src/ui/mod.rs:1821
 msgid "Move to the app menu"
 msgstr "ऐप मेनू पर ले जाएं"
 
-#: crates/gearlever/src/ui/mod.rs:2267
+#: crates/gearlever/src/ui/mod.rs:2271
 msgid "Naming conventions"
 msgstr "नामकरण परंपराएं"
 
-#: crates/gearlever/src/ui/mod.rs:723
+#: crates/gearlever/src/ui/mod.rs:727
 msgid "No update method was found for this AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:774
+#: crates/gearlever/src/ui/mod.rs:778
 msgid "No updates available"
 msgstr "कोई अद्यतन उपलब्ध नहीं"
 
@@ -314,85 +318,85 @@ msgstr "कोई अद्यतन उपलब्ध नहीं"
 msgid "Not now"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1391
+#: crates/gearlever/src/ui/mod.rs:1395
 msgid "Open"
 msgstr "खोलें"
 
-#: crates/gearlever/src/ui/mod.rs:1691
+#: crates/gearlever/src/ui/mod.rs:1695
 msgid "Open Folder"
 msgstr "फोल्डर खोलें"
 
-#: crates/gearlever/src/ui/mod.rs:2715
+#: crates/gearlever/src/ui/mod.rs:2746
 msgid "Open Preferences"
 msgstr "प्राथमिकताएं खोलें"
 
-#: crates/gearlever/src/ui/mod.rs:1755
+#: crates/gearlever/src/ui/mod.rs:1759
 msgid "Open URL"
 msgstr "URL खोलें"
 
-#: crates/gearlever/src/ui/mod.rs:1445 crates/gearlever/src/ui/mod.rs:2618
+#: crates/gearlever/src/ui/mod.rs:1449 crates/gearlever/src/ui/mod.rs:2649
 msgid "Open a new AppImage"
 msgstr "नया ऐपइमेज खोलें"
 
-#: crates/gearlever/src/ui/mod.rs:1385
+#: crates/gearlever/src/ui/mod.rs:1389
 msgid "Open an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1685
+#: crates/gearlever/src/ui/mod.rs:1689
 msgid "Path"
 msgstr "पथ"
 
-#: crates/gearlever/src/ui/mod.rs:2140
+#: crates/gearlever/src/ui/mod.rs:2144
 msgid "Preferences"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2202
+#: crates/gearlever/src/ui/mod.rs:2206
 msgid "Preview new apps in a minimal UI"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2636
+#: crates/gearlever/src/ui/mod.rs:2667
 msgid "Quit"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2222
+#: crates/gearlever/src/ui/mod.rs:2226
 msgid ""
 "Receive a notification when a new update is detected; updates will not be "
 "installed automatically"
 msgstr "नया अद्यतन पता चलने पर सूचना प्राप्त करें; अद्यतन स्वचालित रूप से स्थापित नहीं होंगे"
 
-#: crates/gearlever/src/ui/mod.rs:2257
+#: crates/gearlever/src/ui/mod.rs:2261
 msgid "Reduce disk usage"
 msgstr "डिस्क उपयोग कम करें"
 
-#: crates/gearlever/src/ui/mod.rs:2797
+#: crates/gearlever/src/ui/mod.rs:2828
 msgid "Release to open the AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1665
+#: crates/gearlever/src/ui/mod.rs:1669
 msgid "Reload metadata"
 msgstr "मेटाडेटा पुनः लोड करें"
 
-#: crates/gearlever/src/ui/mod.rs:1638 crates/gearlever/src/ui/mod.rs:2403
+#: crates/gearlever/src/ui/mod.rs:1642 crates/gearlever/src/ui/mod.rs:2408
 msgid "Remove"
 msgstr "हटाएं"
 
-#: crates/gearlever/src/ui/mod.rs:2499
+#: crates/gearlever/src/ui/mod.rs:2504
 msgid "Remove Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2492
+#: crates/gearlever/src/ui/mod.rs:2497
 msgid "Remove Gear LeverR?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2498 crates/gearlever/src/ui/mod.rs:2536
+#: crates/gearlever/src/ui/mod.rs:2503 crates/gearlever/src/ui/mod.rs:2541
 msgid "Remove all AppImages"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2534
+#: crates/gearlever/src/ui/mod.rs:2539
 msgid "Remove all AppImages?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2399
+#: crates/gearlever/src/ui/mod.rs:2404
 msgid "Remove application?"
 msgstr ""
 
@@ -400,29 +404,29 @@ msgstr ""
 msgid "Removed {path}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2440
+#: crates/gearlever/src/ui/mod.rs:2445
 msgid "Replace"
 msgstr "प्रतिस्थापित करें"
 
-#: crates/gearlever/src/ui/mod.rs:1926 crates/gearlever/src/ui/mod.rs:1983
+#: crates/gearlever/src/ui/mod.rs:1930 crates/gearlever/src/ui/mod.rs:1987
 msgid "Save"
 msgstr "सहेजें"
 
-#: crates/gearlever/src/ui/mod.rs:2623
+#: crates/gearlever/src/ui/mod.rs:2654
 msgid "Search"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2172 crates/gearlever/src/ui/welcome.rs:158
+#: crates/gearlever/src/ui/mod.rs:2176 crates/gearlever/src/ui/welcome.rs:158
 msgid "Select"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2158 crates/gearlever/src/ui/mod.rs:2166
+#: crates/gearlever/src/ui/mod.rs:2162 crates/gearlever/src/ui/mod.rs:2170
 #: crates/gearlever/src/ui/welcome.rs:147
 #: crates/gearlever/src/ui/welcome.rs:152
 msgid "Select a folder"
 msgstr "फोल्डर चुनें"
 
-#: crates/gearlever/src/ui/mod.rs:1865
+#: crates/gearlever/src/ui/mod.rs:1869
 msgid "Select the source type"
 msgstr "स्रोत प्रकार चुनें"
 
@@ -430,27 +434,27 @@ msgstr "स्रोत प्रकार चुनें"
 msgid "Set the AppImage location"
 msgstr "ऐपइमेज स्थान निर्धारित करें"
 
-#: crates/gearlever/src/ui/mod.rs:2193
+#: crates/gearlever/src/ui/mod.rs:2197
 msgid "Show integrated AppImages outside the default folder"
 msgstr "तयशुदा फोल्डर के बाहर एकीकृत ऐपइमेज दिखाएं"
 
-#: crates/gearlever/src/ui/mod.rs:1864
+#: crates/gearlever/src/ui/mod.rs:1868
 msgid "Source"
 msgstr "स्रोत"
 
-#: crates/gearlever/src/ui/mod.rs:718
+#: crates/gearlever/src/ui/mod.rs:722
 msgid "The application is running, close it first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2430
+#: crates/gearlever/src/ui/mod.rs:2435
 msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr "इसी नाम से एक ऐप पहले से मौजूद है, आप कैसे आगे बढ़ना चाहते हैं?"
 
-#: crates/gearlever/src/ui/mod.rs:1850
+#: crates/gearlever/src/ui/mod.rs:1854
 msgid "This application includes update information provided by the developer"
 msgstr "इस अनुप्रयोग में डेवलपर द्वारा प्रदान की गई अद्यतन जानकारी शामिल है"
 
-#: crates/gearlever/src/ui/mod.rs:2528
+#: crates/gearlever/src/ui/mod.rs:2533
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
@@ -460,19 +464,19 @@ msgstr ""
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1649
+#: crates/gearlever/src/ui/mod.rs:1653
 msgid "Update"
 msgstr "अद्यतन"
 
-#: crates/gearlever/src/ui/mod.rs:2687
+#: crates/gearlever/src/ui/mod.rs:2718
 msgid "Update all"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:868
+#: crates/gearlever/src/ui/mod.rs:872
 msgid "Update cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1666
+#: crates/gearlever/src/ui/mod.rs:1670
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -480,47 +484,47 @@ msgstr ""
 "आइकन, संस्करण और विवरण जैसी जानकारी अद्यतन करें।\n"
 "यदि ऐप स्वयं अद्यतन होता है तो उपयोगी है।"
 
-#: crates/gearlever/src/ui/mod.rs:1836
+#: crates/gearlever/src/ui/mod.rs:1840
 msgid "Update management"
 msgstr "अद्यतन प्रबंधन"
 
-#: crates/gearlever/src/ui/mod.rs:997
+#: crates/gearlever/src/ui/mod.rs:1001
 msgid "Update source saved"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:920
+#: crates/gearlever/src/ui/mod.rs:924
 msgid "Updates cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:922
+#: crates/gearlever/src/ui/mod.rs:926
 msgid "Updates installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2219 crates/gearlever/src/ui/welcome.rs:198
+#: crates/gearlever/src/ui/mod.rs:2223 crates/gearlever/src/ui/welcome.rs:198
 msgid "Updates management"
 msgstr "अद्यतन प्रबंधन"
 
-#: crates/gearlever/src/ui/mod.rs:1423
+#: crates/gearlever/src/ui/mod.rs:1427
 msgid "Updating applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:739 crates/gearlever/src/ui/mod.rs:819
+#: crates/gearlever/src/ui/mod.rs:743 crates/gearlever/src/ui/mod.rs:823
 msgid "Updating {name}..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2269
+#: crates/gearlever/src/ui/mod.rs:2273
 msgid "Use executable name for integrated terminal apps"
 msgstr "एकीकृत टर्मिनल ऐप्स के लिए निष्पादन योग्य नाम का उपयोग करें"
 
-#: crates/gearlever/src/ui/mod.rs:2209
+#: crates/gearlever/src/ui/mod.rs:2213
 msgid "Use safe mechanisms to load metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2904
+#: crates/gearlever/src/ui/mod.rs:2935
 msgid "Value"
 msgstr "मान"
 
-#: crates/gearlever/src/ui/mod.rs:1748
+#: crates/gearlever/src/ui/mod.rs:1752
 msgid "Website"
 msgstr "वेबसाइट"
 
@@ -528,18 +532,18 @@ msgstr "वेबसाइट"
 msgid "Welcome to Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2635
+#: crates/gearlever/src/ui/mod.rs:2666
 msgid "_About Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2634
+#: crates/gearlever/src/ui/mod.rs:2665
 msgid "_Open Log File"
 msgstr "लॉग फाइल खोलें (_O)"
 
-#: crates/gearlever/src/ui/mod.rs:2633
+#: crates/gearlever/src/ui/mod.rs:2664
 msgid "_Preferences"
 msgstr "प्राथमिकताएं (_P)"
 
-#: crates/gearlever/src/ui/mod.rs:888
+#: crates/gearlever/src/ui/mod.rs:892
 msgid "{name} updated"
 msgstr ""
