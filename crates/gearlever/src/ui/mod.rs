@@ -19,7 +19,6 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -43,6 +42,7 @@ use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
 use crate::i18n::{t, tf};
+use crate::launch;
 use crate::settings::{APP_ID, Settings, keys};
 use util::{normalize, pill};
 
@@ -2550,11 +2550,21 @@ impl AppModel {
     }
 
     fn launch(app: &InstalledApp) {
-        let desktop = Command::new("gtk-launch").arg(&app.desktop_id).spawn();
+        let desktop_id = app.desktop_id.clone();
+        let image_path = app.image_path.clone();
 
-        if desktop.is_err() {
-            let _ = Command::new(&app.image_path).spawn();
-        }
+        // gtk-launch returns immediately once the app is started, so waiting for
+        // it does not block anything the user can see.
+        std::thread::spawn(move || {
+            let launched = launch::command("gtk-launch")
+                .arg(&desktop_id)
+                .status()
+                .is_ok_and(|status| status.success());
+
+            if !launched {
+                let _ = launch::command(&image_path).spawn();
+            }
+        });
     }
 
     fn launch_file(path: &Path) {
@@ -2566,7 +2576,7 @@ impl AppModel {
             }
         }
 
-        let _ = Command::new(path).spawn();
+        let _ = launch::command(path).spawn();
     }
 
     fn open_uri(uri: &str) {
