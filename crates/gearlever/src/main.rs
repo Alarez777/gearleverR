@@ -8,6 +8,7 @@
 mod autostart;
 mod cli;
 mod i18n;
+mod launch;
 mod settings;
 mod ui;
 
