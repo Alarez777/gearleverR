@@ -699,7 +699,11 @@ impl Component for AppModel {
             }
             Msg::Launch(path) => {
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == path) {
-                    Self::launch(app);
+                    if is_self_launch(app) {
+                        Self::restart(widgets, app);
+                    } else {
+                        Self::launch(app);
+                    }
                 } else {
                     Self::launch_file(&path);
                 }
@@ -2567,6 +2571,22 @@ impl AppModel {
         });
     }
 
+    /// Closes Gear LeverR and starts its installed AppImage again.
+    ///
+    /// The running instance owns the application ID on the session bus, so
+    /// starting the image while it is alive would only forward an activation
+    /// request and quit. The helper waits for this process to exit first.
+    fn restart(widgets: &Widgets, app: &InstalledApp) {
+        if let Err(error) = launch::relaunch_after_exit(&app.image_path) {
+            tracing::error!(%error, "cannot schedule the Gear LeverR restart");
+            Self::toast(widgets, &t("Cannot restart Gear LeverR"));
+            return;
+        }
+
+        tracing::info!(image = %app.image_path.display(), "restarting Gear LeverR");
+        relm4::main_application().quit();
+    }
+
     fn launch_file(path: &Path) {
         if let Ok(metadata) = fs::metadata(path) {
             let mut permissions = metadata.permissions();
@@ -3061,6 +3081,11 @@ fn same_file(left: &Path, right: &Path) -> bool {
         (Ok(left), Ok(right)) => left == right,
         _ => left == right,
     }
+}
+
+/// Returns whether launching `app` would start Gear LeverR itself.
+fn is_self_launch(app: &InstalledApp) -> bool {
+    app.self_entry || running_appimage().is_some_and(|image| same_file(&image, &app.image_path))
 }
 
 /// Returns the AppImage this process was started from, when there is one.

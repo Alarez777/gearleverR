@@ -6,8 +6,9 @@
 //! breaks the theme, the icons and the desktop settings of the launched app.
 
 use std::ffi::{OsStr, OsString};
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 /// Variables that the AppImage runtime and the linuxdeploy hooks add.
 const APPIMAGE_VARS: &[&str] = &[
@@ -41,6 +42,50 @@ pub(crate) fn command(program: impl AsRef<OsStr>) -> Command {
     sanitize(&mut command, &environment, appdir.as_deref());
 
     command
+}
+
+/// Starts `program` once the current process exits.
+///
+/// Gear LeverR owns a unique application ID on the session bus, so a second
+/// instance started while this one runs only forwards an activation request and
+/// quits. The helper waits for this process to disappear and then starts the
+/// installed AppImage, which keeps a single instance and lets the AppImage
+/// runtime unmount the current image before the next one starts.
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] when the helper process cannot be spawned or the
+/// AppImage has disappeared since the list was scanned.
+pub(crate) fn relaunch_after_exit(program: &Path) -> std::io::Result<()> {
+    relaunch_after(std::process::id(), program)
+}
+
+/// Starts `program` once `pid` is no longer running.
+fn relaunch_after(pid: u32, program: &Path) -> std::io::Result<()> {
+    // `/proc/<pid>/exe` stops resolving as soon as the process exits, even
+    // while a zombie remains, so the replacement does not have to wait for the
+    // parent to reap it.
+    const WAIT: &str = "while [ -e \"/proc/$1/exe\" ]; do sleep 0.05; done; exec \"$2\"";
+
+    if !program.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("{} is not a file", program.display()),
+        ));
+    }
+
+    command("/bin/sh")
+        .arg("-c")
+        .arg(WAIT)
+        .arg("sh")
+        .arg(pid.to_string())
+        .arg(program)
+        // The replacement keeps stdout and stderr, so a startup failure still
+        // reaches the journal or the terminal that started Gear LeverR.
+        .stdin(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .map(|_child| ())
 }
 
 /// Drops our AppImage environment from the command.
@@ -82,6 +127,8 @@ fn without_dir(value: &OsStr, appdir: &Path) -> Option<OsString> {
 
 #[cfg(test)]
 mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
     use super::*;
 
     fn environment(pairs: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
@@ -167,5 +214,76 @@ mod tests {
             without_dir(value, appdir),
             Some(OsString::from("/tmp/.mount_GearAbc2/usr/lib"))
         );
+    }
+
+    fn fake_program(directory: &Path, marker: &Path) -> PathBuf {
+        let program = directory.join("fake-appimage");
+        std::fs::write(&program, format!("#!/bin/sh\n: > '{}'\n", marker.display()))
+            .expect("write the fake program");
+
+        let mut permissions = std::fs::metadata(&program)
+            .expect("read the fake program permissions")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&program, permissions).expect("make the fake program executable");
+
+        program
+    }
+
+    fn wait_for_marker(marker: &Path) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+
+        while !marker.is_file() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the replacement did not start"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn rejects_a_missing_program() {
+        let error = relaunch_after(999_999_999, Path::new("/missing/app.AppImage"))
+            .expect_err("the missing program is rejected");
+
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn starts_the_replacement_when_the_process_is_gone() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let marker = directory.path().join("started");
+        let program = fake_program(directory.path(), &marker);
+
+        // Above the default and maximum pid_max on Linux.
+        relaunch_after(999_999_999, &program).expect("spawn the replacement");
+
+        wait_for_marker(&marker);
+    }
+
+    #[test]
+    fn waits_until_the_process_exits() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let marker = directory.path().join("started");
+        let program = fake_program(directory.path(), &marker);
+
+        let mut child = Command::new("/bin/sh")
+            .arg("-c")
+            .arg("sleep 0.3")
+            .spawn()
+            .expect("spawn the process to wait for");
+        let pid = child.id();
+
+        relaunch_after(pid, &program).expect("spawn the replacement");
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!(
+            !marker.exists(),
+            "the replacement started while the process was still running"
+        );
+
+        child.wait().expect("wait for the process");
+        wait_for_marker(&marker);
     }
 }
