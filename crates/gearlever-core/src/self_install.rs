@@ -247,43 +247,53 @@ fn write_icon(
     Ok(Some(destination))
 }
 
-/// Rewrites the `Icon` of an existing entry when it still uses a themed name.
+/// Repairs the desktop entry of an existing self installation.
 ///
-/// This repairs installations created before the entry stored an absolute path,
-/// and refreshes the icon theme cache so the shell can find the icon.
+/// It disables the startup notification that leaves the cursor spinning on
+/// GNOME Wayland and rewrites a themed `Icon` to the installed absolute path,
+/// refreshing the icon theme cache so the shell can find the icon.
 ///
 /// # Errors
 ///
 /// Returns [`Error::Io`] when the desktop entry or the icon cannot be written.
-pub fn refresh_icon(paths: &Paths) -> Result<()> {
+pub fn refresh_entry(paths: &Paths) -> Result<()> {
     let desktop_path = paths.applications_dir().join(DESKTOP_ID);
     let Ok(contents) = fs::read_to_string(&desktop_path) else {
         return Ok(());
     };
 
     let mut desktop = DesktopFile::parse(&contents);
+    let mut changed = false;
+
+    if desktop
+        .value("Desktop Entry", "StartupNotify")
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    {
+        desktop.set("Desktop Entry", "StartupNotify", "false");
+        changed = true;
+    }
 
     // A real absolute path already works, whether it points at the hicolor
     // theme or at the `.icons` copy written when the entry was replaced.
-    if desktop
+    let icon_is_absolute = desktop
         .value("Desktop Entry", "Icon")
         .map(Path::new)
-        .is_some_and(|icon| icon.is_absolute() && icon.is_file())
-    {
+        .is_some_and(|icon| icon.is_absolute() && icon.is_file());
+
+    if !icon_is_absolute && let Some(icon) = best_installed_icon(&paths.hicolor_icons_dir()) {
+        let icon_text = icon.to_string_lossy();
+        desktop.set("Desktop Entry", "Icon", icon_text.as_ref());
+        changed = true;
+        update_icon_cache(&paths.hicolor_icons_dir());
+
+        tracing::debug!(path = %icon.display(), "refreshed the Gear LeverR icon");
+    }
+
+    if !changed {
         return Ok(());
     }
 
-    let Some(icon) = best_installed_icon(&paths.hicolor_icons_dir()) else {
-        return Ok(());
-    };
-
-    let icon_text = icon.to_string_lossy();
-    desktop.set("Desktop Entry", "Icon", icon_text.as_ref());
-    write_atomic(&desktop_path, desktop.to_string().as_bytes())?;
-    update_icon_cache(&paths.hicolor_icons_dir());
-
-    tracing::debug!(path = %icon.display(), "refreshed the Gear LeverR icon");
-    Ok(())
+    write_atomic(&desktop_path, desktop.to_string().as_bytes())
 }
 
 fn best_installed_icon(icons_dir: &Path) -> Option<PathBuf> {
@@ -386,6 +396,9 @@ fn desktop_entry(metadata: &AppMetadata, image: &Path, icon_path: Option<&Path>)
     desktop.set("Desktop Entry", "Exec", exec);
     desktop.set("Desktop Entry", "Icon", icon);
     desktop.set("Desktop Entry", "Terminal", "false");
+    // The startup-notification cursor can stay stuck on GNOME Wayland when the
+    // pointer is over the dock, so do not request it.
+    desktop.set("Desktop Entry", "StartupNotify", "false");
     desktop.set("Desktop Entry", SELF_MARKER, "true");
     desktop.set("Desktop Entry", "X-AppImage-Name", &metadata.name);
     desktop.set(
@@ -481,7 +494,7 @@ mod tests {
         )
         .expect("desktop entry");
 
-        refresh_icon(&paths).expect("refresh the icon");
+        refresh_entry(&paths).expect("refresh the entry");
 
         let contents =
             fs::read_to_string(paths.applications_dir().join(DESKTOP_ID)).expect("read entry");
@@ -509,11 +522,43 @@ mod tests {
         )
         .expect("desktop entry");
 
-        refresh_icon(&paths).expect("refresh the icon");
+        refresh_entry(&paths).expect("refresh the entry");
 
         let contents =
             fs::read_to_string(paths.applications_dir().join(DESKTOP_ID)).expect("read entry");
         let desktop = DesktopFile::parse(&contents);
+        assert_eq!(
+            desktop.value("Desktop Entry", "Icon"),
+            Some(icon.to_string_lossy().as_ref())
+        );
+    }
+
+    #[test]
+    fn disables_startup_notification_on_an_existing_entry() {
+        let directory = tempfile::tempdir().expect("temporary home");
+        let paths = Paths::with_home(directory.path());
+        fs::create_dir_all(paths.applications_dir()).expect("applications directory");
+
+        let icon = directory.path().join("custom.png");
+        fs::write(&icon, b"icon").expect("icon file");
+        fs::write(
+            paths.applications_dir().join(DESKTOP_ID),
+            format!(
+                "[Desktop Entry]\nName=Gear LeverR\nIcon={}\nStartupNotify=true\n",
+                icon.display()
+            ),
+        )
+        .expect("desktop entry");
+
+        refresh_entry(&paths).expect("refresh the entry");
+
+        let contents =
+            fs::read_to_string(paths.applications_dir().join(DESKTOP_ID)).expect("read entry");
+        let desktop = DesktopFile::parse(&contents);
+        assert_eq!(
+            desktop.value("Desktop Entry", "StartupNotify"),
+            Some("false")
+        );
         assert_eq!(
             desktop.value("Desktop Entry", "Icon"),
             Some(icon.to_string_lossy().as_ref())
@@ -591,6 +636,7 @@ mod tests {
         assert!(desktop.contains("TryExec=/home/tester/AppImages/Gear LeverR.AppImage"));
         assert!(desktop.contains("Exec='/home/tester/AppImages/Gear LeverR.AppImage' %U"));
         assert!(desktop.contains(&format!("{SELF_MARKER}=true")));
+        assert!(desktop.contains("StartupNotify=false"));
         assert!(desktop.contains("X-AppImage-Version=0.1.0"));
         assert!(desktop.contains(&format!("Icon={}", icon.display())));
     }
