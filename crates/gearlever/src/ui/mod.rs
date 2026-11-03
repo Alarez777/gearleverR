@@ -1167,9 +1167,9 @@ impl AppModel {
         let settings = Settings::load(&paths);
         let _ = Config::import_legacy(&paths);
         if self_install::is_installed(&paths)
-            && let Err(error) = self_install::refresh_icon(&paths)
+            && let Err(error) = self_install::refresh_entry(&paths)
         {
-            tracing::warn!(%error, "cannot refresh the Gear LeverR icon");
+            tracing::warn!(%error, "cannot refresh the Gear LeverR desktop entry");
         }
         let config = Config::load_or_default(&paths.config_file()).unwrap_or_default();
 
