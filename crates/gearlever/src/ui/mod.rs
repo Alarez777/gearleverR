@@ -519,7 +519,10 @@ impl Component for AppModel {
                     return;
                 };
 
-                if self.apps.iter().any(|app| app.name == metadata.name) {
+                if self.apps.iter().any(|app| {
+                    app.name == metadata.name
+                        || (self_install::is_self_metadata(&metadata) && app.self_entry)
+                }) {
                     Self::confirm_conflict(widgets, path, &metadata.name, &sender);
                     return;
                 }
@@ -573,12 +576,23 @@ impl Component for AppModel {
                         self.pending.clear();
                         self.reloaded = None;
                         self.refresh_apps();
-                        self.details = self
+                        let installed = self
                             .apps
                             .iter()
                             .find(|candidate| candidate.image_path == app.image_path)
-                            .cloned()
-                            .map(DetailsItem::Installed);
+                            .cloned();
+
+                        // Replacing the self entry means this process is still
+                        // running the old version, so hand over to the image
+                        // that was just installed.
+                        if let Some(installed) = &installed
+                            && installed.self_entry
+                            && Self::restart_into(widgets, &installed.image_path, None)
+                        {
+                            return;
+                        }
+
+                        self.details = installed.map(DetailsItem::Installed);
                         self.page = Page::Details;
                         Self::show_page(self, widgets);
                         Self::rebuild_details(self, widgets, &sender);
@@ -704,6 +718,11 @@ impl Component for AppModel {
                     } else {
                         Self::launch(app);
                     }
+                } else if self
+                    .pending_metadata(&path)
+                    .is_some_and(self_install::is_self_metadata)
+                {
+                    Self::restart_candidate(widgets, &path);
                 } else {
                     Self::launch_file(&path);
                 }
@@ -1271,9 +1290,15 @@ impl AppModel {
         };
 
         let previous = if conflict == Conflict::Replace {
-            self.apps
-                .iter()
-                .find(|app| app.name == metadata.name)
+            let self_candidate = self_install::is_self_metadata(&metadata);
+            let preferred = if self_candidate {
+                self.apps.iter().find(|app| app.self_entry)
+            } else {
+                None
+            };
+
+            preferred
+                .or_else(|| self.apps.iter().find(|app| app.name == metadata.name))
                 .map(|app| PreviousInstall {
                     image_path: app.image_path.clone(),
                     desktop_path: app.desktop_path.clone(),
@@ -1332,6 +1357,7 @@ impl AppModel {
             !self.settings.values().block_unsafe_extractor,
             self.paths.temp_dir().join("metadata"),
             installed,
+            self.settings.values().appimages_dir.clone(),
             sender,
         );
     }
@@ -1345,6 +1371,7 @@ impl AppModel {
         allow_unsafe_extractor: bool,
         work_dir: PathBuf,
         installed: Vec<PathBuf>,
+        appimages_dir: PathBuf,
         sender: &ComponentSender<Self>,
     ) {
         if paths.is_empty() {
@@ -1366,9 +1393,7 @@ impl AppModel {
                     Ok(metadata) => {
                         let duplicate = installed
                             .iter()
-                            .find(|candidate| {
-                                same_file(candidate, &path) || same_content(candidate, &path)
-                            })
+                            .find(|candidate| same_managed_copy(&path, candidate, &appimages_dir))
                             .cloned();
                         loaded.push(LoadedFile {
                             path,
@@ -2577,14 +2602,41 @@ impl AppModel {
     /// starting the image while it is alive would only forward an activation
     /// request and quit. The helper waits for this process to exit first.
     fn restart(widgets: &Widgets, app: &InstalledApp) {
-        if let Err(error) = launch::relaunch_after_exit(&app.image_path) {
-            tracing::error!(%error, "cannot schedule the Gear LeverR restart");
+        let _ = Self::restart_into(widgets, &app.image_path, None);
+    }
+
+    /// Closes Gear LeverR and starts a candidate AppImage.
+    ///
+    /// The candidate path is passed back to the new process so it opens the
+    /// same install page after the restart.
+    fn restart_candidate(widgets: &Widgets, path: &Path) {
+        let _ = Self::restart_into(widgets, path, Some(path));
+    }
+
+    /// Schedules the restart and quits the current process.
+    ///
+    /// Returns whether the helper could be spawned; the UI stays open and shows
+    /// a toast when it cannot.
+    #[must_use]
+    fn restart_into(widgets: &Widgets, path: &Path, file: Option<&Path>) -> bool {
+        let result = match file {
+            Some(file) => launch::relaunch_after_exit_with_file(path, file),
+            None => launch::relaunch_after_exit(path),
+        };
+
+        if let Err(error) = result {
+            tracing::error!(
+                %error,
+                image = %path.display(),
+                "cannot schedule the Gear LeverR restart"
+            );
             Self::toast(widgets, &t("Cannot restart Gear LeverR"));
-            return;
+            return false;
         }
 
-        tracing::info!(image = %app.image_path.display(), "restarting Gear LeverR");
+        tracing::info!(image = %path.display(), "restarting Gear LeverR");
         relm4::main_application().quit();
+        true
     }
 
     fn launch_file(path: &Path) {
@@ -3083,6 +3135,35 @@ fn same_file(left: &Path, right: &Path) -> bool {
     }
 }
 
+/// Returns whether two directories are the same one.
+fn same_directory(left: &Path, right: &Path) -> bool {
+    match (fs::canonicalize(left), fs::canonicalize(right)) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
+}
+
+/// Returns whether `candidate` is the installed copy of the opened `path`.
+///
+/// The exact path always counts. Content comparison only applies when both
+/// files live in the managed AppImages folder, so a build opened from
+/// `Downloads` or `dist` stays installable even when its bytes match an
+/// installed AppImage.
+fn same_managed_copy(path: &Path, candidate: &Path, appimages_dir: &Path) -> bool {
+    if same_file(path, candidate) {
+        return true;
+    }
+
+    let path_is_managed = path
+        .parent()
+        .is_some_and(|parent| same_directory(parent, appimages_dir));
+    let candidate_is_managed = candidate
+        .parent()
+        .is_some_and(|parent| same_directory(parent, appimages_dir));
+
+    path_is_managed && candidate_is_managed && same_content(path, candidate)
+}
+
 /// Returns whether launching `app` would start Gear LeverR itself.
 fn is_self_launch(app: &InstalledApp) -> bool {
     app.self_entry || running_appimage().is_some_and(|image| same_file(&image, &app.image_path))
@@ -3240,4 +3321,81 @@ fn details_header(
     header.append(&pills_box);
 
     header.upcast()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn appimage(path: &Path, contents: &[u8]) {
+        fs::write(path, contents).expect("write the AppImage");
+    }
+
+    #[test]
+    fn detects_a_copy_inside_the_managed_folder() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let managed = directory.path().join("AppImages");
+        fs::create_dir_all(&managed).expect("managed directory");
+        let installed = managed.join("Installed.AppImage");
+        let copy = managed.join("Copy.AppImage");
+        appimage(&installed, b"same bytes");
+        appimage(&copy, b"same bytes");
+
+        assert!(
+            same_managed_copy(&copy, &installed, &managed),
+            "a copy in the managed folder is the installed AppImage"
+        );
+    }
+
+    #[test]
+    fn does_not_match_a_copy_outside_the_managed_folder() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let managed = directory.path().join("AppImages");
+        let downloads = directory.path().join("Downloads");
+        fs::create_dir_all(&managed).expect("managed directory");
+        fs::create_dir_all(&downloads).expect("downloads directory");
+        let installed = managed.join("Installed.AppImage");
+        let copy = downloads.join("Copy.AppImage");
+        appimage(&installed, b"same bytes");
+        appimage(&copy, b"same bytes");
+
+        assert!(
+            !same_managed_copy(&copy, &installed, &managed),
+            "a copy outside the managed folder stays installable"
+        );
+    }
+
+    #[test]
+    fn keeps_an_exact_path_outside_the_managed_folder() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let managed = directory.path().join("AppImages");
+        let downloads = directory.path().join("Downloads");
+        fs::create_dir_all(&managed).expect("managed directory");
+        fs::create_dir_all(&downloads).expect("downloads directory");
+        let outside = downloads.join("Installed.AppImage");
+        appimage(&outside, b"same bytes");
+
+        assert!(
+            same_managed_copy(&outside, &outside, &managed),
+            "the exact path always counts as installed"
+        );
+    }
+
+    #[test]
+    fn ignores_an_installed_copy_outside_the_managed_folder() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let managed = directory.path().join("AppImages");
+        let downloads = directory.path().join("Downloads");
+        fs::create_dir_all(&managed).expect("managed directory");
+        fs::create_dir_all(&downloads).expect("downloads directory");
+        let installed = downloads.join("Installed.AppImage");
+        let opened = managed.join("Opened.AppImage");
+        appimage(&installed, b"same bytes");
+        appimage(&opened, b"same bytes");
+
+        assert!(
+            !same_managed_copy(&opened, &installed, &managed),
+            "content only counts when both files are managed"
+        );
+    }
 }
