@@ -11,7 +11,8 @@ reference only** and must not be modified. That directory has its own `AGENTS.md
 | Name | Gear LeverR |
 | App ID | `io.github.alarez777.GearLeverR` |
 | Binary | `gearlever-r` |
-| AppImage | `GearLeverR-<version>-x86_64.AppImage` |
+| AppImage (default) | `GearLeverR-<version>-x86_64.AppImage` (system GTK) |
+| AppImage (portable) | `GearLeverR-<version>-x86_64-gtk-included.AppImage` |
 | Config | `~/.config/gearlever-r.conf` |
 | License | GPL-3.0-or-later (derivative work; keep attribution to Lorenzo Paderi) |
 

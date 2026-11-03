@@ -1,7 +1,7 @@
 #!/bin/bash
 # Gear LeverR launcher for the AppImage builds.
 #
-# The gtk-required variant links against the distribution's GTK4 and libadwaita,
+# The default variant links against the distribution's GTK4 and libadwaita,
 # so a missing library is reported here instead of as a dynamic-loader error.
 # The gtk-included variant ships those libraries and their resources inside the
 # AppImage, where linuxdeploy installs the environment hooks consumed below.
