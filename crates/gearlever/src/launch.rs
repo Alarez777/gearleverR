@@ -57,15 +57,30 @@ pub(crate) fn command(program: impl AsRef<OsStr>) -> Command {
 /// Returns [`std::io::Error`] when the helper process cannot be spawned or the
 /// AppImage has disappeared since the list was scanned.
 pub(crate) fn relaunch_after_exit(program: &Path) -> std::io::Result<()> {
-    relaunch_after(std::process::id(), program)
+    relaunch_after(std::process::id(), program, None)
+}
+
+/// Starts `program` with `file` as its only argument once the current process
+/// exits.
+///
+/// The candidate AppImage opens that file after the restart, so the new
+/// version keeps showing the install page.
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] when the helper process cannot be spawned or the
+/// AppImage has disappeared since the list was scanned.
+pub(crate) fn relaunch_after_exit_with_file(program: &Path, file: &Path) -> std::io::Result<()> {
+    relaunch_after(std::process::id(), program, Some(file))
 }
 
 /// Starts `program` once `pid` is no longer running.
-fn relaunch_after(pid: u32, program: &Path) -> std::io::Result<()> {
+fn relaunch_after(pid: u32, program: &Path, file: Option<&Path>) -> std::io::Result<()> {
     // `/proc/<pid>/exe` stops resolving as soon as the process exits, even
     // while a zombie remains, so the replacement does not have to wait for the
-    // parent to reap it.
-    const WAIT: &str = "while [ -e \"/proc/$1/exe\" ]; do sleep 0.05; done; exec \"$2\"";
+    // parent to reap it. `$#` is 2 without a file and 3 with one.
+    const WAIT: &str = "while [ -e \"/proc/$1/exe\" ]; do sleep 0.05; done; \
+                        if [ \"$#\" -ge 3 ]; then exec \"$2\" \"$3\"; else exec \"$2\"; fi";
 
     if !program.is_file() {
         return Err(std::io::Error::new(
@@ -74,14 +89,21 @@ fn relaunch_after(pid: u32, program: &Path) -> std::io::Result<()> {
         ));
     }
 
-    command("/bin/sh")
+    let mut helper = command("/bin/sh");
+    helper
         .arg("-c")
         .arg(WAIT)
         .arg("sh")
         .arg(pid.to_string())
-        .arg(program)
-        // The replacement keeps stdout and stderr, so a startup failure still
-        // reaches the journal or the terminal that started Gear LeverR.
+        .arg(program);
+
+    if let Some(file) = file {
+        helper.arg(file);
+    }
+
+    // The replacement keeps stdout and stderr, so a startup failure still
+    // reaches the journal or the terminal that started Gear LeverR.
+    helper
         .stdin(Stdio::null())
         .process_group(0)
         .spawn()
@@ -244,7 +266,7 @@ mod tests {
 
     #[test]
     fn rejects_a_missing_program() {
-        let error = relaunch_after(999_999_999, Path::new("/missing/app.AppImage"))
+        let error = relaunch_after(999_999_999, Path::new("/missing/app.AppImage"), None)
             .expect_err("the missing program is rejected");
 
         assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
@@ -257,7 +279,7 @@ mod tests {
         let program = fake_program(directory.path(), &marker);
 
         // Above the default and maximum pid_max on Linux.
-        relaunch_after(999_999_999, &program).expect("spawn the replacement");
+        relaunch_after(999_999_999, &program, None).expect("spawn the replacement");
 
         wait_for_marker(&marker);
     }
@@ -275,7 +297,7 @@ mod tests {
             .expect("spawn the process to wait for");
         let pid = child.id();
 
-        relaunch_after(pid, &program).expect("spawn the replacement");
+        relaunch_after(pid, &program, None).expect("spawn the replacement");
 
         std::thread::sleep(std::time::Duration::from_millis(100));
         assert!(
@@ -285,5 +307,39 @@ mod tests {
 
         child.wait().expect("wait for the process");
         wait_for_marker(&marker);
+    }
+
+    fn fake_program_with_argument(directory: &Path, marker: &Path) -> PathBuf {
+        let program = directory.join("fake-appimage-with-file");
+        std::fs::write(
+            &program,
+            format!("#!/bin/sh\nprintf '%s' \"$1\" > '{}'\n", marker.display()),
+        )
+        .expect("write the fake program");
+
+        let mut permissions = std::fs::metadata(&program)
+            .expect("read the fake program permissions")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&program, permissions).expect("make the fake program executable");
+
+        program
+    }
+
+    #[test]
+    fn passes_the_file_to_the_replacement() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let marker = directory.path().join("argument");
+        let program = fake_program_with_argument(directory.path(), &marker);
+        let file = directory.path().join("candidate.AppImage");
+        std::fs::write(&file, b"candidate").expect("write the candidate");
+
+        relaunch_after(999_999_999, &program, Some(&file)).expect("spawn the replacement");
+
+        wait_for_marker(&marker);
+        assert_eq!(
+            std::fs::read_to_string(&marker).expect("read the argument"),
+            file.to_string_lossy().as_ref()
+        );
     }
 }

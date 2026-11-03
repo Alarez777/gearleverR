@@ -97,6 +97,19 @@ pub fn installed_image(desktop_path: &Path) -> Option<PathBuf> {
     (candidate.is_file() && detect::image_type(&candidate).is_ok()).then_some(candidate)
 }
 
+/// Returns whether the metadata describes Gear LeverR itself.
+///
+/// The desktop file inside the AppImage is the reliable signal: the display
+/// name can be translated or edited, while the entry name stays the same.
+#[must_use]
+pub fn is_self_metadata(metadata: &AppMetadata) -> bool {
+    metadata
+        .desktop_file
+        .as_deref()
+        .and_then(|file| Path::new(file).file_name())
+        .is_some_and(|name| name == OsStr::new(DESKTOP_ID))
+}
+
 /// Installs the running AppImage into the application menu.
 ///
 /// The AppImage is copied (or moved) into `options.appimages_dir`, its icon is
@@ -475,6 +488,18 @@ mod tests {
             ),
             icon: None,
         }
+    }
+
+    #[test]
+    fn recognizes_its_own_metadata() {
+        let mut metadata = metadata();
+        assert!(is_self_metadata(&metadata));
+
+        metadata.desktop_file = Some(format!("/usr/share/applications/{DESKTOP_ID}"));
+        assert!(is_self_metadata(&metadata));
+
+        metadata.desktop_file = Some("other.desktop".to_owned());
+        assert!(!is_self_metadata(&metadata));
     }
 
     #[test]
