@@ -21,7 +21,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::time::Duration;
 
 use relm4::adw::prelude::*;
 use relm4::gtk::{gdk, gio, glib};
@@ -33,7 +34,7 @@ use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, detect, i
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
 use gearlever_core::format::size;
-use gearlever_core::hash::same_content;
+use gearlever_core::hash::{HashCache, same_content};
 use gearlever_core::install::{self, Conflict, IntegrateOptions, PreviousInstall};
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
@@ -142,7 +143,9 @@ enum Msg {
     FilesLoaded(Vec<LoadedFile>, Vec<String>),
     DragActive(bool),
     CheckUpdates,
+    UpdateCheckStarted(usize),
     UpdateChecked(PathBuf, bool),
+    UpdateCheckFailed,
     CheckDone,
     InstallCandidate(PathBuf),
     InstallWithConflict {
@@ -223,6 +226,9 @@ struct AppModel {
     search: String,
     updates: HashSet<PathBuf>,
     checking: bool,
+    check_total: usize,
+    check_done: usize,
+    check_failed: usize,
     pending: Vec<(PathBuf, AppMetadata)>,
     multi_done: HashSet<PathBuf>,
     update_queue: Vec<InstalledApp>,
@@ -245,6 +251,8 @@ struct Widgets {
     listbox: gtk::ListBox,
     list_stack: gtk::Stack,
     updates_button: gtk::Button,
+    updates_progress: gtk::ProgressBar,
+    updates_generation: Rc<Cell<u64>>,
     update_all_button: gtk::Button,
     details: gtk::Box,
     multi: gtk::Box,
@@ -448,38 +456,76 @@ impl Component for AppModel {
                     return;
                 }
                 self.checking = true;
+                self.check_total = 0;
+                self.check_done = 0;
+                self.check_failed = 0;
                 widgets.updates_button.set_sensitive(false);
                 widgets.updates_button.set_label(&t("Checking updates..."));
+                widgets.updates_progress.set_visible(true);
+                widgets.updates_progress.set_fraction(0.0);
+                widgets.updates_progress.remove_css_class("success");
+                widgets
+                    .updates_generation
+                    .set(widgets.updates_generation.get().wrapping_add(1));
 
                 let apps = self.apps.clone();
                 let config = self.config.clone();
                 let hash_dir = self.paths.cache_root().join("hashes");
 
                 std::thread::spawn(move || {
-                    for chunk in apps.chunks(8) {
-                        std::thread::scope(|scope| {
-                            for app in chunk {
-                                let sender = sender.clone();
-                                let config = config.clone();
-                                let hash_dir = hash_dir.clone();
-                                scope.spawn(move || {
-                                    let available = update::resolve(
-                                        &app.image_path,
-                                        &config.update_manager(&app.image_path),
-                                    )
-                                    .ok()
-                                    .flatten()
-                                    .and_then(|manager| {
-                                        manager
-                                            .check(&gearlever_core::hash::HashCache::new(hash_dir))
-                                            .ok()
-                                    })
-                                    .is_some_and(|status| status == UpdateStatus::Available);
+                    let mut checks = Vec::new();
+                    for app in apps {
+                        let manager = update::resolve(
+                            &app.image_path,
+                            &config.update_manager(&app.image_path),
+                        )
+                        .ok()
+                        .flatten();
 
-                                    sender.input(Msg::UpdateChecked(
-                                        app.image_path.clone(),
-                                        available,
-                                    ));
+                        if let Some(manager) = manager {
+                            checks.push((app, manager));
+                        }
+                    }
+
+                    sender.input(Msg::UpdateCheckStarted(checks.len()));
+
+                    if !checks.is_empty() {
+                        let hashes = HashCache::new(hash_dir);
+                        let next = AtomicUsize::new(0);
+                        let workers = checks.len().min(8);
+
+                        std::thread::scope(|scope| {
+                            for _ in 0..workers {
+                                let sender = sender.clone();
+                                let checks = &checks;
+                                let next = &next;
+                                let hashes = &hashes;
+                                scope.spawn(move || {
+                                    loop {
+                                        let index = next.fetch_add(1, Ordering::Relaxed);
+                                        let Some((app, manager)) = checks.get(index) else {
+                                            break;
+                                        };
+
+                                        match manager.check(hashes) {
+                                            Ok(status) => sender.input(Msg::UpdateChecked(
+                                                app.image_path.clone(),
+                                                status == UpdateStatus::Available,
+                                            )),
+                                            Err(error) => {
+                                                tracing::warn!(
+                                                    app = %app.name,
+                                                    %error,
+                                                    "update check failed"
+                                                );
+                                                sender.input(Msg::UpdateCheckFailed);
+                                                sender.input(Msg::UpdateChecked(
+                                                    app.image_path.clone(),
+                                                    false,
+                                                ));
+                                            }
+                                        }
+                                    }
                                 });
                             }
                         });
@@ -488,7 +534,21 @@ impl Component for AppModel {
                     sender.input(Msg::CheckDone);
                 });
             }
+            Msg::UpdateCheckStarted(total) => {
+                self.check_total = total;
+                self.check_done = 0;
+                if total > 0 {
+                    widgets.updates_progress.set_fraction(0.0);
+                }
+            }
             Msg::UpdateChecked(path, available) => {
+                self.check_done = self.check_done.saturating_add(1);
+                if self.check_total > 0 {
+                    widgets
+                        .updates_progress
+                        .set_fraction(progress_fraction(self.check_done, self.check_total));
+                }
+
                 if available {
                     self.updates.insert(path.clone());
                 } else {
@@ -501,17 +561,41 @@ impl Component for AppModel {
                     Self::rebuild_details(self, widgets, &sender);
                 }
             }
+            Msg::UpdateCheckFailed => {
+                self.check_failed = self.check_failed.saturating_add(1);
+            }
             Msg::CheckDone => {
                 self.checking = false;
                 widgets.updates_button.set_sensitive(true);
+
+                if self.check_total > 0 {
+                    widgets.updates_progress.set_fraction(1.0);
+                    widgets.updates_progress.add_css_class("success");
+
+                    let generation = widgets.updates_generation.get();
+                    let progress = widgets.updates_progress.clone();
+                    let generation_ref = Rc::clone(&widgets.updates_generation);
+                    glib::timeout_add_local_once(Duration::from_millis(400), move || {
+                        if generation_ref.get() == generation {
+                            progress.set_visible(false);
+                        }
+                    });
+                } else {
+                    widgets.updates_progress.set_visible(false);
+                }
+
                 widgets
                     .updates_button
-                    .set_label(if self.updates.is_empty() {
-                        "No updates found"
+                    .set_label(&if self.updates.is_empty() {
+                        t("No updates found")
                     } else {
-                        "Check for updates"
+                        t("Check for updates")
                     });
                 Self::rebuild_list(self, widgets);
+
+                if self.check_failed > 0 {
+                    Self::toast(widgets, &t("Some update checks failed"));
+                }
             }
             Msg::InstallCandidate(path) => {
                 let Some(metadata) = self.pending_metadata(&path).cloned() else {
@@ -1203,6 +1287,9 @@ impl AppModel {
             search: String::new(),
             updates: HashSet::new(),
             checking: false,
+            check_total: 0,
+            check_done: 0,
+            check_failed: 0,
             pending: Vec::new(),
             multi_done: HashSet::new(),
             update_queue: Vec::new(),
@@ -2765,7 +2852,17 @@ impl AppModel {
         let updates_button = gtk::Button::with_label(&t("Check for updates"));
         let sender_updates = sender.clone();
         updates_button.connect_clicked(move |_| sender_updates.input(Msg::CheckUpdates));
-        title_row.append(&updates_button);
+
+        let updates_progress = gtk::ProgressBar::new();
+        updates_progress.set_show_text(false);
+        updates_progress.set_visible(false);
+        updates_progress.set_hexpand(true);
+        updates_progress.add_css_class("update-progress");
+
+        let updates_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        updates_box.append(&updates_button);
+        updates_box.append(&updates_progress);
+        title_row.append(&updates_box);
 
         let update_all_button = gtk::Button::with_label(&t("Update all"));
         update_all_button.add_css_class("suggested-action");
@@ -2773,6 +2870,8 @@ impl AppModel {
         let sender_update_all = sender.clone();
         update_all_button.connect_clicked(move |_| sender_update_all.input(Msg::StartAllUpdates));
         title_row.append(&update_all_button);
+
+        let updates_generation = Rc::new(Cell::new(0_u64));
 
         let listbox = gtk::ListBox::new();
         listbox.add_css_class("boxed-list");
@@ -2944,6 +3043,8 @@ impl AppModel {
             listbox,
             list_stack,
             updates_button,
+            updates_progress,
+            updates_generation,
             update_all_button,
             details,
             multi,
@@ -3167,6 +3268,19 @@ fn same_managed_copy(path: &Path, candidate: &Path, appimages_dir: &Path) -> boo
 /// Returns whether launching `app` would start Gear LeverR itself.
 fn is_self_launch(app: &InstalledApp) -> bool {
     app.self_entry || running_appimage().is_some_and(|image| same_file(&image, &app.image_path))
+}
+
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "the update progress does not need exact precision"
+)]
+fn progress_fraction(done: usize, total: usize) -> f64 {
+    if total == 0 {
+        0.0
+    } else {
+        done as f64 / total as f64
+    }
 }
 
 /// Returns the AppImage this process was started from, when there is one.

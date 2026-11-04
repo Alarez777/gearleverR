@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: unnamed project\n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-02 21:10+0000\n"
+"POT-Creation-Date: 2026-11-04 22:39+0000\n"
 "PO-Revision-Date: 2025-11-28 16:31+0100\n"
 "Last-Translator: p-sage\n"
 "Language-Team: French <gnomefr@traduc.org>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "X-Generator: Poedit 3.8\n"
 
-#: crates/gearlever/src/ui/mod.rs:2393
+#: crates/gearlever/src/ui/mod.rs:2505
 msgid ""
 "<b>About</b>\n"
 "An AppImage manager inspired by Gear Lever, but an independent project: it "
@@ -29,102 +29,102 @@ msgid ""
 "Rust, GTK 4, libadwaita, Relm4, backhand and ureq."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2394
+#: crates/gearlever/src/ui/mod.rs:2506
 msgid ""
 "<b>GPL-3.0-or-later</b>\n"
 "Free software: you can redistribute it and/or modify it under the terms of "
 "the GNU General Public License, version 3 or later."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1750
+#: crates/gearlever/src/ui/mod.rs:1862
 msgid "Add a website"
 msgstr "Ajouter un site web"
 
-#: crates/gearlever/src/ui/mod.rs:1975
+#: crates/gearlever/src/ui/mod.rs:2087
 msgid "Add or customize environment for this application"
 msgstr "Éditer les variables d’environnement de cette application"
 
-#: crates/gearlever/src/ui/mod.rs:713 crates/gearlever/src/ui/mod.rs:766
+#: crates/gearlever/src/ui/mod.rs:816 crates/gearlever/src/ui/mod.rs:869
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1421
+#: crates/gearlever/src/ui/mod.rs:1533
 msgid "App details"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2154 crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/mod.rs:2266 crates/gearlever/src/ui/welcome.rs:134
 msgid "AppImage default location"
 msgstr "Emplacement par défaut des AppImages"
 
-#: crates/gearlever/src/ui/mod.rs:585
+#: crates/gearlever/src/ui/mod.rs:683
 msgid "AppImage integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2390
+#: crates/gearlever/src/ui/mod.rs:2502
 msgid "AppImage manager written in Rust"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:601
+#: crates/gearlever/src/ui/mod.rs:699
 msgid "AppImages integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:695
+#: crates/gearlever/src/ui/mod.rs:793
 msgid "AppImages removed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1932
+#: crates/gearlever/src/ui/mod.rs:2044
 msgid "Apply changes"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2040
+#: crates/gearlever/src/ui/mod.rs:2152
 msgid "Apps to integrate"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1451
+#: crates/gearlever/src/ui/mod.rs:1563
 msgid "Back"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1394 crates/gearlever/src/ui/mod.rs:2175
-#: crates/gearlever/src/ui/mod.rs:2407 crates/gearlever/src/ui/mod.rs:2452
-#: crates/gearlever/src/ui/mod.rs:2502 crates/gearlever/src/ui/mod.rs:2540
+#: crates/gearlever/src/ui/mod.rs:1506 crates/gearlever/src/ui/mod.rs:2287
+#: crates/gearlever/src/ui/mod.rs:2519 crates/gearlever/src/ui/mod.rs:2564
+#: crates/gearlever/src/ui/mod.rs:2614 crates/gearlever/src/ui/mod.rs:2652
 #: crates/gearlever/src/ui/welcome.rs:157
 msgid "Cancel"
 msgstr "Annuler"
 
-#: crates/gearlever/src/ui/mod.rs:2066 crates/gearlever/src/ui/mod.rs:2624
-#: crates/gearlever/src/ui/mod.rs:2631 crates/gearlever/src/ui/mod.rs:2806
+#: crates/gearlever/src/ui/mod.rs:2178 crates/gearlever/src/ui/mod.rs:2763
+#: crates/gearlever/src/ui/mod.rs:2770 crates/gearlever/src/ui/mod.rs:2957
 msgid "Cancel update"
 msgstr "Annuler la mise à jour"
 
-#: crates/gearlever/src/ui/mod.rs:865
+#: crates/gearlever/src/ui/mod.rs:968
 msgid "Cancelling..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1108
+#: crates/gearlever/src/ui/mod.rs:1211
 msgid "Cannot determine the running AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:518 crates/gearlever/src/ui/mod.rs:1269
+#: crates/gearlever/src/ui/mod.rs:602 crates/gearlever/src/ui/mod.rs:1375
 msgid "Cannot read the AppImage metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2582
+#: crates/gearlever/src/ui/mod.rs:2720
 msgid "Cannot restart Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2713
+#: crates/gearlever/src/ui/mod.rs:592 crates/gearlever/src/ui/mod.rs:2852
 msgid "Check for updates"
 msgstr "Vérifier les mises à jour"
 
-#: crates/gearlever/src/ui/mod.rs:2225 crates/gearlever/src/ui/welcome.rs:201
+#: crates/gearlever/src/ui/mod.rs:2337 crates/gearlever/src/ui/welcome.rs:201
 msgid "Check updates on system startup"
 msgstr "Vérifier les mises à jour au démarrage du système"
 
-#: crates/gearlever/src/ui/mod.rs:452
+#: crates/gearlever/src/ui/mod.rs:463
 msgid "Checking updates..."
 msgstr "Vérification des mises à jour…"
 
-#: crates/gearlever/src/ui/mod.rs:2265
+#: crates/gearlever/src/ui/mod.rs:2377
 msgid "Clone AppImages into the destination folder"
 msgstr "Cloner les AppImages dans le dossier de destination"
 
@@ -132,51 +132,51 @@ msgstr "Cloner les AppImages dans le dossier de destination"
 msgid "Close"
 msgstr "Fermer"
 
-#: crates/gearlever/src/ui/mod.rs:1705
+#: crates/gearlever/src/ui/mod.rs:1817
 msgid "Command line arguments"
 msgstr "Arguments en ligne de commande"
 
-#: crates/gearlever/src/ui/mod.rs:2431
+#: crates/gearlever/src/ui/mod.rs:2543
 msgid "Conflict with \"{app_name}\""
 msgstr "Conflit avec « {app_name} »"
 
-#: crates/gearlever/src/ui/mod.rs:2283
+#: crates/gearlever/src/ui/mod.rs:2395
 msgid "Debugging"
 msgstr "Débogage"
 
-#: crates/gearlever/src/ui/mod.rs:1862
+#: crates/gearlever/src/ui/mod.rs:1974
 msgid "Default"
 msgstr "Par défaut"
 
-#: crates/gearlever/src/ui/mod.rs:2405
+#: crates/gearlever/src/ui/mod.rs:2517
 msgid "Do you really want to remove this app?"
 msgstr "Voulez-vous vraiment désinstaller cette application ?"
 
-#: crates/gearlever/src/ui/mod.rs:2741
+#: crates/gearlever/src/ui/mod.rs:2892
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "Glissez et déposez une AppImage ici ou cliquez sur l’icône « + »."
 
-#: crates/gearlever/src/ui/mod.rs:2827
+#: crates/gearlever/src/ui/mod.rs:2978
 msgid "Drop your file here"
 msgstr "Déposez votre fichier ici"
 
-#: crates/gearlever/src/ui/mod.rs:2285
+#: crates/gearlever/src/ui/mod.rs:2397
 msgid "Enable debug logs"
 msgstr "Activer le journal de débogage"
 
-#: crates/gearlever/src/ui/mod.rs:1974
+#: crates/gearlever/src/ui/mod.rs:2086
 msgid "Environment variables"
 msgstr "Variables d’environnement"
 
-#: crates/gearlever/src/ui/mod.rs:2235 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:2347 crates/gearlever/src/ui/welcome.rs:177
 msgid "File management"
 msgstr "Gestion des fichiers"
 
-#: crates/gearlever/src/ui/mod.rs:2695
+#: crates/gearlever/src/ui/mod.rs:2834
 msgid "Filter installed applications"
 msgstr "Filtrer les applications installées"
 
-#: crates/gearlever/src/ui/mod.rs:1143
+#: crates/gearlever/src/ui/mod.rs:1246
 msgid "Gear LeverR installed"
 msgstr ""
 
@@ -186,24 +186,24 @@ msgid ""
 "installed and where to keep your AppImages."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2529
+#: crates/gearlever/src/ui/mod.rs:2641
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2498
+#: crates/gearlever/src/ui/mod.rs:2610
 msgid ""
 "Gear LeverR will be removed together with its desktop entry and the "
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2740
+#: crates/gearlever/src/ui/mod.rs:2891
 msgid "Get started"
 msgstr "Commencer"
 
-#: crates/gearlever/src/ui/mod.rs:2274
+#: crates/gearlever/src/ui/mod.rs:2386
 msgid ""
 "If enabled, apps that run in the terminal are renamed as their executable.\n"
 "You would need to add the aforementioned folder to your $PATH manually.\n"
@@ -216,7 +216,7 @@ msgstr ""
 "\n"
 "Par exemple, « golang_x86_64.appimage » sera enregistré comme « go »"
 
-#: crates/gearlever/src/ui/mod.rs:2214
+#: crates/gearlever/src/ui/mod.rs:2326
 msgid ""
 "If enabled, the app will try to load an Appimage without using the built-in "
 "appimage-extract command.\n"
@@ -224,7 +224,7 @@ msgid ""
 "when loading the metadata."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2286
+#: crates/gearlever/src/ui/mod.rs:2398
 msgid ""
 "Increases log verbosity, occupying more disk space and potentially impacting "
 "performance.\n"
@@ -238,8 +238,8 @@ msgstr ""
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1420 crates/gearlever/src/ui/mod.rs:2645
-#: crates/gearlever/src/ui/mod.rs:2707
+#: crates/gearlever/src/ui/mod.rs:1532 crates/gearlever/src/ui/mod.rs:2784
+#: crates/gearlever/src/ui/mod.rs:2846
 msgid "Installed applications"
 msgstr "Applications installées"
 
@@ -247,33 +247,33 @@ msgstr "Applications installées"
 msgid "Installing..."
 msgstr "Installation…"
 
-#: crates/gearlever/src/ui/mod.rs:555
+#: crates/gearlever/src/ui/mod.rs:642
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1290
+#: crates/gearlever/src/ui/mod.rs:1402
 msgid "Integrating..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2449
+#: crates/gearlever/src/ui/mod.rs:2561
 msgid "Keep both"
 msgstr "Conserver les deux"
 
-#: crates/gearlever/src/ui/mod.rs:2266
+#: crates/gearlever/src/ui/mod.rs:2378
 msgid "Keep the original file and create a copy in the destination folder"
 msgstr ""
 "Conserve le fichier original et créer une copie dans le dossier de "
 "destination"
 
-#: crates/gearlever/src/ui/mod.rs:2930
+#: crates/gearlever/src/ui/mod.rs:3083
 msgid "Key"
 msgstr "Clé"
 
-#: crates/gearlever/src/ui/mod.rs:1634 crates/gearlever/src/ui/mod.rs:1814
+#: crates/gearlever/src/ui/mod.rs:1746 crates/gearlever/src/ui/mod.rs:1926
 msgid "Launch"
 msgstr "Lancer"
 
-#: crates/gearlever/src/ui/mod.rs:2198
+#: crates/gearlever/src/ui/mod.rs:2310
 msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
@@ -281,87 +281,91 @@ msgstr ""
 "Liste les AppImages qui ont été intégrées dans le menu système mais qui se "
 "trouvent en dehors du dossier par défaut"
 
-#: crates/gearlever/src/ui/mod.rs:1858
+#: crates/gearlever/src/ui/mod.rs:1970
 msgid "Manage update details for this application"
 msgstr "Gérer les paramètres de mise à jour pour cette application"
 
-#: crates/gearlever/src/ui/mod.rs:2660
+#: crates/gearlever/src/ui/mod.rs:2799
 msgid "Menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1032
+#: crates/gearlever/src/ui/mod.rs:1135
 msgid "Metadata reloaded"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2260 crates/gearlever/src/ui/welcome.rs:180
+#: crates/gearlever/src/ui/mod.rs:2372 crates/gearlever/src/ui/welcome.rs:180
 msgid "Move AppImages into the destination folder"
 msgstr "Déplacer les AppImages dans le dossier de destination"
 
-#: crates/gearlever/src/ui/mod.rs:1424 crates/gearlever/src/ui/mod.rs:2059
+#: crates/gearlever/src/ui/mod.rs:1536 crates/gearlever/src/ui/mod.rs:2171
 msgid "Move all to the app menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1821
+#: crates/gearlever/src/ui/mod.rs:1933
 msgid "Move to the app menu"
 msgstr "Déplacer vers le menu des applications"
 
-#: crates/gearlever/src/ui/mod.rs:2271
+#: crates/gearlever/src/ui/mod.rs:2383
 msgid "Naming conventions"
 msgstr "Conventions de nommage"
 
-#: crates/gearlever/src/ui/mod.rs:727
+#: crates/gearlever/src/ui/mod.rs:830
 msgid "No update method was found for this AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:778
+#: crates/gearlever/src/ui/mod.rs:881
 msgid "No updates available"
 msgstr "Aucune mise à jour disponible"
+
+#: crates/gearlever/src/ui/mod.rs:590
+msgid "No updates found"
+msgstr "Aucune mise à jour trouvée"
 
 #: crates/gearlever/src/ui/welcome.rs:242
 msgid "Not now"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1395
+#: crates/gearlever/src/ui/mod.rs:1507
 msgid "Open"
 msgstr "Ouvrir"
 
-#: crates/gearlever/src/ui/mod.rs:1695
+#: crates/gearlever/src/ui/mod.rs:1807
 msgid "Open Folder"
 msgstr "Ouvrir le dossier"
 
-#: crates/gearlever/src/ui/mod.rs:2746
+#: crates/gearlever/src/ui/mod.rs:2897
 msgid "Open Preferences"
 msgstr "Ouvrir les Préférences"
 
-#: crates/gearlever/src/ui/mod.rs:1759
+#: crates/gearlever/src/ui/mod.rs:1871
 msgid "Open URL"
 msgstr "Ouvrir l’URL"
 
-#: crates/gearlever/src/ui/mod.rs:1449 crates/gearlever/src/ui/mod.rs:2649
+#: crates/gearlever/src/ui/mod.rs:1561 crates/gearlever/src/ui/mod.rs:2788
 msgid "Open a new AppImage"
 msgstr "Ouvrir une nouvelle AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:1389
+#: crates/gearlever/src/ui/mod.rs:1501
 msgid "Open an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1689
+#: crates/gearlever/src/ui/mod.rs:1801
 msgid "Path"
 msgstr "Chemin d’accès"
 
-#: crates/gearlever/src/ui/mod.rs:2144
+#: crates/gearlever/src/ui/mod.rs:2256
 msgid "Preferences"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2206
+#: crates/gearlever/src/ui/mod.rs:2318
 msgid "Preview new apps in a minimal UI"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2667
+#: crates/gearlever/src/ui/mod.rs:2806
 msgid "Quit"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2226
+#: crates/gearlever/src/ui/mod.rs:2338
 msgid ""
 "Receive a notification when a new update is detected; updates will not be "
 "installed automatically"
@@ -369,69 +373,69 @@ msgstr ""
 "Recevoir une notification lorsqu’une nouvelle mise à jour est détectée; les "
 "mises à jour ne seront pas installées automatiquement"
 
-#: crates/gearlever/src/ui/mod.rs:2261
+#: crates/gearlever/src/ui/mod.rs:2373
 msgid "Reduce disk usage"
 msgstr "Réduit l’utilisation de l’espace de stockage"
 
-#: crates/gearlever/src/ui/mod.rs:2828
+#: crates/gearlever/src/ui/mod.rs:2979
 msgid "Release to open the AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1669
+#: crates/gearlever/src/ui/mod.rs:1781
 msgid "Reload metadata"
 msgstr "Recharger les métadonnées"
 
-#: crates/gearlever/src/ui/mod.rs:1642 crates/gearlever/src/ui/mod.rs:2408
+#: crates/gearlever/src/ui/mod.rs:1754 crates/gearlever/src/ui/mod.rs:2520
 msgid "Remove"
 msgstr "Désinstaller"
 
-#: crates/gearlever/src/ui/mod.rs:2504
+#: crates/gearlever/src/ui/mod.rs:2616
 msgid "Remove Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2497
+#: crates/gearlever/src/ui/mod.rs:2609
 msgid "Remove Gear LeverR?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2503 crates/gearlever/src/ui/mod.rs:2541
+#: crates/gearlever/src/ui/mod.rs:2615 crates/gearlever/src/ui/mod.rs:2653
 msgid "Remove all AppImages"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2539
+#: crates/gearlever/src/ui/mod.rs:2651
 msgid "Remove all AppImages?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2404
+#: crates/gearlever/src/ui/mod.rs:2516
 msgid "Remove application?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:655
+#: crates/gearlever/src/ui/mod.rs:753
 msgid "Removed {path}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2445
+#: crates/gearlever/src/ui/mod.rs:2557
 msgid "Replace"
 msgstr "Remplacer"
 
-#: crates/gearlever/src/ui/mod.rs:1930 crates/gearlever/src/ui/mod.rs:1987
+#: crates/gearlever/src/ui/mod.rs:2042 crates/gearlever/src/ui/mod.rs:2099
 msgid "Save"
 msgstr "Sauvegarder"
 
-#: crates/gearlever/src/ui/mod.rs:2654
+#: crates/gearlever/src/ui/mod.rs:2793
 msgid "Search"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2176 crates/gearlever/src/ui/welcome.rs:158
+#: crates/gearlever/src/ui/mod.rs:2288 crates/gearlever/src/ui/welcome.rs:158
 msgid "Select"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2162 crates/gearlever/src/ui/mod.rs:2170
+#: crates/gearlever/src/ui/mod.rs:2274 crates/gearlever/src/ui/mod.rs:2282
 #: crates/gearlever/src/ui/welcome.rs:147
 #: crates/gearlever/src/ui/welcome.rs:152
 msgid "Select a folder"
 msgstr "Sélectionnez un dossier"
 
-#: crates/gearlever/src/ui/mod.rs:1869
+#: crates/gearlever/src/ui/mod.rs:1981
 msgid "Select the source type"
 msgstr "Sélectionnez le type de source"
 
@@ -439,31 +443,35 @@ msgstr "Sélectionnez le type de source"
 msgid "Set the AppImage location"
 msgstr "Sélectionnez l’emplacement de l’AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:2197
+#: crates/gearlever/src/ui/mod.rs:2309
 msgid "Show integrated AppImages outside the default folder"
 msgstr "Afficher les AppImages intégrées en dehors du dossier par défaut"
 
-#: crates/gearlever/src/ui/mod.rs:1868
+#: crates/gearlever/src/ui/mod.rs:597
+msgid "Some update checks failed"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:1980
 msgid "Source"
 msgstr "Source"
 
-#: crates/gearlever/src/ui/mod.rs:722
+#: crates/gearlever/src/ui/mod.rs:825
 msgid "The application is running, close it first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2435
+#: crates/gearlever/src/ui/mod.rs:2547
 msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr ""
 "Il y a déjà une application avec le même nom, comment souhaitez-vous "
 "procéder ?"
 
-#: crates/gearlever/src/ui/mod.rs:1854
+#: crates/gearlever/src/ui/mod.rs:1966
 msgid "This application includes update information provided by the developer"
 msgstr ""
 "Le développeur a fourni les informations de mise à jour pour cette "
 "application"
 
-#: crates/gearlever/src/ui/mod.rs:2533
+#: crates/gearlever/src/ui/mod.rs:2645
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
@@ -473,19 +481,19 @@ msgstr ""
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1653
+#: crates/gearlever/src/ui/mod.rs:1765
 msgid "Update"
 msgstr "Mettre à jour"
 
-#: crates/gearlever/src/ui/mod.rs:2718
+#: crates/gearlever/src/ui/mod.rs:2867
 msgid "Update all"
 msgstr "Tout mettre à jour"
 
-#: crates/gearlever/src/ui/mod.rs:872
+#: crates/gearlever/src/ui/mod.rs:975
 msgid "Update cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1670
+#: crates/gearlever/src/ui/mod.rs:1782
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -493,49 +501,49 @@ msgstr ""
 "Mettre à jour des informations comme l’icône, la version et la description.\n"
 "Utile si l’application se met à jour elle-même."
 
-#: crates/gearlever/src/ui/mod.rs:1840
+#: crates/gearlever/src/ui/mod.rs:1952
 msgid "Update management"
 msgstr "Gestion des mises à jour"
 
-#: crates/gearlever/src/ui/mod.rs:1001
+#: crates/gearlever/src/ui/mod.rs:1104
 msgid "Update source saved"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:924
+#: crates/gearlever/src/ui/mod.rs:1027
 msgid "Updates cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:926
+#: crates/gearlever/src/ui/mod.rs:1029
 msgid "Updates installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2223 crates/gearlever/src/ui/welcome.rs:198
+#: crates/gearlever/src/ui/mod.rs:2335 crates/gearlever/src/ui/welcome.rs:198
 msgid "Updates management"
 msgstr "Gestion des mises à jour"
 
-#: crates/gearlever/src/ui/mod.rs:1427
+#: crates/gearlever/src/ui/mod.rs:1539
 msgid "Updating applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:743 crates/gearlever/src/ui/mod.rs:823
+#: crates/gearlever/src/ui/mod.rs:846 crates/gearlever/src/ui/mod.rs:926
 msgid "Updating {name}..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2273
+#: crates/gearlever/src/ui/mod.rs:2385
 msgid "Use executable name for integrated terminal apps"
 msgstr ""
 "Utiliser le nom de l’exécutable pour les applications intégrées dans le "
 "terminal"
 
-#: crates/gearlever/src/ui/mod.rs:2213
+#: crates/gearlever/src/ui/mod.rs:2325
 msgid "Use safe mechanisms to load metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2935
+#: crates/gearlever/src/ui/mod.rs:3088
 msgid "Value"
 msgstr "Valeur"
 
-#: crates/gearlever/src/ui/mod.rs:1752
+#: crates/gearlever/src/ui/mod.rs:1864
 msgid "Website"
 msgstr "Site web"
 
@@ -543,18 +551,18 @@ msgstr "Site web"
 msgid "Welcome to Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2666
+#: crates/gearlever/src/ui/mod.rs:2805
 msgid "_About Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2665
+#: crates/gearlever/src/ui/mod.rs:2804
 msgid "_Open Log File"
 msgstr "_Ouvrir le journal"
 
-#: crates/gearlever/src/ui/mod.rs:2664
+#: crates/gearlever/src/ui/mod.rs:2803
 msgid "_Preferences"
 msgstr "_Préférences"
 
-#: crates/gearlever/src/ui/mod.rs:892
+#: crates/gearlever/src/ui/mod.rs:995
 msgid "{name} updated"
 msgstr ""

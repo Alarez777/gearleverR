@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use crate::error::{Error, Result};
-use crate::hash::{Algorithm, HashCache, hash_file};
+use crate::hash::HashCache;
 
 use super::http::HttpClient;
 use super::{
@@ -181,6 +181,11 @@ impl UpdateManager for Github {
             });
         };
 
+        let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
+        if target.asset.size.is_some_and(|size| size != local_size) {
+            return Ok(UpdateStatus::Available);
+        }
+
         if let Some(zsync_url) = &target.zsync_url {
             let info = super::zsync::parse(&self.http.get_text(zsync_url)?);
             if let Some(expected) = info.sha1 {
@@ -196,7 +201,7 @@ impl UpdateManager for Github {
         if let Some(digest) = target.asset.digest.as_deref()
             && let Some(expected) = digest.strip_prefix("sha256:")
         {
-            let actual = hash_file(&self.image, Algorithm::Sha256)?;
+            let actual = hashes.sha256(&self.image)?;
             return Ok(if expected.eq_ignore_ascii_case(&actual) {
                 UpdateStatus::UpToDate
             } else {
@@ -204,7 +209,6 @@ impl UpdateManager for Github {
             });
         }
 
-        let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
         Ok(if target.asset.size == Some(local_size) {
             UpdateStatus::UpToDate
         } else {

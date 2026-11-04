@@ -63,6 +63,12 @@ msgstr "Mover todas al menú de aplicaciones"
 msgid "No update method was found for this AppImage"
 msgstr "No se encontró un método de actualización para esta AppImage"
 
+msgid "No updates found"
+msgstr "No se encontraron actualizaciones"
+
+msgid "Some update checks failed"
+msgstr "No se pudieron comprobar algunas actualizaciones"
+
 msgid "Not computed"
 msgstr "Sin calcular"
 

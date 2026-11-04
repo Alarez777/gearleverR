@@ -7,13 +7,16 @@ use std::fmt;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::error::{Error, Result};
 
 const USER_AGENT: &str = concat!("GearLeverR/", env!("CARGO_PKG_VERSION"));
-const TIMEOUT: Duration = Duration::from_secs(30);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
+const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// A blocking HTTP client shared by all update sources.
 #[derive(Clone)]
@@ -34,18 +37,35 @@ impl Default for HttpClient {
 }
 
 impl HttpClient {
-    /// Creates a client with a user agent and a global timeout.
+    /// Creates a client with a user agent and connect, response and read
+    /// timeouts.
+    ///
+    /// There is deliberately no global timeout: a large AppImage may take
+    /// longer than a fixed budget, while a stalled read still fails.
     #[must_use]
     pub fn new() -> Self {
         let config = ureq::Agent::config_builder()
             .user_agent(USER_AGENT)
-            .timeout_global(Some(TIMEOUT))
+            .timeout_connect(Some(CONNECT_TIMEOUT))
+            .timeout_recv_response(Some(RESPONSE_TIMEOUT))
+            .timeout_per_read(Some(READ_TIMEOUT))
             .http_status_as_error(false)
             .build();
 
         Self {
             agent: ureq::Agent::new_with_config(config),
         }
+    }
+
+    /// Returns the shared client used by update checks and downloads.
+    ///
+    /// Cloning it shares the connection pool, so checks against the same host
+    /// reuse the existing TLS connection.
+    #[must_use]
+    pub fn shared() -> Self {
+        static SHARED: OnceLock<HttpClient> = OnceLock::new();
+
+        SHARED.get_or_init(Self::new).clone()
     }
 
     /// Fetches a text document.
@@ -103,6 +123,9 @@ impl HttpClient {
 
     /// Returns the `Content-Length` of `url`, using HEAD and falling back to GET.
     ///
+    /// A transport error is not retried: a server that accepted the connection
+    /// but never answered would otherwise run the whole timeout twice.
+    ///
     /// # Errors
     ///
     /// Returns [`Error::Http`] when the URL cannot be resolved.
@@ -113,7 +136,7 @@ impl HttpClient {
             }
             Ok(_) => {}
             Err(error) => {
-                tracing::debug!(%url, %error, "HEAD failed, retrying with GET");
+                return Err(Error::Http(format!("{url}: {error}")));
             }
         }
 

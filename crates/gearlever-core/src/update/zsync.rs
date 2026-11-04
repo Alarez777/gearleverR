@@ -14,6 +14,8 @@ pub struct ZsyncInfo {
     pub sha1: Option<String>,
     /// `URL:` entry, which may be relative to the `.zsync` URL.
     pub url: Option<String>,
+    /// `Length:` of the target file, when the publisher includes it.
+    pub length: Option<u64>,
 }
 
 /// Parses the header of a zsync control file.
@@ -33,6 +35,8 @@ pub fn parse(contents: &str) -> ZsyncInfo {
             if !value.is_empty() {
                 info.url = Some(value.to_owned());
             }
+        } else if let Some(value) = line.strip_prefix("Length:") {
+            info.length = value.trim().parse().ok();
         }
     }
 
@@ -72,6 +76,7 @@ zsync: 0.6.2
 Filename: app.AppImage
 SHA-1: AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D
 URL: app.AppImage
+Length: 123456
 \n\nbinary data";
         let info = parse(contents);
 
@@ -80,6 +85,7 @@ URL: app.AppImage
             Some("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")
         );
         assert_eq!(info.url.as_deref(), Some("app.AppImage"));
+        assert_eq!(info.length, Some(123_456));
     }
 
     #[test]

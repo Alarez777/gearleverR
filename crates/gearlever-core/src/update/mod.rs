@@ -150,7 +150,7 @@ impl ManagerKind {
         config: std::collections::BTreeMap<String, String>,
         embedded: Option<String>,
     ) -> Box<dyn UpdateManager> {
-        let http = HttpClient::new();
+        let http = HttpClient::shared();
 
         match self {
             Self::StaticFile => {
