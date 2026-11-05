@@ -18,6 +18,9 @@ use crate::paths::Paths;
 /// Section used for global, non per-application settings.
 const DEFAULT_SECTION: &str = "DEFAULT";
 
+/// Per-application key that disables update checks.
+const SKIP_UPDATES_KEY: &str = "skip_updates";
+
 /// An INI document with the same semantics as the original configuration.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Config {
@@ -176,6 +179,26 @@ impl Config {
         let section = app_section(image);
         self.sections.remove(&section);
         self.sections.remove(&format!("{section}.update_manager"));
+    }
+
+    /// Returns whether update checks are disabled for `image`.
+    #[must_use]
+    pub fn updates_disabled(&self, image: &Path) -> bool {
+        self.get_boolean(&app_section(image), SKIP_UPDATES_KEY) == Some(true)
+    }
+
+    /// Disables update checks for `image`.
+    pub fn disable_updates(&mut self, image: &Path) {
+        let mut values = self.app(image);
+        values.insert(SKIP_UPDATES_KEY.to_owned(), "true".to_owned());
+        self.set_app(image, values);
+    }
+
+    /// Enables update checks for `image`.
+    pub fn enable_updates(&mut self, image: &Path) {
+        let mut values = self.app(image);
+        values.remove(SKIP_UPDATES_KEY);
+        self.set_app(image, values);
     }
 
     /// Returns the update manager configuration of an AppImage.
@@ -373,6 +396,33 @@ mod tests {
         assert!(config.app(image).is_empty());
         assert!(config.update_manager(image).is_empty());
         assert!(!config.to_ini_string().contains(".update_manager"));
+    }
+
+    #[test]
+    fn stores_the_per_app_update_switch() {
+        let image = Path::new("/home/x/AppImages/example.appimage");
+        let mut config = Config::default();
+        assert!(!config.updates_disabled(image));
+
+        config.disable_updates(image);
+        assert!(config.updates_disabled(image));
+        assert_eq!(
+            config.app(image).get("skip_updates").map(String::as_str),
+            Some("true")
+        );
+
+        config.enable_updates(image);
+        assert!(!config.updates_disabled(image));
+        assert!(!config.app(image).contains_key("skip_updates"));
+    }
+
+    #[test]
+    fn parses_the_per_app_update_switch() {
+        let image = Path::new("/home/x/AppImages/example.appimage");
+        let section = app_section(image);
+        let config = Config::parse(&format!("[{section}]\nskip_updates = yes\n"));
+
+        assert!(config.updates_disabled(image));
     }
 
     #[test]
