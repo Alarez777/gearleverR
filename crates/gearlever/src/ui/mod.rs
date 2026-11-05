@@ -35,7 +35,7 @@ use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
 use gearlever_core::error::RateLimitInfo;
 use gearlever_core::format::size;
-use gearlever_core::hash::{HashCache, same_content};
+use gearlever_core::hash::HashCache;
 use gearlever_core::install::{self, Conflict, IntegrateOptions, PreviousInstall};
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
@@ -1682,7 +1682,9 @@ impl AppModel {
                     Ok(metadata) => {
                         let duplicate = installed
                             .iter()
-                            .find(|candidate| same_managed_copy(&path, candidate, &appimages_dir))
+                            .find(|candidate| {
+                                install::is_installed_copy(&path, candidate, &appimages_dir)
+                            })
                             .cloned();
                         loaded.push(LoadedFile {
                             path,
@@ -3584,35 +3586,6 @@ fn same_file(left: &Path, right: &Path) -> bool {
     }
 }
 
-/// Returns whether two directories are the same one.
-fn same_directory(left: &Path, right: &Path) -> bool {
-    match (fs::canonicalize(left), fs::canonicalize(right)) {
-        (Ok(left), Ok(right)) => left == right,
-        _ => left == right,
-    }
-}
-
-/// Returns whether `candidate` is the installed copy of the opened `path`.
-///
-/// The exact path always counts. Content comparison only applies when both
-/// files live in the managed AppImages folder, so a build opened from
-/// `Downloads` or `dist` stays installable even when its bytes match an
-/// installed AppImage.
-fn same_managed_copy(path: &Path, candidate: &Path, appimages_dir: &Path) -> bool {
-    if same_file(path, candidate) {
-        return true;
-    }
-
-    let path_is_managed = path
-        .parent()
-        .is_some_and(|parent| same_directory(parent, appimages_dir));
-    let candidate_is_managed = candidate
-        .parent()
-        .is_some_and(|parent| same_directory(parent, appimages_dir));
-
-    path_is_managed && candidate_is_managed && same_content(path, candidate)
-}
-
 /// Returns whether launching `app` would start Gear LeverR itself.
 fn is_self_launch(app: &InstalledApp) -> bool {
     app.self_entry || running_appimage().is_some_and(|image| same_file(&image, &app.image_path))
@@ -3948,81 +3921,4 @@ fn details_header(
     header.append(&pills_box);
 
     header.upcast()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn appimage(path: &Path, contents: &[u8]) {
-        fs::write(path, contents).expect("write the AppImage");
-    }
-
-    #[test]
-    fn detects_a_copy_inside_the_managed_folder() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let managed = directory.path().join("AppImages");
-        fs::create_dir_all(&managed).expect("managed directory");
-        let installed = managed.join("Installed.AppImage");
-        let copy = managed.join("Copy.AppImage");
-        appimage(&installed, b"same bytes");
-        appimage(&copy, b"same bytes");
-
-        assert!(
-            same_managed_copy(&copy, &installed, &managed),
-            "a copy in the managed folder is the installed AppImage"
-        );
-    }
-
-    #[test]
-    fn does_not_match_a_copy_outside_the_managed_folder() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let managed = directory.path().join("AppImages");
-        let downloads = directory.path().join("Downloads");
-        fs::create_dir_all(&managed).expect("managed directory");
-        fs::create_dir_all(&downloads).expect("downloads directory");
-        let installed = managed.join("Installed.AppImage");
-        let copy = downloads.join("Copy.AppImage");
-        appimage(&installed, b"same bytes");
-        appimage(&copy, b"same bytes");
-
-        assert!(
-            !same_managed_copy(&copy, &installed, &managed),
-            "a copy outside the managed folder stays installable"
-        );
-    }
-
-    #[test]
-    fn keeps_an_exact_path_outside_the_managed_folder() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let managed = directory.path().join("AppImages");
-        let downloads = directory.path().join("Downloads");
-        fs::create_dir_all(&managed).expect("managed directory");
-        fs::create_dir_all(&downloads).expect("downloads directory");
-        let outside = downloads.join("Installed.AppImage");
-        appimage(&outside, b"same bytes");
-
-        assert!(
-            same_managed_copy(&outside, &outside, &managed),
-            "the exact path always counts as installed"
-        );
-    }
-
-    #[test]
-    fn ignores_an_installed_copy_outside_the_managed_folder() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let managed = directory.path().join("AppImages");
-        let downloads = directory.path().join("Downloads");
-        fs::create_dir_all(&managed).expect("managed directory");
-        fs::create_dir_all(&downloads).expect("downloads directory");
-        let installed = downloads.join("Installed.AppImage");
-        let opened = managed.join("Opened.AppImage");
-        appimage(&installed, b"same bytes");
-        appimage(&opened, b"same bytes");
-
-        assert!(
-            !same_managed_copy(&opened, &installed, &managed),
-            "content only counts when both files are managed"
-        );
-    }
 }
