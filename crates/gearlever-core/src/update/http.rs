@@ -143,8 +143,9 @@ impl HttpClient {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Http`] for transport errors and invalid JSON, and
-    /// [`Error::HttpStatus`] for non-success statuses.
+    /// Returns [`Error::Http`] for transport errors,
+    /// [`Error::InvalidResponse`] for invalid JSON, and [`Error::HttpStatus`]
+    /// for non-success statuses.
     pub fn get_json<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
@@ -158,8 +159,9 @@ impl HttpClient {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Http`] for transport errors and invalid JSON, and
-    /// [`Error::HttpStatus`] for non-success statuses.
+    /// Returns [`Error::Http`] for transport errors,
+    /// [`Error::InvalidResponse`] for invalid JSON, and [`Error::HttpStatus`]
+    /// for non-success statuses.
     pub fn get_json_with_token<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
@@ -167,7 +169,10 @@ impl HttpClient {
         token: Option<&str>,
     ) -> Result<T> {
         let body = self.get_text_with_auth(url, accept, token)?;
-        serde_json::from_str(&body).map_err(|error| Error::Http(format!("{url}: {error}")))
+        serde_json::from_str(&body).map_err(|error| Error::InvalidResponse {
+            url: url.to_owned(),
+            error: error.to_string(),
+        })
     }
 
     /// Fetches and decodes a JSON document, returning the GitHub token
@@ -175,8 +180,9 @@ impl HttpClient {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Http`] for transport errors and invalid JSON, and
-    /// [`Error::HttpStatus`] for non-success statuses.
+    /// Returns [`Error::Http`] for transport errors,
+    /// [`Error::InvalidResponse`] for invalid JSON, and [`Error::HttpStatus`]
+    /// for non-success statuses.
     pub fn get_json_with_token_expiration<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
@@ -184,8 +190,10 @@ impl HttpClient {
         token: Option<&str>,
     ) -> Result<(T, Option<String>)> {
         let (body, headers) = self.get_text_with_auth_response(url, accept, token)?;
-        let value =
-            serde_json::from_str(&body).map_err(|error| Error::Http(format!("{url}: {error}")))?;
+        let value = serde_json::from_str(&body).map_err(|error| Error::InvalidResponse {
+            url: url.to_owned(),
+            error: error.to_string(),
+        })?;
 
         Ok((value, token_expiration(&headers)))
     }
@@ -421,6 +429,32 @@ mod tests {
 
         assert_eq!(value["resources"]["core"]["remaining"], 4999);
         assert_eq!(expires_at.as_deref(), Some("2026-11-10 12:00:00 +0000"));
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn reports_invalid_json_as_an_invalid_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buffer = [0_u8; 4096];
+            let _ = stream.read(&mut buffer).unwrap();
+            let body = "{}";
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+
+        let client = HttpClient::new();
+        let error = client
+            .get_json::<Vec<serde_json::Value>>(&format!("http://{address}/releases/latest"), None)
+            .unwrap_err();
+
+        assert!(matches!(error, Error::InvalidResponse { .. }), "{error}");
+        assert_eq!(error.retry_delay(), None);
         server.join().unwrap();
     }
 }

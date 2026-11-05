@@ -199,17 +199,27 @@ impl Github {
     }
 
     fn fetch_releases(&self, url: &str) -> Result<Vec<Release>> {
+        self.fetch_json(url)
+    }
+
+    fn fetch_latest_release(&self, url: &str) -> Result<Release> {
+        self.fetch_json(url)
+    }
+
+    fn fetch_json<T: serde::de::DeserializeOwned>(&self, url: &str) -> Result<T> {
         self.http
             .get_json_with_token(url, Some(ACCEPT), self.token.as_deref())
-            .map_err(|error| {
-                if self.token.is_some()
-                    && matches!(&error, Error::HttpStatus(status) if status.status == 401)
-                {
-                    Error::GithubTokenInvalid
-                } else {
-                    error
-                }
-            })
+            .map_err(|error| self.map_api_error(error))
+    }
+
+    fn map_api_error(&self, error: Error) -> Error {
+        if self.token.is_some()
+            && matches!(&error, Error::HttpStatus(status) if status.status == 401)
+        {
+            Error::GithubTokenInvalid
+        } else {
+            error
+        }
     }
 
     fn fetch_target(&self) -> Result<Option<Target>> {
@@ -236,7 +246,7 @@ impl Github {
         let releases: Vec<Release> = if allow_prereleases {
             self.fetch_releases(&base)?
         } else {
-            self.fetch_releases(&format!("{base}/latest"))?
+            vec![self.fetch_latest_release(&format!("{base}/latest"))?]
         };
 
         let release = releases
@@ -356,7 +366,55 @@ impl UpdateManager for Github {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read as _, Write as _};
+    use std::net::TcpListener;
+
     use super::*;
+
+    fn serve(body: String) -> (String, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buffer = [0_u8; 4096];
+            let _ = stream.read(&mut buffer).unwrap();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+
+        (format!("http://{address}/releases/latest"), server)
+    }
+
+    fn manager() -> Github {
+        Github::new(
+            PathBuf::new(),
+            BTreeMap::new(),
+            None,
+            HttpClient::new(),
+            None,
+        )
+    }
+
+    #[test]
+    fn fetches_a_single_latest_release() {
+        let (url, server) = serve(r#"{"draft":false,"prerelease":false,"assets":[]}"#.to_owned());
+        let release = manager().fetch_latest_release(&url).unwrap();
+
+        assert!(release.assets.is_empty());
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn fetches_a_release_list() {
+        let (url, server) = serve(r#"[{"draft":false,"prerelease":false,"assets":[]}]"#.to_owned());
+        let releases = manager().fetch_releases(&url).unwrap();
+
+        assert_eq!(releases.len(), 1);
+        server.join().unwrap();
+    }
 
     #[test]
     fn parses_the_rate_limit_resource() {

@@ -104,9 +104,18 @@ pub enum Error {
     #[error("{0}: cannot derive a name from this path")]
     InvalidName(PathBuf),
 
-    /// A network request failed or returned an unexpected status.
+    /// A network request failed at the transport level.
     #[error("network error: {0}")]
     Http(String),
+
+    /// A server returned a document with an unexpected shape.
+    #[error("invalid response from {url}: {error}")]
+    InvalidResponse {
+        /// URL that returned the document.
+        url: String,
+        /// Decoder error.
+        error: String,
+    },
 
     /// A network request returned a non-success HTTP status.
     #[error("network error: {0}")]
@@ -214,6 +223,14 @@ mod tests {
         assert_eq!(status(403, Some(0), None).retry_delay(), None);
         assert_eq!(status(403, Some(42), None).retry_delay(), None);
         assert_eq!(Error::GithubTokenInvalid.retry_delay(), None);
+        assert_eq!(
+            Error::InvalidResponse {
+                url: "https://api.github.com/repos/o/r/releases/latest".to_owned(),
+                error: "invalid type: map, expected a sequence".to_owned(),
+            }
+            .retry_delay(),
+            None
+        );
     }
 
     #[test]
