@@ -102,7 +102,9 @@ cargo test --workspace --all-features
   `feat/...`, `chore/...`). Never commit directly to `develop` or `main`.
 - Do not merge until it is tested: the quality commands above and, for UI or
   packaging changes, `scripts/ui-smoke.sh` in the Debian 12 container.
-- Merge the branch into `develop`, then into `main`, and push both.
+- Never merge into `develop` on your own. Leave the branch implemented and
+  tested, then wait for the user's explicit confirmation. Once confirmed, merge
+  it into `develop`, then into `main`, and push both.
 - Never delete a branch (local or remote) without the user's explicit approval,
   even after it is merged.
 
