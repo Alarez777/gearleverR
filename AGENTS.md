@@ -111,7 +111,10 @@ cargo test --workspace --all-features
 
 ## Conventions
 
-- Speak Spanish with the user; use English for identifiers, docs and commit messages.
+- Reply to the user in the language they use. Source code, identifiers, comments,
+  project documentation, branch names and commit messages must always be in
+  English, regardless of the conversation language. Localized user-facing files
+  such as `po/*.po` and `README.<lang>.md` are exempt.
 - Every user-visible string goes through `t("...")` (or `tf` with `{placeholders}`)
   and reuses the original Gear Lever msgid when it exists. After changing strings,
   run `scripts/update-translations.sh` and `scripts/compile-translations.sh`.
