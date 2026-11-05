@@ -108,6 +108,37 @@ fn integrates_lists_and_removes_a_real_appimage() {
     );
     assert!(installed[0]["desktop_id"].as_str().is_some());
 
+    // A byte-identical copy opened from another folder is the same integration.
+    let copies = directory.path().join("dist");
+    fs::create_dir_all(&copies).expect("dist directory");
+    let copy = copies.join("fixture-copy.AppImage");
+    fs::copy(&images[0], &copy).expect("copy the integrated image");
+    let copy_arg = copy.to_string_lossy().into_owned();
+
+    let repeated = run(directory.path(), &["--integrate", &copy_arg, "-y"]);
+    assert!(
+        repeated.status.success(),
+        "second integrate failed: {}",
+        String::from_utf8_lossy(&repeated.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&repeated.stdout).contains("already integrated"),
+        "stdout: {}",
+        String::from_utf8_lossy(&repeated.stdout)
+    );
+
+    let images_after: Vec<PathBuf> = fs::read_dir(&appimages)
+        .expect("AppImages exists")
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "appimage")
+        })
+        .collect();
+    assert_eq!(images_after.len(), 1, "no duplicate integration");
+    assert!(copy.exists(), "the outside copy is not moved");
+
     let image_arg = images[0].to_string_lossy().into_owned();
     let removed = run(directory.path(), &["--remove", &image_arg, "-y"]);
     assert!(removed.status.success());
