@@ -1,6 +1,7 @@
 //! GitHub releases, including `gh-releases-zsync|` embedded information.
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 
@@ -15,14 +16,100 @@ use super::{
 };
 
 const ACCEPT: &str = "application/vnd.github+json";
+const RATE_LIMIT_URL: &str = "https://api.github.com/rate_limit";
 
 /// A GitHub release.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Github {
     image: PathBuf,
     config: BTreeMap<String, String>,
     embedded: Option<String>,
     http: HttpClient,
+    token: Option<String>,
+}
+
+impl fmt::Debug for Github {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Github")
+            .field("image", &self.image)
+            .field("config", &self.config)
+            .field("embedded", &self.embedded)
+            .field("http", &self.http)
+            .field("token", &self.token.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
+}
+
+/// Result of checking a GitHub token against the rate-limit endpoint.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TokenCheck {
+    /// The token was accepted.
+    Valid {
+        /// Remaining requests in the current window, when GitHub reports them.
+        remaining: Option<u64>,
+        /// Total requests allowed in the window, when GitHub reports them.
+        limit: Option<u64>,
+    },
+    /// GitHub rejected the credentials.
+    Invalid,
+    /// GitHub accepted the credentials but the request was forbidden.
+    Forbidden,
+    /// The rate limit is exhausted and the server asked to wait.
+    RateLimited,
+    /// GitHub returned an unexpected status.
+    Unexpected(u16),
+    /// The request could not be completed.
+    Network(String),
+}
+
+/// Checks a GitHub token with `GET /rate_limit`.
+///
+/// The request runs synchronously and is meant to be called from a worker
+/// thread.
+#[must_use]
+pub fn test_token(token: &str) -> TokenCheck {
+    let result = HttpClient::shared().get_json_with_token::<RateLimit>(
+        RATE_LIMIT_URL,
+        Some(ACCEPT),
+        Some(token),
+    );
+
+    match result {
+        Ok(rate_limit) => {
+            let core = rate_limit.resources.and_then(|resources| resources.core);
+            TokenCheck::Valid {
+                remaining: core.as_ref().and_then(|core| core.remaining),
+                limit: core.as_ref().and_then(|core| core.limit),
+            }
+        }
+        Err(Error::HttpStatus(status)) => match status.status {
+            401 => TokenCheck::Invalid,
+            403 if status.rate_limit_remaining == Some(0) || status.retry_after.is_some() => {
+                TokenCheck::RateLimited
+            }
+            403 => TokenCheck::Forbidden,
+            429 => TokenCheck::RateLimited,
+            status => TokenCheck::Unexpected(status),
+        },
+        Err(error) => TokenCheck::Network(error.to_string()),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct RateLimit {
+    resources: Option<Resources>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Resources {
+    core: Option<Core>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Core {
+    limit: Option<u64>,
+    remaining: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,12 +144,14 @@ impl Github {
         config: BTreeMap<String, String>,
         embedded: Option<String>,
         http: HttpClient,
+        token: Option<&str>,
     ) -> Self {
         Self {
             image,
             config,
             embedded,
             http,
+            token: token.map(str::to_owned),
         }
     }
 
@@ -113,12 +202,14 @@ impl Github {
 
         let base = format!("https://api.github.com/repos/{repo}/releases");
         let releases: Vec<Release> = if allow_prereleases {
-            self.http.get_json(&base, Some(ACCEPT))?
+            self.http
+                .get_json_with_token(&base, Some(ACCEPT), self.token.as_deref())?
         } else {
-            vec![
-                self.http
-                    .get_json(&format!("{base}/latest"), Some(ACCEPT))?,
-            ]
+            vec![self.http.get_json_with_token(
+                &format!("{base}/latest"),
+                Some(ACCEPT),
+                self.token.as_deref(),
+            )?]
         };
 
         let release = releases
@@ -233,5 +324,26 @@ impl UpdateManager for Github {
         )?;
 
         Ok(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_the_rate_limit_resource() {
+        let json = r#"{"resources":{"core":{"limit":5000,"remaining":4999}}}"#;
+        let rate: RateLimit = serde_json::from_str(json).unwrap();
+        let core = rate.resources.and_then(|resources| resources.core).unwrap();
+
+        assert_eq!(core.limit, Some(5000));
+        assert_eq!(core.remaining, Some(4999));
+    }
+
+    #[test]
+    fn tolerates_an_empty_rate_limit_body() {
+        let rate: RateLimit = serde_json::from_str("{}").unwrap();
+        assert!(rate.resources.is_none());
     }
 }

@@ -149,6 +149,7 @@ impl ManagerKind {
         image: PathBuf,
         config: std::collections::BTreeMap<String, String>,
         embedded: Option<String>,
+        token: Option<&str>,
     ) -> Box<dyn UpdateManager> {
         let http = HttpClient::shared();
 
@@ -156,7 +157,7 @@ impl ManagerKind {
             Self::StaticFile => {
                 Box::new(static_file::StaticFile::new(image, config, embedded, http))
             }
-            Self::Github => Box::new(github::Github::new(image, config, embedded, http)),
+            Self::Github => Box::new(github::Github::new(image, config, embedded, http, token)),
             Self::Gitlab => Box::new(gitlab::Gitlab::new(image, config, embedded, http)),
             Self::Codeberg => Box::new(gitea::Gitea::codeberg(image, config, embedded, http)),
             Self::Forgejo => Box::new(gitea::Gitea::forgejo(image, config, embedded, http)),
@@ -307,11 +308,17 @@ impl<'a> DownloadContext<'a> {
 pub fn resolve(
     image: &Path,
     config: &std::collections::BTreeMap<String, String>,
+    github_token: Option<&str>,
 ) -> Result<Option<Box<dyn UpdateManager>>> {
     if let Some(name) = config.get("manager") {
         let kind = ManagerKind::from_name(name)
             .ok_or_else(|| Error::UpdateConfig(format!("unknown manager {name}")))?;
-        return Ok(Some(kind.create(image.to_path_buf(), config.clone(), None)));
+        return Ok(Some(kind.create(
+            image.to_path_buf(),
+            config.clone(),
+            None,
+            github_token,
+        )));
     }
 
     let Some(raw) = embedded::read(image)? else {
@@ -326,6 +333,7 @@ pub fn resolve(
                 image.to_path_buf(),
                 config.clone(),
                 Some(raw),
+                github_token,
             )));
         }
     }
@@ -389,8 +397,9 @@ pub fn by_name(
     kind: ManagerKind,
     image: &Path,
     config: std::collections::BTreeMap<String, String>,
+    github_token: Option<&str>,
 ) -> Box<dyn UpdateManager> {
-    kind.create(image.to_path_buf(), config, None)
+    kind.create(image.to_path_buf(), config, None, github_token)
 }
 
 /// Options used when installing a downloaded update.

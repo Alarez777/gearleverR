@@ -34,6 +34,9 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 - Editar argumentos, variables de entorno, sitio web y fuente de actualizaciones.
 - Recargar metadata, borrar a la papelera y abrir la carpeta de la app.
 - Preferencias, tutorial, about, búsqueda y notificaciones de actualizaciones.
+- Token de GitHub opcional en Preferencias, guardado en el llavero del sistema
+  con respaldo cifrado, para subir el límite de la API de 60 a 5000 solicitudes
+  por hora.
 - Traducciones gettext con los catálogos del Gear Lever original (22 idiomas).
 - Comprobación de actualizaciones al iniciar sesión mediante el portal
   `org.freedesktop.portal.Background`, con entrada clásica en `~/.config/autostart`

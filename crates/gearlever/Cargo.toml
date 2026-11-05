@@ -12,17 +12,26 @@ name = "gearlever-r"
 path = "src/main.rs"
 
 [dependencies]
+aes-gcm.workspace = true
 anyhow.workspace = true
+base64.workspace = true
 blake3.workspace = true
 clap.workspace = true
 gearlever-core = { path = "../gearlever-core" }
+getrandom.workspace = true
 gettext-rs.workspace = true
+hkdf.workspace = true
 libadwaita = { version = "0.9", default-features = false, features = ["v1_2"] }
+libc.workspace = true
 relm4.workspace = true
+secret-service.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+zbus.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -31,5 +31,10 @@
         <key name="block-unsafe-extractor" type="b">
             <default>true</default>
         </key>
+        <key name="github-token-cipher" type="s">
+            <default>""</default>
+            <summary>Encrypted GitHub token</summary>
+            <description>Machine and user bound AES-256-GCM blob used when no Secret Service keyring is available. Managed from the GitHub section in Preferences.</description>
+        </key>
     </schema>
 </schemalist>

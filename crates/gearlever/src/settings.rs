@@ -41,6 +41,8 @@ pub mod keys {
     pub const IS_MAXIMIZED: &str = "is-maximized";
     /// Whether the welcome dialog was shown.
     pub const FIRST_RUN: &str = "first-run";
+    /// Encrypted GitHub token used when no Secret Service is available.
+    pub const GITHUB_TOKEN_CIPHER: &str = "github-token-cipher";
 }
 
 /// Plain snapshot of the settings, used by code that does not need GSettings.
@@ -186,6 +188,36 @@ impl Settings {
         if let Some(settings) = &self.settings {
             let _ = settings.set_string(keys::APPIMAGES_FOLDER, &path.to_string_lossy());
         }
+    }
+
+    /// Returns the encrypted GitHub token blob, when one is stored.
+    #[must_use]
+    pub fn github_token_cipher(&self) -> Option<String> {
+        let settings = self.settings.as_ref()?;
+        let schema = settings.settings_schema()?;
+        if !schema.has_key(keys::GITHUB_TOKEN_CIPHER) {
+            return None;
+        }
+
+        let value = settings.string(keys::GITHUB_TOKEN_CIPHER);
+        (!value.is_empty()).then(|| value.to_string())
+    }
+
+    /// Stores the encrypted GitHub token blob and returns whether it persisted.
+    pub fn set_github_token_cipher(&self, value: &str) -> bool {
+        let Some(settings) = &self.settings else {
+            return false;
+        };
+        let Some(schema) = settings.settings_schema() else {
+            return false;
+        };
+        if !schema.has_key(keys::GITHUB_TOKEN_CIPHER) {
+            return false;
+        }
+
+        settings
+            .set_string(keys::GITHUB_TOKEN_CIPHER, value)
+            .is_ok()
     }
 
     /// Stores the managed folder.

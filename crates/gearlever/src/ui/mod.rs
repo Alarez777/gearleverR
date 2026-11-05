@@ -20,9 +20,9 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use relm4::adw::prelude::*;
 use relm4::gtk::{gdk, gio, glib};
@@ -40,12 +40,20 @@ use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::self_install;
 use gearlever_core::uninstall::{Removal, uninstall};
+use gearlever_core::update::github::TokenCheck;
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
 use crate::i18n::{t, tf};
 use crate::launch;
 use crate::settings::{APP_ID, Settings, keys};
+use crate::token_store::{TokenStore, valid_token};
 use util::{normalize, pill};
+
+/// Maximum update checks in flight at once, matching `AppManager`'s probe pool.
+const MAX_PARALLEL_CHECKS: usize = 5;
+
+/// Time budget for the sequential retry pass after the parallel checks.
+const RETRY_BUDGET: Duration = Duration::from_secs(20);
 
 /// Starts the graphical application.
 pub(crate) fn run(arguments: Vec<String>) {
@@ -145,7 +153,7 @@ enum Msg {
     CheckUpdates,
     UpdateCheckStarted(usize),
     UpdateChecked(PathBuf, bool),
-    UpdateCheckFailed,
+    UpdateRetryStarted,
     CheckDone,
     InstallCandidate(PathBuf),
     InstallWithConflict {
@@ -228,7 +236,6 @@ struct AppModel {
     checking: bool,
     check_total: usize,
     check_done: usize,
-    check_failed: usize,
     pending: Vec<(PathBuf, AppMetadata)>,
     multi_done: HashSet<PathBuf>,
     update_queue: Vec<InstalledApp>,
@@ -458,7 +465,6 @@ impl Component for AppModel {
                 self.checking = true;
                 self.check_total = 0;
                 self.check_done = 0;
-                self.check_failed = 0;
                 widgets.updates_button.set_sensitive(false);
                 widgets.updates_button.set_label(&t("Checking updates..."));
                 widgets.updates_progress.set_visible(true);
@@ -470,20 +476,28 @@ impl Component for AppModel {
 
                 let apps = self.apps.clone();
                 let config = self.config.clone();
+                let paths = self.paths.clone();
                 let hash_dir = self.paths.cache_root().join("hashes");
 
                 std::thread::spawn(move || {
+                    let settings = Settings::load(&paths);
+                    let token = TokenStore::new(settings).get();
                     let mut checks = Vec::new();
                     for app in apps {
-                        let manager = update::resolve(
+                        match update::resolve(
                             &app.image_path,
                             &config.update_manager(&app.image_path),
-                        )
-                        .ok()
-                        .flatten();
-
-                        if let Some(manager) = manager {
-                            checks.push((app, manager));
+                            token.as_deref(),
+                        ) {
+                            Ok(Some(manager)) => checks.push((app, manager)),
+                            Ok(None) => {}
+                            Err(error) => {
+                                tracing::warn!(
+                                    app = %app.name,
+                                    %error,
+                                    "cannot resolve the update manager"
+                                );
+                            }
                         }
                     }
 
@@ -492,13 +506,15 @@ impl Component for AppModel {
                     if !checks.is_empty() {
                         let hashes = HashCache::new(hash_dir);
                         let next = AtomicUsize::new(0);
-                        let workers = checks.len().min(8);
+                        let failed = Mutex::new(Vec::<(usize, Duration)>::new());
+                        let workers = checks.len().min(MAX_PARALLEL_CHECKS);
 
                         std::thread::scope(|scope| {
                             for _ in 0..workers {
                                 let sender = sender.clone();
                                 let checks = &checks;
                                 let next = &next;
+                                let failed = &failed;
                                 let hashes = &hashes;
                                 scope.spawn(move || {
                                     loop {
@@ -513,22 +529,84 @@ impl Component for AppModel {
                                                 status == UpdateStatus::Available,
                                             )),
                                             Err(error) => {
-                                                tracing::warn!(
-                                                    app = %app.name,
-                                                    %error,
-                                                    "update check failed"
-                                                );
-                                                sender.input(Msg::UpdateCheckFailed);
-                                                sender.input(Msg::UpdateChecked(
-                                                    app.image_path.clone(),
-                                                    false,
-                                                ));
+                                                if let Some(delay) = error.retry_delay() {
+                                                    tracing::debug!(
+                                                        app = %app.name,
+                                                        %error,
+                                                        "update check failed, will retry"
+                                                    );
+                                                    failed
+                                                        .lock()
+                                                        .expect("update-check retry queue lock poisoned")
+                                                        .push((index, delay));
+                                                } else {
+                                                    tracing::warn!(
+                                                        app = %app.name,
+                                                        %error,
+                                                        "update check failed"
+                                                    );
+                                                    sender.input(Msg::UpdateChecked(
+                                                        app.image_path.clone(),
+                                                        false,
+                                                    ));
+                                                }
                                             }
                                         }
                                     }
                                 });
                             }
                         });
+
+                        let mut failed = failed
+                            .into_inner()
+                            .expect("update-check retry queue lock poisoned");
+                        failed.sort_unstable_by_key(|(index, _)| *index);
+
+                        if !failed.is_empty() {
+                            sender.input(Msg::UpdateRetryStarted);
+                            let deadline = Instant::now() + RETRY_BUDGET;
+
+                            for (index, delay) in failed {
+                                let (app, manager) = &checks[index];
+
+                                if Instant::now() >= deadline {
+                                    tracing::warn!(
+                                        app = %app.name,
+                                        "update check not retried: retry budget exhausted"
+                                    );
+                                    sender.input(Msg::UpdateChecked(app.image_path.clone(), false));
+                                    continue;
+                                }
+
+                                if !delay.is_zero() {
+                                    std::thread::sleep(delay);
+                                }
+
+                                match manager.check(&hashes) {
+                                    Ok(status) => {
+                                        tracing::info!(
+                                            app = %app.name,
+                                            "update check succeeded after retry"
+                                        );
+                                        sender.input(Msg::UpdateChecked(
+                                            app.image_path.clone(),
+                                            status == UpdateStatus::Available,
+                                        ));
+                                    }
+                                    Err(error) => {
+                                        tracing::warn!(
+                                            app = %app.name,
+                                            %error,
+                                            "update check failed after retry"
+                                        );
+                                        sender.input(Msg::UpdateChecked(
+                                            app.image_path.clone(),
+                                            false,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     sender.input(Msg::CheckDone);
@@ -561,8 +639,10 @@ impl Component for AppModel {
                     Self::rebuild_details(self, widgets, &sender);
                 }
             }
-            Msg::UpdateCheckFailed => {
-                self.check_failed = self.check_failed.saturating_add(1);
+            Msg::UpdateRetryStarted => {
+                widgets
+                    .updates_button
+                    .set_label(&t("Retrying failed checks..."));
             }
             Msg::CheckDone => {
                 self.checking = false;
@@ -592,10 +672,6 @@ impl Component for AppModel {
                         t("Check for updates")
                     });
                 Self::rebuild_list(self, widgets);
-
-                if self.check_failed > 0 {
-                    Self::toast(widgets, &t("Some update checks failed"));
-                }
             }
             Msg::InstallCandidate(path) => {
                 let Some(metadata) = self.pending_metadata(&path).cloned() else {
@@ -826,13 +902,9 @@ impl Component for AppModel {
                     return;
                 }
 
-                let Ok(manager) = self.manager_for(&app.image_path) else {
-                    Self::toast(widgets, &t("No update method was found for this AppImage"));
-                    return;
-                };
-
                 let options = self.update_options();
                 let config = self.config.clone();
+                let paths = self.paths.clone();
                 let download_dir = self.paths.temp_dir().join("downloads");
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
@@ -840,6 +912,26 @@ impl Component for AppModel {
 
                 std::thread::spawn(move || {
                     let mut config = config;
+                    let settings = Settings::load(&paths);
+                    let token = TokenStore::new(settings).get();
+                    let manager = match update::resolve(
+                        &app.image_path,
+                        &config.update_manager(&app.image_path),
+                        token.as_deref(),
+                    ) {
+                        Ok(Some(manager)) => manager,
+                        Ok(None) => {
+                            sender.input(Msg::Updated(Err(t(
+                                "No update method was found for this AppImage",
+                            ))));
+                            return;
+                        }
+                        Err(error) => {
+                            sender.input(Msg::Updated(Err(error.to_string())));
+                            return;
+                        }
+                    };
+
                     let mut progress = |fraction: f64| {
                         sender.input(Msg::Progress(
                             fraction,
@@ -889,6 +981,7 @@ impl Component for AppModel {
                 Self::rebuild_multi(self, widgets, &sender);
 
                 let config = self.config.clone();
+                let paths = self.paths.clone();
                 let options = self.update_options();
                 let download_dir = self.paths.temp_dir().join("downloads");
                 let cancel = Arc::new(AtomicBool::new(false));
@@ -898,6 +991,8 @@ impl Component for AppModel {
 
                 std::thread::spawn(move || {
                     let mut config = config;
+                    let settings = Settings::load(&paths);
+                    let token = TokenStore::new(settings).get();
                     let total = queue.len();
                     let mut cancelled = false;
 
@@ -910,6 +1005,7 @@ impl Component for AppModel {
                         let Some(manager) = update::resolve(
                             &app.image_path,
                             &config.update_manager(&app.image_path),
+                            token.as_deref(),
                         )
                         .ok()
                         .flatten() else {
@@ -1289,7 +1385,6 @@ impl AppModel {
             checking: false,
             check_total: 0,
             check_done: 0,
-            check_failed: 0,
             pending: Vec::new(),
             multi_done: HashSet::new(),
             update_queue: Vec::new(),
@@ -1420,12 +1515,6 @@ impl AppModel {
             update_desktop_database: true,
             allow_unsafe_extractor: !self.settings.values().block_unsafe_extractor,
         }
-    }
-
-    fn manager_for(&self, path: &Path) -> Result<Box<dyn update::UpdateManager>, String> {
-        update::resolve(path, &self.config.update_manager(path))
-            .map_err(|error| error.to_string())?
-            .ok_or_else(|| "No update method was found for this AppImage".to_owned())
     }
 
     fn files_chosen(
@@ -1958,7 +2047,7 @@ impl AppModel {
         let selected = self.details_source.or(configured);
 
         let embedded = selected.is_none()
-            && update::resolve(path, &config)
+            && update::resolve(path, &config, None)
                 .ok()
                 .flatten()
                 .is_some_and(|manager| manager.embedded().is_some());
@@ -2343,6 +2432,131 @@ impl AppModel {
             sender,
         ));
 
+        let github = adw::PreferencesGroup::new();
+        github.set_title(&t("GitHub"));
+        github.set_description(Some(&t(
+            "Authenticate with GitHub to raise the API rate limit from 60 to 5,000 requests per hour",
+        )));
+
+        let token_store = TokenStore::new(self.settings.clone());
+        let current_token = token_store.get().unwrap_or_default();
+
+        let token_row = adw::PasswordEntryRow::new();
+        token_row.set_title(&t("Personal access token"));
+        token_row.add_prefix(&gtk::Image::from_icon_name("dialog-password-symbolic"));
+        token_row.set_text(&current_token);
+
+        let apply = gtk::Button::from_icon_name("object-select-symbolic");
+        apply.set_valign(gtk::Align::Center);
+        apply.add_css_class("flat");
+        apply.add_css_class("success");
+        apply.set_tooltip_text(Some(&t("Apply token")));
+
+        let clear = gtk::Button::from_icon_name("edit-clear-symbolic");
+        clear.set_valign(gtk::Align::Center);
+        clear.add_css_class("flat");
+        clear.set_tooltip_text(Some(&t("Clear token")));
+
+        let status_row = adw::ActionRow::builder()
+            .title(t("Test token"))
+            .subtitle(t("Verify your token works and check rate limit status"))
+            .build();
+        status_row.add_prefix(&gtk::Image::from_icon_name("object-select-symbolic"));
+
+        let spinner = gtk::Spinner::new();
+        spinner.set_visible(false);
+        let test = gtk::Button::with_label(&t("Test"));
+        test.set_valign(gtk::Align::Center);
+        test.add_css_class("flat");
+        test.set_sensitive(valid_token(&current_token));
+
+        let store_apply = token_store.clone();
+        let row_apply = token_row.clone();
+        let status_apply = status_row.clone();
+        apply.connect_clicked(move |_| {
+            save_github_token(&row_apply, &status_apply, &store_apply);
+        });
+
+        let store_clear = token_store.clone();
+        let row_clear = token_row.clone();
+        let status_clear = status_row.clone();
+        clear.connect_clicked(move |_| {
+            row_clear.set_text("");
+            clear_github_token(&row_clear, &status_clear, &store_clear);
+        });
+
+        let store_enter = token_store;
+        let status_enter = status_row.clone();
+        token_row.connect_entry_activated(move |row| {
+            save_github_token(row, &status_enter, &store_enter);
+        });
+
+        let test_row = token_row.clone();
+        let test_status = status_row.clone();
+        let test_button = test.clone();
+        let test_spinner = spinner.clone();
+        test.connect_clicked(move |_| {
+            let token = test_row.text().trim().to_owned();
+            if !valid_token(&token) {
+                test_status.set_subtitle(&t("Enter a valid token"));
+                return;
+            }
+
+            test_button.set_sensitive(false);
+            test_spinner.set_visible(true);
+            test_status.set_subtitle(&t("Testing..."));
+
+            let row_ref = glib::SendWeakRef::from(test_status.downgrade());
+            let button_ref = glib::SendWeakRef::from(test_button.downgrade());
+            let spinner_ref = glib::SendWeakRef::from(test_spinner.downgrade());
+
+            std::thread::spawn(move || {
+                let result = update::github::test_token(&token);
+                glib::MainContext::default().invoke(move || {
+                    if let Some(row) = row_ref.upgrade() {
+                        row.set_subtitle(&token_check_message(&result));
+                    }
+                    if let Some(button) = button_ref.upgrade() {
+                        button.set_sensitive(true);
+                    }
+                    if let Some(spinner) = spinner_ref.upgrade() {
+                        spinner.set_visible(false);
+                    }
+                });
+            });
+        });
+
+        let test_for_change = test.clone();
+        token_row.connect_changed(move |row| {
+            test_for_change.set_sensitive(valid_token(row.text().as_str()));
+        });
+
+        token_row.add_suffix(&apply);
+        token_row.add_suffix(&clear);
+
+        status_row.add_suffix(&spinner);
+        status_row.add_suffix(&test);
+
+        let help_row = adw::ActionRow::builder()
+            .title(t("Create a token on GitHub"))
+            .subtitle(t(
+                "Fine-grained token with read-only public repo access is sufficient",
+            ))
+            .activatable(true)
+            .build();
+        help_row.add_prefix(&gtk::Image::from_icon_name("help-about-symbolic"));
+        help_row.add_suffix(&gtk::Image::from_icon_name("external-link-symbolic"));
+        let sender_help = sender.clone();
+        help_row.connect_activated(move |_| {
+            sender_help.input(Msg::OpenUrl(
+                "https://github.com/settings/tokens?type=beta".to_owned(),
+            ));
+        });
+
+        github.add(&token_row);
+        github.add(&status_row);
+        github.add(&help_row);
+
         let files = adw::PreferencesGroup::new();
         files.set_title(&t("File management"));
         let move_check = gtk::CheckButton::new();
@@ -2405,6 +2619,7 @@ impl AppModel {
 
         page.add(&general);
         page.add(&updates);
+        page.add(&github);
         page.add(&files);
         page.add(&naming);
         page.add(&debugging);
@@ -3268,6 +3483,75 @@ fn same_managed_copy(path: &Path, candidate: &Path, appimages_dir: &Path) -> boo
 /// Returns whether launching `app` would start Gear LeverR itself.
 fn is_self_launch(app: &InstalledApp) -> bool {
     app.self_entry || running_appimage().is_some_and(|image| same_file(&image, &app.image_path))
+}
+
+fn save_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, store: &TokenStore) {
+    let token = row.text().trim().to_owned();
+
+    if token.is_empty() {
+        status.set_subtitle(&t("Enter a token first"));
+        return;
+    }
+    if !valid_token(&token) {
+        status.set_subtitle(&t("The token contains invalid characters"));
+        return;
+    }
+
+    match store.set(&token) {
+        Ok(()) => status.set_subtitle(&t("GitHub token saved")),
+        Err(error) => {
+            let error = error.to_string();
+            status.set_subtitle(&tf(
+                "Could not save the token: {error}",
+                &[("error", &error)],
+            ));
+        }
+    }
+}
+
+fn clear_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, store: &TokenStore) {
+    match store.clear() {
+        Ok(()) => {
+            row.set_text("");
+            status.set_subtitle(&t("GitHub token cleared"));
+        }
+        Err(error) => {
+            let error = error.to_string();
+            status.set_subtitle(&tf(
+                "Could not clear the token: {error}",
+                &[("error", &error)],
+            ));
+        }
+    }
+}
+
+fn token_check_message(check: &TokenCheck) -> String {
+    match check {
+        TokenCheck::Valid {
+            remaining: Some(remaining),
+            limit: Some(limit),
+        } => {
+            let remaining = remaining.to_string();
+            let limit = limit.to_string();
+            tf(
+                "Token is valid — {remaining} / {limit} requests remaining",
+                &[("remaining", &remaining), ("limit", &limit)],
+            )
+        }
+        TokenCheck::Valid {
+            remaining: _,
+            limit: _,
+        } => t("Token is valid"),
+        TokenCheck::Invalid => t("Authentication failed — token is invalid or expired"),
+        TokenCheck::Forbidden => t("Access forbidden — token lacks required permissions"),
+        TokenCheck::RateLimited => t("Rate limit exceeded — try again later"),
+        TokenCheck::Unexpected(status) => {
+            let status = status.to_string();
+            tf("Unexpected response ({status})", &[("status", &status)])
+        }
+        TokenCheck::Network(error) => tf("Connection error: {error}", &[("error", error)]),
+        _ => t("Unexpected response"),
+    }
 }
 
 #[expect(

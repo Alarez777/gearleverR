@@ -38,6 +38,9 @@ updates from six sources, a compatible CLI and the full interface. See
 - Edit arguments, environment variables, the website and the update source.
 - Reload metadata, move an app to the trash and open its folder.
 - Preferences, about dialog, search and update notifications.
+- Optional GitHub token in Preferences, stored in the system keyring with an
+  encrypted fallback, to raise the API rate limit from 60 to 5,000 requests per
+  hour.
 - First-run window that integrates Gear LeverR into the application menu and asks for
   the AppImages folder and the move/clone policy.
 - gettext translations based on the original Gear Lever catalogs (22 languages).

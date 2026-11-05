@@ -31,6 +31,7 @@ use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
 use crate::settings::Settings;
+use crate::token_store::TokenStore;
 
 /// Manage AppImages with ease.
 #[expect(
@@ -252,7 +253,7 @@ impl Cli {
                 ],
                 vec![
                     "Update Source".to_owned(),
-                    update::resolve(app_image.path(), &BTreeMap::new())
+                    update::resolve(app_image.path(), &BTreeMap::new(), None)
                         .ok()
                         .flatten()
                         .map_or_else(
@@ -739,32 +740,67 @@ impl CommandContext {
 
     fn manager_for(&self, image: &Path) -> Result<Box<dyn update::UpdateManager>> {
         let config = self.config.update_manager(image);
-        update::resolve(image, &config)?
+        let token = TokenStore::new(self.settings.clone()).get();
+        update::resolve(image, &config, token.as_deref())?
             .ok_or_else(|| anyhow!("No update method was found for this AppImage"))
     }
 
     fn collect_updates(&self) -> Result<Vec<(InstalledApp, Box<dyn update::UpdateManager>)>> {
         let hashes = HashCache::new(self.paths.cache_root().join("hashes"));
+        let token = TokenStore::new(self.settings.clone()).get();
         let mut updates = Vec::new();
 
         for app in self.apps()? {
-            let Some(manager) = update::resolve(
+            let manager = match update::resolve(
                 &app.image_path,
                 &self.config.update_manager(&app.image_path),
-            )?
-            else {
-                continue;
+                token.as_deref(),
+            ) {
+                Ok(Some(manager)) => manager,
+                Ok(None) => continue,
+                Err(error) => {
+                    tracing::warn!(
+                        app = %app.name,
+                        %error,
+                        "cannot resolve the update manager"
+                    );
+                    continue;
+                }
             };
 
             match manager.check(&hashes) {
                 Ok(UpdateStatus::Available) => updates.push((app, manager)),
                 Ok(_) => {}
                 Err(error) => {
-                    tracing::warn!(
+                    let Some(delay) = error.retry_delay() else {
+                        tracing::warn!(
+                            app = %app.name,
+                            %error,
+                            "update check failed"
+                        );
+                        continue;
+                    };
+
+                    tracing::debug!(
                         app = %app.name,
                         %error,
-                        "update check failed"
+                        "update check failed, retrying"
                     );
+                    if !delay.is_zero() {
+                        std::thread::sleep(delay);
+                    }
+
+                    match manager.check(&hashes) {
+                        Ok(UpdateStatus::Available) => updates.push((app, manager)),
+                        Ok(_) => {}
+                        Err(error) => {
+                            tracing::warn!(
+                                app = %app.name,
+                                %error,
+                                "update check failed after retry"
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -809,7 +845,7 @@ struct UpdatesJson {
 }
 
 fn manager_name(config: &Config, image: &Path) -> Option<String> {
-    match update::resolve(image, &config.update_manager(image)) {
+    match update::resolve(image, &config.update_manager(image), None) {
         Ok(Some(manager)) => Some(manager.kind().name().to_owned()),
         Ok(None) => None,
         Err(error) => {
@@ -820,7 +856,7 @@ fn manager_name(config: &Config, image: &Path) -> Option<String> {
 }
 
 fn manager_embedded(config: &Config, image: &Path) -> bool {
-    update::resolve(image, &config.update_manager(image))
+    update::resolve(image, &config.update_manager(image), None)
         .ok()
         .flatten()
         .is_some_and(|manager| manager.embedded().is_some())

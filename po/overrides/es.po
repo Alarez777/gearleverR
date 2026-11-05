@@ -66,9 +66,6 @@ msgstr "No se encontró un método de actualización para esta AppImage"
 msgid "No updates found"
 msgstr "No se encontraron actualizaciones"
 
-msgid "Some update checks failed"
-msgstr "No se pudieron comprobar algunas actualizaciones"
-
 msgid "Not computed"
 msgstr "Sin calcular"
 
@@ -244,3 +241,84 @@ msgstr ""
 "\n"
 "<b>Hecho con</b>\n"
 "Rust, GTK 4, libadwaita, Relm4, backhand y ureq."
+
+msgid "Retrying failed checks..."
+msgstr "Reintentando comprobaciones fallidas..."
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid "Authenticate with GitHub to raise the API rate limit from 60 to 5,000 requests per hour"
+msgstr "Autentícate con GitHub para aumentar el límite de la API de 60 a 5000 solicitudes por hora"
+
+msgid "Personal access token"
+msgstr "Token de acceso personal"
+
+msgid "Apply token"
+msgstr "Aplicar token"
+
+msgid "Clear token"
+msgstr "Borrar token"
+
+msgid "Test token"
+msgstr "Probar token"
+
+msgid "Verify your token works and check rate limit status"
+msgstr "Comprueba que el token funciona y consulta el estado del límite de solicitudes"
+
+msgid "Test"
+msgstr "Probar"
+
+msgid "Enter a valid token"
+msgstr "Introduce un token válido"
+
+msgid "Testing..."
+msgstr "Probando..."
+
+msgid "Create a token on GitHub"
+msgstr "Crear un token en GitHub"
+
+msgid "Fine-grained token with read-only public repo access is sufficient"
+msgstr "Basta con un token detallado con acceso de solo lectura a repositorios públicos"
+
+msgid "Enter a token first"
+msgstr "Introduce primero un token"
+
+msgid "The token contains invalid characters"
+msgstr "El token contiene caracteres no válidos"
+
+msgid "GitHub token saved"
+msgstr "Token de GitHub guardado"
+
+msgid "Could not save the token: {error}"
+msgstr "No se pudo guardar el token: {error}"
+
+msgid "GitHub token cleared"
+msgstr "Token de GitHub borrado"
+
+msgid "Could not clear the token: {error}"
+msgstr "No se pudo borrar el token: {error}"
+
+msgid "Token is valid — {remaining} / {limit} requests remaining"
+msgstr "El token es válido: quedan {remaining} de {limit} solicitudes"
+
+msgid "Token is valid"
+msgstr "El token es válido"
+
+msgid "Authentication failed — token is invalid or expired"
+msgstr "Falló la autenticación: el token no es válido o ha caducado"
+
+msgid "Access forbidden — token lacks required permissions"
+msgstr "Acceso denegado: el token no tiene los permisos necesarios"
+
+msgid "Rate limit exceeded — try again later"
+msgstr "Se superó el límite de solicitudes: inténtalo más tarde"
+
+msgid "Unexpected response ({status})"
+msgstr "Respuesta inesperada ({status})"
+
+msgid "Connection error: {error}"
+msgstr "Error de conexión: {error}"
+
+msgid "Unexpected response"
+msgstr "Respuesta inesperada"
