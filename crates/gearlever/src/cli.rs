@@ -24,6 +24,7 @@ use serde::Serialize;
 use gearlever_core::Error as CoreError;
 use gearlever_core::appimage::{AppImage, MetadataOptions, is_running};
 use gearlever_core::config::Config;
+use gearlever_core::error::RateLimitInfo;
 use gearlever_core::hash::HashCache;
 use gearlever_core::install::{Conflict, IntegrateOptions, PreviousInstall, integrate};
 use gearlever_core::paths::Paths;
@@ -32,8 +33,9 @@ use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
 use crate::i18n::t;
+use crate::rate_limit::{self, TokenState};
 use crate::settings::Settings;
-use crate::token_store::TokenStore;
+use crate::token_store::{TokenStatus, TokenStore};
 
 /// Manage AppImages with ease.
 #[expect(
@@ -436,7 +438,7 @@ impl Cli {
     }
 
     fn list_updates_command(&self, context: &CommandContext) -> Result<()> {
-        let (updates, _) = context.collect_updates()?;
+        let updates = context.collect_updates()?.updates;
 
         if self.json {
             let entries: Vec<AppJson> = updates
@@ -499,7 +501,7 @@ impl Cli {
             let manager = context.manager_for(&app.image_path)?;
             vec![(app.clone(), manager)]
         } else {
-            let (updates, _) = context.collect_updates()?;
+            let updates = context.collect_updates()?.updates;
             if updates.is_empty() {
                 println!("No updates available");
                 return Ok(());
@@ -638,23 +640,28 @@ impl Cli {
     }
 
     fn fetch_updates_command(context: &CommandContext) -> Result<()> {
-        let (updates, token_invalid) = context.collect_updates()?;
+        let collected = context.collect_updates()?;
 
-        if token_invalid {
+        if collected.token_invalid {
             Self::notify(&t(
                 "GitHub authentication failed (401). Check your token in Preferences → GitHub.",
             ))?;
         }
 
-        if updates.is_empty() {
+        if let Some(info) = &collected.rate_limit {
+            let message = rate_limit::message(info, collected.token_state);
+            Self::notify(&message)?;
+        }
+
+        if collected.updates.is_empty() {
             println!("No updates available");
             return Ok(());
         }
 
-        let message = if updates.len() == 1 {
+        let message = if collected.updates.len() == 1 {
             "1 update available".to_owned()
         } else {
-            format!("{} updates available", updates.len())
+            format!("{} updates available", collected.updates.len())
         };
 
         Self::notify(&message)?;
@@ -713,8 +720,13 @@ impl Cli {
     }
 }
 
-/// Updates found by a CLI check and whether the token became invalid.
-type CollectedUpdates = (Vec<(InstalledApp, Box<dyn update::UpdateManager>)>, bool);
+/// Updates found by a CLI check and the account/token conditions encountered.
+struct CollectedUpdates {
+    updates: Vec<(InstalledApp, Box<dyn update::UpdateManager>)>,
+    token_invalid: bool,
+    rate_limit: Option<RateLimitInfo>,
+    token_state: TokenState,
+}
 
 /// Shared state for a CLI invocation.
 struct CommandContext {
@@ -766,7 +778,15 @@ impl CommandContext {
         let hashes = HashCache::new(self.paths.cache_root().join("hashes"));
         let token_store = TokenStore::new(self.settings.clone());
         let token = token_store.get();
+        let token_state = if token.is_some() {
+            TokenState::Used
+        } else if token_store.status() != TokenStatus::None {
+            TokenState::ConfiguredNotLoaded
+        } else {
+            TokenState::None
+        };
         let mut notify_token_invalid = false;
+        let mut rate_limit = None;
         let mut updates = Vec::new();
 
         for app in self.apps()? {
@@ -802,11 +822,20 @@ impl CommandContext {
                 }
                 Err(error) => {
                     let Some(delay) = error.retry_delay() else {
-                        tracing::warn!(
-                            app = %app.name,
-                            %error,
-                            "update check failed"
-                        );
+                        if let Some(info) = error.rate_limit_info() {
+                            tracing::warn!(
+                                app = %app.name,
+                                %error,
+                                "GitHub API rate limit exhausted"
+                            );
+                            rate_limit = Some(info);
+                        } else {
+                            tracing::warn!(
+                                app = %app.name,
+                                %error,
+                                "update check failed"
+                            );
+                        }
                         continue;
                     };
 
@@ -823,18 +852,32 @@ impl CommandContext {
                         Ok(UpdateStatus::Available) => updates.push((app, manager)),
                         Ok(_) => {}
                         Err(error) => {
-                            tracing::warn!(
-                                app = %app.name,
-                                %error,
-                                "update check failed after retry"
-                            );
+                            if let Some(info) = error.rate_limit_info() {
+                                tracing::warn!(
+                                    app = %app.name,
+                                    %error,
+                                    "GitHub API rate limit exhausted after retry"
+                                );
+                                rate_limit = Some(info);
+                            } else {
+                                tracing::warn!(
+                                    app = %app.name,
+                                    %error,
+                                    "update check failed after retry"
+                                );
+                            }
                         }
                     }
                 }
             }
         }
 
-        Ok((updates, notify_token_invalid))
+        Ok(CollectedUpdates {
+            updates,
+            token_invalid: notify_token_invalid,
+            rate_limit,
+            token_state,
+        })
     }
 
     fn update_options(&self) -> UpdateOptions {

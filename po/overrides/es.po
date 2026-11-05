@@ -358,3 +358,30 @@ msgstr "Abrir Preferencias"
 
 msgid "GitHub token expired or invalid"
 msgstr "El token de GitHub ha caducado o no es válido"
+
+msgid "Token configured, but the keyring is locked. Unlock it or enter a new token."
+msgstr "El token está configurado, pero el llavero está bloqueado. Desbloquéalo o introduce un token nuevo."
+
+msgid "Rate limit: retry in {wait}."
+msgstr "Límite: reintenta en {wait}."
+
+msgid "Rate limit exhausted. Retry later."
+msgstr "Límite agotado. Reintenta más tarde."
+
+msgid "Rate limit: unlock the keyring or retry in {wait}."
+msgstr "Límite: desbloquea el llavero o reintenta en {wait}."
+
+msgid "Rate limit: unlock the keyring or add a token."
+msgstr "Límite: desbloquea el llavero o añade un token."
+
+msgid "Rate limit: retry in {wait} or add a token."
+msgstr "Límite: reintenta en {wait} o añade un token."
+
+msgid "Rate limit exhausted. Add a token in Preferences."
+msgstr "Límite agotado. Añade un token en Preferencias."
+
+msgid "{minutes} min"
+msgstr "{minutes} min"
+
+msgid "{seconds} s"
+msgstr "{seconds} s"

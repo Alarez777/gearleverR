@@ -75,6 +75,26 @@ impl TokenStatus {
     }
 }
 
+/// Whether a keyring read may prompt to unlock a locked item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UnlockPolicy {
+    /// Never prompt; used by background checks and the CLI.
+    Never,
+    /// Prompt when an item is locked; used by Preferences.
+    IfNeeded,
+}
+
+/// Result of looking up the token for the Preferences window.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum TokenLookup {
+    /// The token was read.
+    Found(String),
+    /// A token exists but the keyring item is locked.
+    Locked,
+    /// No token was found in either tier.
+    Missing,
+}
+
 /// Reads and writes the GitHub token.
 #[derive(Clone)]
 pub(crate) struct TokenStore {
@@ -111,21 +131,34 @@ impl TokenStore {
         self.get_cipher()
     }
 
-    /// Returns the stored token, allowing the Secret Service to activate.
+    /// Looks up the token for the Preferences window.
     ///
-    /// Used only when Preferences is open, so a short D-Bus activation delay is
-    /// acceptable and matches what libsecret does for `AppManager`.
+    /// Unlike [`TokenStore::get`], this allows the Secret Service to activate,
+    /// and it tries to unlock a locked keyring item. If the user cancels the
+    /// unlock prompt, the lookup reports [`TokenLookup::Locked`] instead of
+    /// pretending no token exists.
     #[must_use]
-    pub(crate) fn get_interactive(&self) -> Option<String> {
+    pub(crate) fn lookup_interactive(&self) -> TokenLookup {
+        let mut locked = false;
+
         match Self::get_keyring_interactive() {
-            Ok(Some(token)) => return Some(token),
-            Ok(None) => {}
+            Ok(TokenLookup::Found(token)) => return TokenLookup::Found(token),
+            Ok(TokenLookup::Locked) => locked = true,
+            Ok(TokenLookup::Missing) => {}
             Err(error) => {
                 tracing::debug!(%error, "cannot read the GitHub token from the keyring");
             }
         }
 
-        self.get_cipher()
+        if let Some(token) = self.get_cipher() {
+            return TokenLookup::Found(token);
+        }
+
+        if locked {
+            TokenLookup::Locked
+        } else {
+            TokenLookup::Missing
+        }
     }
 
     /// Returns the stored token status.
@@ -239,16 +272,26 @@ impl TokenStore {
         };
         let service = SecretService::connect_with_existing(EncryptionType::Dh, connection)
             .context("connecting to the Secret Service")?;
-        Self::read_keyring(&service)
+
+        match Self::read_keyring(&service, UnlockPolicy::Never)? {
+            TokenLookup::Found(token) => Ok(Some(token)),
+            TokenLookup::Locked => {
+                tracing::warn!("the GitHub token keyring item is locked");
+                Ok(None)
+            }
+            TokenLookup::Missing => Ok(None),
+        }
     }
 
-    fn get_keyring_interactive() -> Result<Option<String>> {
+    fn get_keyring_interactive() -> Result<TokenLookup> {
         let service = SecretService::connect(EncryptionType::Dh)
             .context("connecting to the Secret Service")?;
-        Self::read_keyring(&service)
+        Self::read_keyring(&service, UnlockPolicy::IfNeeded)
     }
 
-    fn read_keyring(service: &SecretService<'_>) -> Result<Option<String>> {
+    fn read_keyring(service: &SecretService<'_>, unlock: UnlockPolicy) -> Result<TokenLookup> {
+        let mut locked = false;
+
         if let Ok(collection) = service.get_default_collection() {
             let items = collection
                 .search_items(keyring_attributes())
@@ -256,10 +299,15 @@ impl TokenStore {
 
             for item in &items {
                 if item.is_locked().context("checking the keyring item")? {
-                    continue;
-                }
-                if let Some(token) = Self::read_item(item)? {
-                    return Ok(Some(token));
+                    locked = true;
+                    if unlock == UnlockPolicy::IfNeeded
+                        && item.unlock().is_ok()
+                        && let Some(token) = Self::read_item(item)?
+                    {
+                        return Ok(TokenLookup::Found(token));
+                    }
+                } else if let Some(token) = Self::read_item(item)? {
+                    return Ok(TokenLookup::Found(token));
                 }
             }
         }
@@ -268,14 +316,27 @@ impl TokenStore {
             .search_items(keyring_attributes())
             .context("searching the keyring for the GitHub token")?;
 
-        let Some(item) = items.unlocked.first() else {
-            if !items.locked.is_empty() {
-                tracing::debug!("the GitHub token keyring item is locked");
-            }
-            return Ok(None);
-        };
+        if let Some(item) = items.unlocked.first()
+            && let Some(token) = Self::read_item(item)?
+        {
+            return Ok(TokenLookup::Found(token));
+        }
 
-        Self::read_item(item)
+        for item in &items.locked {
+            locked = true;
+            if unlock == UnlockPolicy::IfNeeded
+                && item.unlock().is_ok()
+                && let Some(token) = Self::read_item(item)?
+            {
+                return Ok(TokenLookup::Found(token));
+            }
+        }
+
+        if locked {
+            Ok(TokenLookup::Locked)
+        } else {
+            Ok(TokenLookup::Missing)
+        }
     }
 
     fn read_item(item: &Item<'_>) -> Result<Option<String>> {

@@ -33,6 +33,7 @@ use gearlever_core::Error as CoreError;
 use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, detect, is_running};
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
+use gearlever_core::error::RateLimitInfo;
 use gearlever_core::format::size;
 use gearlever_core::hash::{HashCache, same_content};
 use gearlever_core::install::{self, Conflict, IntegrateOptions, PreviousInstall};
@@ -45,8 +46,9 @@ use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
 use crate::i18n::{t, tf};
 use crate::launch;
+use crate::rate_limit::{self, TokenState};
 use crate::settings::{APP_ID, Settings, keys};
-use crate::token_store::{TokenStatus, TokenStore, valid_token};
+use crate::token_store::{TokenLookup, TokenStatus, TokenStore, valid_token};
 use util::{normalize, pill};
 
 /// Maximum update checks in flight at once, matching `AppManager`'s probe pool.
@@ -156,6 +158,10 @@ enum Msg {
     CheckDone,
     GithubTokenTested(TokenCheck),
     GithubTokenInvalid,
+    GithubRateLimited {
+        info: RateLimitInfo,
+        token_state: TokenState,
+    },
     InstallCandidate(PathBuf),
     InstallWithConflict {
         path: PathBuf,
@@ -481,8 +487,15 @@ impl Component for AppModel {
                 let hash_dir = self.paths.cache_root().join("hashes");
 
                 std::thread::spawn(move || {
-                    let settings = Settings::load(&paths);
-                    let token = TokenStore::new(settings).get();
+                    let token_store = TokenStore::new(Settings::load(&paths));
+                    let token = token_store.get();
+                    let token_state = if token.is_some() {
+                        TokenState::Used
+                    } else if token_store.status() != TokenStatus::None {
+                        TokenState::ConfiguredNotLoaded
+                    } else {
+                        TokenState::None
+                    };
                     let mut checks = Vec::new();
                     for app in apps {
                         match update::resolve(
@@ -509,6 +522,7 @@ impl Component for AppModel {
                         let next = AtomicUsize::new(0);
                         let failed = Mutex::new(Vec::<(usize, Duration)>::new());
                         let token_invalid = AtomicBool::new(false);
+                        let rate_limited = AtomicBool::new(false);
                         let workers = checks.len().min(MAX_PARALLEL_CHECKS);
 
                         std::thread::scope(|scope| {
@@ -518,6 +532,7 @@ impl Component for AppModel {
                                 let next = &next;
                                 let failed = &failed;
                                 let token_invalid = &token_invalid;
+                                let rate_limited = &rate_limited;
                                 let hashes = &hashes;
                                 scope.spawn(move || {
                                     loop {
@@ -557,11 +572,27 @@ impl Component for AppModel {
                                                         .expect("update-check retry queue lock poisoned")
                                                         .push((index, delay));
                                                 } else {
-                                                    tracing::warn!(
-                                                        app = %app.name,
-                                                        %error,
-                                                        "update check failed"
-                                                    );
+                                                    if let Some(info) = error.rate_limit_info() {
+                                                        if !rate_limited
+                                                            .swap(true, Ordering::Relaxed)
+                                                        {
+                                                            sender.input(Msg::GithubRateLimited {
+                                                                info,
+                                                                token_state,
+                                                            });
+                                                        }
+                                                        tracing::warn!(
+                                                            app = %app.name,
+                                                            %error,
+                                                            "GitHub API rate limit exhausted"
+                                                        );
+                                                    } else {
+                                                        tracing::warn!(
+                                                            app = %app.name,
+                                                            %error,
+                                                            "update check failed"
+                                                        );
+                                                    }
                                                     sender.input(Msg::UpdateChecked(
                                                         app.image_path.clone(),
                                                         false,
@@ -611,11 +642,25 @@ impl Component for AppModel {
                                         ));
                                     }
                                     Err(error) => {
-                                        tracing::warn!(
-                                            app = %app.name,
-                                            %error,
-                                            "update check failed after retry"
-                                        );
+                                        if let Some(info) = error.rate_limit_info() {
+                                            if !rate_limited.swap(true, Ordering::Relaxed) {
+                                                sender.input(Msg::GithubRateLimited {
+                                                    info,
+                                                    token_state,
+                                                });
+                                            }
+                                            tracing::warn!(
+                                                app = %app.name,
+                                                %error,
+                                                "GitHub API rate limit exhausted after retry"
+                                            );
+                                        } else {
+                                            tracing::warn!(
+                                                app = %app.name,
+                                                %error,
+                                                "update check failed after retry"
+                                            );
+                                        }
                                         sender.input(Msg::UpdateChecked(
                                             app.image_path.clone(),
                                             false,
@@ -709,6 +754,12 @@ impl Component for AppModel {
             Msg::GithubTokenInvalid => {
                 let _ = TokenStore::new(self.settings.clone()).mark_invalid();
                 let toast = adw::Toast::new(&t("GitHub token expired or invalid"));
+                toast.set_button_label(Some(&t("Open Preferences")));
+                toast.set_action_name(Some("win.preferences"));
+                widgets.toast.add_toast(toast);
+            }
+            Msg::GithubRateLimited { info, token_state } => {
+                let toast = adw::Toast::new(&rate_limit::message(&info, token_state));
                 toast.set_button_label(Some(&t("Open Preferences")));
                 toast.set_action_name(Some("win.preferences"));
                 widgets.toast.add_toast(toast);
@@ -2480,12 +2531,16 @@ impl AppModel {
 
         let token_store = TokenStore::new(self.settings.clone());
         let mut status = token_store.status();
-        let current_token = token_store.get_interactive();
-        if current_token.is_some() && status == TokenStatus::None {
+        let lookup = token_store.lookup_interactive();
+        if status == TokenStatus::None && !matches!(lookup, TokenLookup::Missing) {
             let _ = token_store.mark_unchecked();
             status = TokenStatus::Unchecked;
         }
-        let configured = status != TokenStatus::None;
+        let configured = status != TokenStatus::None || !matches!(lookup, TokenLookup::Missing);
+        let current_token = match &lookup {
+            TokenLookup::Found(token) => Some(token.as_str()),
+            TokenLookup::Locked | TokenLookup::Missing => None,
+        };
         let token_missing = configured && current_token.is_none();
 
         let token_row = adw::PasswordEntryRow::new();
@@ -2495,7 +2550,7 @@ impl AppModel {
             t("Personal access token")
         });
         token_row.add_prefix(&gtk::Image::from_icon_name("dialog-password-symbolic"));
-        if let Some(token) = &current_token {
+        if let Some(token) = current_token {
             token_row.set_text(token);
         }
 
@@ -2512,18 +2567,14 @@ impl AppModel {
 
         let status_row = adw::ActionRow::builder().title(t("Test token")).build();
         status_row.add_prefix(&gtk::Image::from_icon_name("object-select-symbolic"));
-        status_row.set_subtitle(&initial_github_status(
-            &token_store,
-            status,
-            current_token.as_deref(),
-        ));
+        status_row.set_subtitle(&initial_github_status(&token_store, status, &lookup));
 
         let spinner = gtk::Spinner::new();
         spinner.set_visible(false);
         let test = gtk::Button::with_label(&t("Test"));
         test.set_valign(gtk::Align::Center);
         test.add_css_class("flat");
-        test.set_sensitive(current_token.as_deref().is_some_and(valid_token));
+        test.set_sensitive(current_token.is_some_and(valid_token));
 
         let store_apply = token_store.clone();
         let row_apply = token_row.clone();
@@ -3570,14 +3621,22 @@ fn clear_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, stor
     }
 }
 
-fn initial_github_status(store: &TokenStore, status: TokenStatus, token: Option<&str>) -> String {
-    if status == TokenStatus::None {
-        return t("Verify your token works and check rate limit status");
-    }
-    if token.is_none() {
-        return t(
-            "Token configured, but it could not be loaded. Unlock the system keyring or enter a new token.",
-        );
+fn initial_github_status(store: &TokenStore, status: TokenStatus, lookup: &TokenLookup) -> String {
+    match lookup {
+        TokenLookup::Locked => {
+            return t(
+                "Token configured, but the keyring is locked. Unlock it or enter a new token.",
+            );
+        }
+        TokenLookup::Missing if status == TokenStatus::None => {
+            return t("Verify your token works and check rate limit status");
+        }
+        TokenLookup::Missing => {
+            return t(
+                "Token configured, but it could not be loaded. Unlock the system keyring or enter a new token.",
+            );
+        }
+        TokenLookup::Found(_) => {}
     }
 
     match status {

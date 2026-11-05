@@ -42,6 +42,15 @@ impl fmt::Display for HttpStatus {
     }
 }
 
+/// Rate-limit details from a GitHub 403 or 429 response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimitInfo {
+    /// Unix timestamp when the limit resets.
+    pub reset: Option<u64>,
+    /// Seconds the server asked the client to wait.
+    pub retry_after: Option<u64>,
+}
+
 /// Errors returned by Gear LeverR's core.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -125,6 +134,30 @@ pub enum Error {
 }
 
 impl Error {
+    /// Returns rate-limit details when the response is a GitHub rate limit.
+    ///
+    /// A 403 is a rate limit when GitHub reports zero remaining requests or a
+    /// `Retry-After`; a 429 is always a rate limit. A 403 without either is a
+    /// permissions error.
+    #[must_use]
+    pub fn rate_limit_info(&self) -> Option<RateLimitInfo> {
+        let Self::HttpStatus(status) = self else {
+            return None;
+        };
+
+        if status.status == 429
+            || status.rate_limit_remaining == Some(0)
+            || status.retry_after.is_some()
+        {
+            Some(RateLimitInfo {
+                reset: status.rate_limit_reset,
+                retry_after: status.retry_after,
+            })
+        } else {
+            None
+        }
+    }
+
     /// Returns how long to wait before retrying, or `None` when a retry cannot
     /// change the result.
     ///
@@ -194,5 +227,32 @@ mod tests {
             Some(Duration::from_secs(2))
         );
         assert_eq!(status(429, None, Some(30)).retry_delay(), None);
+    }
+
+    #[test]
+    fn detects_rate_limits() {
+        assert_eq!(
+            status(403, Some(0), None).rate_limit_info(),
+            Some(RateLimitInfo {
+                reset: None,
+                retry_after: None
+            })
+        );
+        assert_eq!(
+            status(403, None, Some(2)).rate_limit_info(),
+            Some(RateLimitInfo {
+                reset: None,
+                retry_after: Some(2)
+            })
+        );
+        assert_eq!(
+            status(429, None, None).rate_limit_info(),
+            Some(RateLimitInfo {
+                reset: None,
+                retry_after: None
+            })
+        );
+        assert_eq!(status(403, Some(42), None).rate_limit_info(), None);
+        assert_eq!(status(404, None, None).rate_limit_info(), None);
     }
 }

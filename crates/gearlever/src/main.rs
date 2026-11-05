@@ -9,6 +9,7 @@ mod autostart;
 mod cli;
 mod i18n;
 mod launch;
+mod rate_limit;
 mod settings;
 mod token_store;
 mod ui;
