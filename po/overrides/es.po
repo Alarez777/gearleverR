@@ -385,3 +385,6 @@ msgstr "{minutes} min"
 
 msgid "{seconds} s"
 msgstr "{seconds} s"
+
+msgid "Look for new versions of this application"
+msgstr "Buscar nuevas versiones de esta aplicación"

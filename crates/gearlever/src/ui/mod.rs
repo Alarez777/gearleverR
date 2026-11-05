@@ -159,6 +159,7 @@ enum Msg {
     FilesLoaded(Vec<LoadedFile>, Vec<String>),
     DragActive(bool),
     CheckUpdates,
+    CheckAppUpdates(PathBuf),
     UpdateCheckStarted(usize),
     UpdateChecked(PathBuf, bool),
     UpdateRetryStarted,
@@ -208,6 +209,10 @@ enum Msg {
     SaveWebsite {
         path: PathBuf,
         website: String,
+    },
+    SetUpdatesEnabled {
+        path: PathBuf,
+        enabled: bool,
     },
     ConfigSaved(Result<Config, String>),
     ReloadMetadata(PathBuf),
@@ -473,214 +478,9 @@ impl Component for AppModel {
                     widgets.drop_revealer.set_visible(false);
                 }
             }
-            Msg::CheckUpdates => {
-                if self.checking {
-                    return;
-                }
-                self.checking = true;
-                self.check_total = 0;
-                self.check_done = 0;
-                widgets.updates_button.set_sensitive(false);
-                widgets.updates_button.set_label(&t("Checking updates..."));
-                widgets.updates_progress.set_visible(true);
-                widgets.updates_progress.set_fraction(0.0);
-                widgets.updates_progress.remove_css_class("success");
-                widgets
-                    .updates_generation
-                    .set(widgets.updates_generation.get().wrapping_add(1));
-
-                let apps = self.apps.clone();
-                let config = self.config.clone();
-                let paths = self.paths.clone();
-                let hash_dir = self.paths.cache_root().join("hashes");
-
-                std::thread::spawn(move || {
-                    let token_store = TokenStore::new(Settings::load(&paths));
-                    let token = token_store.get();
-                    let token_state = if token.is_some() {
-                        TokenState::Used
-                    } else if token_store.status() != TokenStatus::None {
-                        TokenState::ConfiguredNotLoaded
-                    } else {
-                        TokenState::None
-                    };
-                    let mut checks = Vec::new();
-                    for app in apps {
-                        match update::resolve(
-                            &app.image_path,
-                            &config.update_manager(&app.image_path),
-                            token.as_deref(),
-                        ) {
-                            Ok(Some(manager)) => checks.push((app, manager)),
-                            Ok(None) => {}
-                            Err(error) => {
-                                tracing::warn!(
-                                    app = %app.name,
-                                    %error,
-                                    "cannot resolve the update manager"
-                                );
-                            }
-                        }
-                    }
-
-                    sender.input(Msg::UpdateCheckStarted(checks.len()));
-
-                    if !checks.is_empty() {
-                        let hashes = HashCache::new(hash_dir);
-                        let next = AtomicUsize::new(0);
-                        let failed = Mutex::new(Vec::<(usize, Duration)>::new());
-                        let token_invalid = AtomicBool::new(false);
-                        let rate_limited = AtomicBool::new(false);
-                        let workers = checks.len().min(MAX_PARALLEL_CHECKS);
-
-                        std::thread::scope(|scope| {
-                            for _ in 0..workers {
-                                let sender = sender.clone();
-                                let checks = &checks;
-                                let next = &next;
-                                let failed = &failed;
-                                let token_invalid = &token_invalid;
-                                let rate_limited = &rate_limited;
-                                let hashes = &hashes;
-                                scope.spawn(move || {
-                                    loop {
-                                        let index = next.fetch_add(1, Ordering::Relaxed);
-                                        let Some((app, manager)) = checks.get(index) else {
-                                            break;
-                                        };
-
-                                        match manager.check(hashes) {
-                                            Ok(status) => sender.input(Msg::UpdateChecked(
-                                                app.image_path.clone(),
-                                                status == UpdateStatus::Available,
-                                            )),
-                                            Err(error @ CoreError::GithubTokenInvalid) => {
-                                                if !token_invalid.swap(true, Ordering::Relaxed) {
-                                                    sender.input(Msg::GithubTokenInvalid);
-                                                }
-                                                tracing::warn!(
-                                                    app = %app.name,
-                                                    %error,
-                                                    "update check failed"
-                                                );
-                                                sender.input(Msg::UpdateChecked(
-                                                    app.image_path.clone(),
-                                                    false,
-                                                ));
-                                            }
-                                            Err(error) => {
-                                                if let Some(delay) = error.retry_delay() {
-                                                    tracing::debug!(
-                                                        app = %app.name,
-                                                        %error,
-                                                        "update check failed, will retry"
-                                                    );
-                                                    failed
-                                                        .lock()
-                                                        .expect("update-check retry queue lock poisoned")
-                                                        .push((index, delay));
-                                                } else {
-                                                    if let Some(info) = error.rate_limit_info() {
-                                                        if !rate_limited
-                                                            .swap(true, Ordering::Relaxed)
-                                                        {
-                                                            sender.input(Msg::GithubRateLimited {
-                                                                info,
-                                                                token_state,
-                                                            });
-                                                        }
-                                                        tracing::warn!(
-                                                            app = %app.name,
-                                                            %error,
-                                                            "GitHub API rate limit exhausted"
-                                                        );
-                                                    } else {
-                                                        tracing::warn!(
-                                                            app = %app.name,
-                                                            %error,
-                                                            "update check failed"
-                                                        );
-                                                    }
-                                                    sender.input(Msg::UpdateChecked(
-                                                        app.image_path.clone(),
-                                                        false,
-                                                    ));
-                                                }
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                        });
-
-                        let mut failed = failed
-                            .into_inner()
-                            .expect("update-check retry queue lock poisoned");
-                        failed.sort_unstable_by_key(|(index, _)| *index);
-
-                        if !failed.is_empty() {
-                            sender.input(Msg::UpdateRetryStarted);
-                            let deadline = Instant::now() + RETRY_BUDGET;
-
-                            for (index, delay) in failed {
-                                let (app, manager) = &checks[index];
-
-                                if Instant::now() >= deadline {
-                                    tracing::warn!(
-                                        app = %app.name,
-                                        "update check not retried: retry budget exhausted"
-                                    );
-                                    sender.input(Msg::UpdateChecked(app.image_path.clone(), false));
-                                    continue;
-                                }
-
-                                if !delay.is_zero() {
-                                    std::thread::sleep(delay);
-                                }
-
-                                match manager.check(&hashes) {
-                                    Ok(status) => {
-                                        tracing::info!(
-                                            app = %app.name,
-                                            "update check succeeded after retry"
-                                        );
-                                        sender.input(Msg::UpdateChecked(
-                                            app.image_path.clone(),
-                                            status == UpdateStatus::Available,
-                                        ));
-                                    }
-                                    Err(error) => {
-                                        if let Some(info) = error.rate_limit_info() {
-                                            if !rate_limited.swap(true, Ordering::Relaxed) {
-                                                sender.input(Msg::GithubRateLimited {
-                                                    info,
-                                                    token_state,
-                                                });
-                                            }
-                                            tracing::warn!(
-                                                app = %app.name,
-                                                %error,
-                                                "GitHub API rate limit exhausted after retry"
-                                            );
-                                        } else {
-                                            tracing::warn!(
-                                                app = %app.name,
-                                                %error,
-                                                "update check failed after retry"
-                                            );
-                                        }
-                                        sender.input(Msg::UpdateChecked(
-                                            app.image_path.clone(),
-                                            false,
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    sender.input(Msg::CheckDone);
-                });
+            Msg::CheckUpdates => Self::start_update_check(self, widgets, &sender, None),
+            Msg::CheckAppUpdates(path) => {
+                Self::start_update_check(self, widgets, &sender, Some(&path));
             }
             Msg::UpdateCheckStarted(total) => {
                 self.check_total = total;
@@ -697,7 +497,7 @@ impl Component for AppModel {
                         .set_fraction(progress_fraction(self.check_done, self.check_total));
                 }
 
-                if available {
+                if available && !self.config.updates_disabled(&path) {
                     self.updates.insert(path.clone());
                 } else {
                     self.updates.remove(&path);
@@ -1293,6 +1093,33 @@ impl Component for AppModel {
                     Self::toast(widgets, &error.to_string());
                 }
             }
+            Msg::SetUpdatesEnabled { path, enabled } => {
+                let mut config = self.config.clone();
+                if enabled {
+                    config.enable_updates(&path);
+                } else {
+                    config.disable_updates(&path);
+                }
+
+                match config.save(&self.paths.config_file()) {
+                    Ok(()) => {
+                        self.config = config;
+
+                        if !enabled && self.updates.remove(&path) {
+                            Self::rebuild_details(self, widgets, &sender);
+                            Self::rebuild_list(self, widgets);
+                        }
+
+                        if enabled {
+                            sender.input(Msg::CheckAppUpdates(path));
+                        }
+                    }
+                    Err(error) => {
+                        Self::toast(widgets, &error.to_string());
+                        Self::rebuild_details(self, widgets, &sender);
+                    }
+                }
+            }
             Msg::ConfigSaved(result) => match result {
                 Ok(config) => {
                     self.config = config;
@@ -1538,6 +1365,284 @@ impl AppModel {
             Ok(apps) => self.apps = apps,
             Err(error) => tracing::error!(%error, "cannot list integrated AppImages"),
         }
+    }
+
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the update check runs one worker pool and its retry pass"
+    )]
+    fn start_update_check(
+        &mut self,
+        widgets: &Widgets,
+        sender: &ComponentSender<Self>,
+        only: Option<&Path>,
+    ) {
+        if self.checking {
+            return;
+        }
+
+        self.checking = true;
+        self.check_total = 0;
+        self.check_done = 0;
+        widgets.updates_button.set_sensitive(false);
+        widgets.updates_button.set_label(&t("Checking updates..."));
+        widgets.updates_progress.set_visible(true);
+        widgets.updates_progress.set_fraction(0.0);
+        widgets.updates_progress.remove_css_class("success");
+        widgets
+            .updates_generation
+            .set(widgets.updates_generation.get().wrapping_add(1));
+
+        let apps: Vec<InstalledApp> = match only {
+            Some(path) => self
+                .apps
+                .iter()
+                .filter(|app| app.image_path == path)
+                .cloned()
+                .collect(),
+            None => self.apps.clone(),
+        };
+        let config = self.config.clone();
+        let paths = self.paths.clone();
+        let hash_dir = self.paths.cache_root().join("hashes");
+        let sender = sender.clone();
+
+        std::thread::spawn(move || {
+            let token_store = TokenStore::new(Settings::load(&paths));
+            let token = token_store.get();
+            let token_state = if token.is_some() {
+                TokenState::Used
+            } else if token_store.status() != TokenStatus::None {
+                TokenState::ConfiguredNotLoaded
+            } else {
+                TokenState::None
+            };
+            let mut checks = Vec::new();
+
+            for app in apps {
+                if config.updates_disabled(&app.image_path) {
+                    continue;
+                }
+
+                match update::resolve(
+                    &app.image_path,
+                    &config.update_manager(&app.image_path),
+                    token.as_deref(),
+                ) {
+                    Ok(Some(manager)) => checks.push((app, manager)),
+                    Ok(None) => {}
+                    Err(error) => {
+                        tracing::warn!(
+                            app = %app.name,
+                            %error,
+                            "cannot resolve the update manager"
+                        );
+                    }
+                }
+            }
+
+            sender.input(Msg::UpdateCheckStarted(checks.len()));
+
+            if !checks.is_empty() {
+                let hashes = HashCache::new(hash_dir);
+                let next = AtomicUsize::new(0);
+                let failed = Mutex::new(Vec::<(usize, Duration)>::new());
+                let token_invalid = AtomicBool::new(false);
+                let rate_limited = AtomicBool::new(false);
+                let workers = checks.len().min(MAX_PARALLEL_CHECKS);
+
+                std::thread::scope(|scope| {
+                    for _ in 0..workers {
+                        let sender = sender.clone();
+                        let checks = &checks;
+                        let next = &next;
+                        let failed = &failed;
+                        let token_invalid = &token_invalid;
+                        let rate_limited = &rate_limited;
+                        let hashes = &hashes;
+                        scope.spawn(move || {
+                            loop {
+                                let index = next.fetch_add(1, Ordering::Relaxed);
+                                let Some((app, manager)) = checks.get(index) else {
+                                    break;
+                                };
+
+                                match manager.check(hashes) {
+                                    Ok(status) => sender.input(Msg::UpdateChecked(
+                                        app.image_path.clone(),
+                                        status == UpdateStatus::Available,
+                                    )),
+                                    Err(error @ CoreError::GithubTokenInvalid) => {
+                                        if !token_invalid.swap(true, Ordering::Relaxed) {
+                                            sender.input(Msg::GithubTokenInvalid);
+                                        }
+                                        tracing::warn!(
+                                            app = %app.name,
+                                            %error,
+                                            "update check failed"
+                                        );
+                                        sender.input(Msg::UpdateChecked(
+                                            app.image_path.clone(),
+                                            false,
+                                        ));
+                                    }
+                                    Err(error) => {
+                                        if let Some(delay) = error.retry_delay() {
+                                            tracing::debug!(
+                                                app = %app.name,
+                                                %error,
+                                                "update check failed, will retry"
+                                            );
+                                            failed
+                                                .lock()
+                                                .expect("update-check retry queue lock poisoned")
+                                                .push((index, delay));
+                                        } else {
+                                            if let Some(info) = error.rate_limit_info() {
+                                                if !rate_limited.swap(true, Ordering::Relaxed) {
+                                                    sender.input(Msg::GithubRateLimited {
+                                                        info,
+                                                        token_state,
+                                                    });
+                                                }
+                                                tracing::warn!(
+                                                    app = %app.name,
+                                                    %error,
+                                                    "GitHub API rate limit exhausted"
+                                                );
+                                            } else {
+                                                tracing::warn!(
+                                                    app = %app.name,
+                                                    %error,
+                                                    "update check failed"
+                                                );
+                                            }
+                                            sender.input(Msg::UpdateChecked(
+                                                app.image_path.clone(),
+                                                false,
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+
+                let mut failed = failed
+                    .into_inner()
+                    .expect("update-check retry queue lock poisoned");
+                failed.sort_unstable_by_key(|(index, _)| *index);
+
+                if !failed.is_empty() {
+                    sender.input(Msg::UpdateRetryStarted);
+                    let deadline = Instant::now() + RETRY_BUDGET;
+
+                    for (index, delay) in failed {
+                        let (app, manager) = &checks[index];
+
+                        if Instant::now() >= deadline {
+                            tracing::warn!(
+                                app = %app.name,
+                                "update check not retried: retry budget exhausted"
+                            );
+                            sender.input(Msg::UpdateChecked(app.image_path.clone(), false));
+                            continue;
+                        }
+
+                        if !delay.is_zero() {
+                            std::thread::sleep(delay);
+                        }
+
+                        match manager.check(&hashes) {
+                            Ok(status) => {
+                                tracing::info!(
+                                    app = %app.name,
+                                    "update check succeeded after retry"
+                                );
+                                sender.input(Msg::UpdateChecked(
+                                    app.image_path.clone(),
+                                    status == UpdateStatus::Available,
+                                ));
+                            }
+                            Err(error) => {
+                                if let Some(info) = error.rate_limit_info() {
+                                    if !rate_limited.swap(true, Ordering::Relaxed) {
+                                        sender.input(Msg::GithubRateLimited { info, token_state });
+                                    }
+                                    tracing::warn!(
+                                        app = %app.name,
+                                        %error,
+                                        "GitHub API rate limit exhausted after retry"
+                                    );
+                                } else {
+                                    tracing::warn!(
+                                        app = %app.name,
+                                        %error,
+                                        "update check failed after retry"
+                                    );
+                                }
+                                sender.input(Msg::UpdateChecked(app.image_path.clone(), false));
+                            }
+                        }
+                    }
+                }
+            }
+
+            sender.input(Msg::CheckDone);
+        });
+    }
+
+    /// Returns whether `app` has an update source.
+    fn has_update_source(&self, app: &InstalledApp) -> bool {
+        update::resolve(
+            &app.image_path,
+            &self.config.update_manager(&app.image_path),
+            None,
+        )
+        .ok()
+        .flatten()
+        .is_some()
+    }
+
+    fn updates_toggle_row(
+        &self,
+        app: &InstalledApp,
+        sender: &ComponentSender<Self>,
+    ) -> adw::ActionRow {
+        let enabled = !self.config.updates_disabled(&app.image_path);
+        let row = adw::ActionRow::builder()
+            .title(t("Check for updates"))
+            .subtitle(t("Look for new versions of this application"))
+            .build();
+        row.set_activatable(true);
+        row.add_prefix(&gtk::Image::from_icon_name(
+            "software-update-available-symbolic",
+        ));
+
+        let toggle = gtk::Switch::new();
+        toggle.set_valign(gtk::Align::Center);
+        toggle.set_active(enabled);
+        row.add_suffix(&toggle);
+
+        // AdwSwitchRow (libadwaita 1.4) is not available on Debian 12.
+        let toggle_for_row = toggle.clone();
+        row.connect_activated(move |_| {
+            toggle_for_row.set_active(!toggle_for_row.is_active());
+        });
+
+        let sender = sender.clone();
+        let path = app.image_path.clone();
+        toggle.connect_active_notify(move |toggle| {
+            let enabled = toggle.is_active();
+            let sender = sender.clone();
+            let path = path.clone();
+            glib::idle_add_local_once(move || {
+                sender.input(Msg::SetUpdatesEnabled { path, enabled });
+            });
+        });
+
+        row
     }
 
     fn pending_metadata(&self, path: &Path) -> Option<&AppMetadata> {
@@ -1995,6 +2100,9 @@ impl AppModel {
         reload_list.add_css_class("boxed-list");
         reload_list.set_selection_mode(gtk::SelectionMode::None);
         reload_list.append(&reload);
+        if self.has_update_source(app) {
+            reload_list.append(&self.updates_toggle_row(app, sender));
+        }
         content.append(&reload_list);
 
         let list = gtk::ListBox::new();
