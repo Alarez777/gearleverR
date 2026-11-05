@@ -222,8 +222,9 @@ impl TokenStore {
     /// # Errors
     ///
     /// Returns an error when the token is empty or malformed, when the keyring
-    /// is unavailable and the encrypted fallback cannot be written, or when
-    /// the machine-id needed by the fallback cannot be read.
+    /// is unavailable and the encrypted fallback cannot be written, when the
+    /// machine-id needed by the fallback cannot be read, or when an old token
+    /// cannot be removed from the keyring.
     pub(crate) fn set(&self, token: &str) -> Result<()> {
         let token = normalize_token(token)?;
 
@@ -242,7 +243,19 @@ impl TokenStore {
                     bail!("cannot store the encrypted GitHub token in GSettings");
                 }
                 if let Err(error) = Self::clear_keyring() {
-                    tracing::debug!(%error, "cannot remove the old keyring token");
+                    // An old keyring item would shadow the token just written,
+                    // because reads prefer the keyring. Roll the fallback back
+                    // and report the failure instead of keeping a stale token.
+                    let rolled_back = self.settings.set_github_token_cipher("")
+                        || self.settings.github_token_cipher().is_none();
+                    if !rolled_back {
+                        tracing::warn!(
+                            %error,
+                            "cannot remove the old keyring token or roll back the encrypted one"
+                        );
+                    }
+                    return Err(error)
+                        .context("removing the previous GitHub token from the keyring");
                 }
                 Ok(())
             }
