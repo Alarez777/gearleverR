@@ -788,6 +788,10 @@ impl CommandContext {
             .ok_or_else(|| anyhow!("No update method was found for this AppImage"))
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "token state, per-app checks and retries share one pass"
+    )]
     fn collect_updates(&self) -> Result<CollectedUpdates> {
         let hashes = HashCache::new(self.paths.cache_root().join("hashes"));
         let token_store = TokenStore::new(self.settings.clone());
@@ -804,6 +808,10 @@ impl CommandContext {
         let mut updates = Vec::new();
 
         for app in self.apps()? {
+            if self.config.updates_disabled(&app.image_path) {
+                continue;
+            }
+
             let manager = match update::resolve(
                 &app.image_path,
                 &self.config.update_manager(&app.image_path),
