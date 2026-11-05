@@ -46,7 +46,7 @@ use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 use crate::i18n::{t, tf};
 use crate::launch;
 use crate::settings::{APP_ID, Settings, keys};
-use crate::token_store::{TokenStore, valid_token};
+use crate::token_store::{TokenStatus, TokenStore, valid_token};
 use util::{normalize, pill};
 
 /// Maximum update checks in flight at once, matching `AppManager`'s probe pool.
@@ -57,7 +57,6 @@ const RETRY_BUDGET: Duration = Duration::from_secs(20);
 
 /// Starts the graphical application.
 pub(crate) fn run(arguments: Vec<String>) {
-    crate::i18n::init();
     tracing::info!("starting the Gear LeverR interface");
 
     let opened_from_file = !arguments.is_empty();
@@ -155,6 +154,8 @@ enum Msg {
     UpdateChecked(PathBuf, bool),
     UpdateRetryStarted,
     CheckDone,
+    GithubTokenTested(TokenCheck),
+    GithubTokenInvalid,
     InstallCandidate(PathBuf),
     InstallWithConflict {
         path: PathBuf,
@@ -507,6 +508,7 @@ impl Component for AppModel {
                         let hashes = HashCache::new(hash_dir);
                         let next = AtomicUsize::new(0);
                         let failed = Mutex::new(Vec::<(usize, Duration)>::new());
+                        let token_invalid = AtomicBool::new(false);
                         let workers = checks.len().min(MAX_PARALLEL_CHECKS);
 
                         std::thread::scope(|scope| {
@@ -515,6 +517,7 @@ impl Component for AppModel {
                                 let checks = &checks;
                                 let next = &next;
                                 let failed = &failed;
+                                let token_invalid = &token_invalid;
                                 let hashes = &hashes;
                                 scope.spawn(move || {
                                     loop {
@@ -528,6 +531,20 @@ impl Component for AppModel {
                                                 app.image_path.clone(),
                                                 status == UpdateStatus::Available,
                                             )),
+                                            Err(error @ CoreError::GithubTokenInvalid) => {
+                                                if !token_invalid.swap(true, Ordering::Relaxed) {
+                                                    sender.input(Msg::GithubTokenInvalid);
+                                                }
+                                                tracing::warn!(
+                                                    app = %app.name,
+                                                    %error,
+                                                    "update check failed"
+                                                );
+                                                sender.input(Msg::UpdateChecked(
+                                                    app.image_path.clone(),
+                                                    false,
+                                                ));
+                                            }
                                             Err(error) => {
                                                 if let Some(delay) = error.retry_delay() {
                                                     tracing::debug!(
@@ -672,6 +689,29 @@ impl Component for AppModel {
                         t("Check for updates")
                     });
                 Self::rebuild_list(self, widgets);
+            }
+            Msg::GithubTokenTested(check) => {
+                let store = TokenStore::new(self.settings.clone());
+                match check {
+                    TokenCheck::Valid { expires_at, .. } => {
+                        let _ = store.mark_valid(expires_at.as_deref());
+                    }
+                    TokenCheck::Invalid => {
+                        let _ = store.mark_invalid();
+                    }
+                    TokenCheck::RateLimited => {
+                        let expires_at = store.expires_at();
+                        let _ = store.mark_valid(expires_at.as_deref());
+                    }
+                    _ => {}
+                }
+            }
+            Msg::GithubTokenInvalid => {
+                let _ = TokenStore::new(self.settings.clone()).mark_invalid();
+                let toast = adw::Toast::new(&t("GitHub token expired or invalid"));
+                toast.set_button_label(Some(&t("Open Preferences")));
+                toast.set_action_name(Some("win.preferences"));
+                widgets.toast.add_toast(toast);
             }
             Msg::InstallCandidate(path) => {
                 let Some(metadata) = self.pending_metadata(&path).cloned() else {
@@ -2439,12 +2479,25 @@ impl AppModel {
         )));
 
         let token_store = TokenStore::new(self.settings.clone());
-        let current_token = token_store.get().unwrap_or_default();
+        let mut status = token_store.status();
+        let current_token = token_store.get_interactive();
+        if current_token.is_some() && status == TokenStatus::None {
+            let _ = token_store.mark_unchecked();
+            status = TokenStatus::Unchecked;
+        }
+        let configured = status != TokenStatus::None;
+        let token_missing = configured && current_token.is_none();
 
         let token_row = adw::PasswordEntryRow::new();
-        token_row.set_title(&t("Personal access token"));
+        token_row.set_title(&if token_missing {
+            t("Personal access token (configured)")
+        } else {
+            t("Personal access token")
+        });
         token_row.add_prefix(&gtk::Image::from_icon_name("dialog-password-symbolic"));
-        token_row.set_text(&current_token);
+        if let Some(token) = &current_token {
+            token_row.set_text(token);
+        }
 
         let apply = gtk::Button::from_icon_name("object-select-symbolic");
         apply.set_valign(gtk::Align::Center);
@@ -2457,18 +2510,20 @@ impl AppModel {
         clear.add_css_class("flat");
         clear.set_tooltip_text(Some(&t("Clear token")));
 
-        let status_row = adw::ActionRow::builder()
-            .title(t("Test token"))
-            .subtitle(t("Verify your token works and check rate limit status"))
-            .build();
+        let status_row = adw::ActionRow::builder().title(t("Test token")).build();
         status_row.add_prefix(&gtk::Image::from_icon_name("object-select-symbolic"));
+        status_row.set_subtitle(&initial_github_status(
+            &token_store,
+            status,
+            current_token.as_deref(),
+        ));
 
         let spinner = gtk::Spinner::new();
         spinner.set_visible(false);
         let test = gtk::Button::with_label(&t("Test"));
         test.set_valign(gtk::Align::Center);
         test.add_css_class("flat");
-        test.set_sensitive(valid_token(&current_token));
+        test.set_sensitive(current_token.as_deref().is_some_and(valid_token));
 
         let store_apply = token_store.clone();
         let row_apply = token_row.clone();
@@ -2495,6 +2550,7 @@ impl AppModel {
         let test_status = status_row.clone();
         let test_button = test.clone();
         let test_spinner = spinner.clone();
+        let sender_test = sender.clone();
         test.connect_clicked(move |_| {
             let token = test_row.text().trim().to_owned();
             if !valid_token(&token) {
@@ -2502,28 +2558,13 @@ impl AppModel {
                 return;
             }
 
-            test_button.set_sensitive(false);
-            test_spinner.set_visible(true);
-            test_status.set_subtitle(&t("Testing..."));
-
-            let row_ref = glib::SendWeakRef::from(test_status.downgrade());
-            let button_ref = glib::SendWeakRef::from(test_button.downgrade());
-            let spinner_ref = glib::SendWeakRef::from(test_spinner.downgrade());
-
-            std::thread::spawn(move || {
-                let result = update::github::test_token(&token);
-                glib::MainContext::default().invoke(move || {
-                    if let Some(row) = row_ref.upgrade() {
-                        row.set_subtitle(&token_check_message(&result));
-                    }
-                    if let Some(button) = button_ref.upgrade() {
-                        button.set_sensitive(true);
-                    }
-                    if let Some(spinner) = spinner_ref.upgrade() {
-                        spinner.set_visible(false);
-                    }
-                });
-            });
+            start_token_test(
+                token,
+                &test_status,
+                &test_button,
+                &test_spinner,
+                &sender_test,
+            );
         });
 
         let test_for_change = test.clone();
@@ -3498,7 +3539,10 @@ fn save_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, store
     }
 
     match store.set(&token) {
-        Ok(()) => status.set_subtitle(&t("GitHub token saved")),
+        Ok(()) => {
+            row.set_title(&t("Personal access token"));
+            status.set_subtitle(&t("GitHub token saved. Use Test to verify it."));
+        }
         Err(error) => {
             let error = error.to_string();
             status.set_subtitle(&tf(
@@ -3513,6 +3557,7 @@ fn clear_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, stor
     match store.clear() {
         Ok(()) => {
             row.set_text("");
+            row.set_title(&t("Personal access token"));
             status.set_subtitle(&t("GitHub token cleared"));
         }
         Err(error) => {
@@ -3525,23 +3570,101 @@ fn clear_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, stor
     }
 }
 
+fn initial_github_status(store: &TokenStore, status: TokenStatus, token: Option<&str>) -> String {
+    if status == TokenStatus::None {
+        return t("Verify your token works and check rate limit status");
+    }
+    if token.is_none() {
+        return t(
+            "Token configured, but it could not be loaded. Unlock the system keyring or enter a new token.",
+        );
+    }
+
+    match status {
+        TokenStatus::Valid => match store.expires_at() {
+            Some(expires_at) => tf(
+                "Token configured · valid · expires {expires_at}",
+                &[("expires_at", &expires_at)],
+            ),
+            None => t("Token configured · valid"),
+        },
+        TokenStatus::Invalid => match store.expires_at() {
+            Some(expires_at) => tf(
+                "Token configured · invalid or expired · expires {expires_at}",
+                &[("expires_at", &expires_at)],
+            ),
+            None => t("Token configured · invalid or expired"),
+        },
+        _ => t("Token configured. Use Test to verify it."),
+    }
+}
+
+fn start_token_test(
+    token: String,
+    status: &adw::ActionRow,
+    button: &gtk::Button,
+    spinner: &gtk::Spinner,
+    sender: &ComponentSender<AppModel>,
+) {
+    button.set_sensitive(false);
+    spinner.set_visible(true);
+    status.set_subtitle(&t("Testing..."));
+
+    let row_ref = glib::SendWeakRef::from(status.downgrade());
+    let button_ref = glib::SendWeakRef::from(button.downgrade());
+    let spinner_ref = glib::SendWeakRef::from(spinner.downgrade());
+    let sender = sender.clone();
+
+    std::thread::spawn(move || {
+        let result = update::github::test_token(&token);
+        sender.input(Msg::GithubTokenTested(result.clone()));
+        glib::MainContext::default().invoke(move || {
+            if let Some(row) = row_ref.upgrade() {
+                row.set_subtitle(&token_check_message(&result));
+            }
+            if let Some(button) = button_ref.upgrade() {
+                button.set_sensitive(true);
+            }
+            if let Some(spinner) = spinner_ref.upgrade() {
+                spinner.set_visible(false);
+            }
+        });
+    });
+}
+
 fn token_check_message(check: &TokenCheck) -> String {
     match check {
         TokenCheck::Valid {
-            remaining: Some(remaining),
-            limit: Some(limit),
-        } => {
-            let remaining = remaining.to_string();
-            let limit = limit.to_string();
-            tf(
-                "Token is valid — {remaining} / {limit} requests remaining",
-                &[("remaining", &remaining), ("limit", &limit)],
-            )
-        }
-        TokenCheck::Valid {
-            remaining: _,
-            limit: _,
-        } => t("Token is valid"),
+            remaining,
+            limit,
+            expires_at,
+        } => match (remaining, limit, expires_at) {
+            (Some(remaining), Some(limit), Some(expires_at)) => {
+                let remaining = remaining.to_string();
+                let limit = limit.to_string();
+                tf(
+                    "Token is valid — {remaining} / {limit} requests remaining · expires {expires_at}",
+                    &[
+                        ("remaining", &remaining),
+                        ("limit", &limit),
+                        ("expires_at", expires_at),
+                    ],
+                )
+            }
+            (Some(remaining), Some(limit), None) => {
+                let remaining = remaining.to_string();
+                let limit = limit.to_string();
+                tf(
+                    "Token is valid — {remaining} / {limit} requests remaining",
+                    &[("remaining", &remaining), ("limit", &limit)],
+                )
+            }
+            (_, _, Some(expires_at)) => tf(
+                "Token is valid — expires {expires_at}",
+                &[("expires_at", expires_at)],
+            ),
+            _ => t("Token is valid"),
+        },
         TokenCheck::Invalid => t("Authentication failed — token is invalid or expired"),
         TokenCheck::Forbidden => t("Access forbidden — token lacks required permissions"),
         TokenCheck::RateLimited => t("Rate limit exceeded — try again later"),

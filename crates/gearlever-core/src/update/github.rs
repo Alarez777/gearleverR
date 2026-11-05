@@ -17,6 +17,7 @@ use super::{
 
 const ACCEPT: &str = "application/vnd.github+json";
 const RATE_LIMIT_URL: &str = "https://api.github.com/rate_limit";
+const USER_URL: &str = "https://api.github.com/user";
 
 /// A GitHub release.
 #[derive(Clone)]
@@ -50,6 +51,9 @@ pub enum TokenCheck {
         remaining: Option<u64>,
         /// Total requests allowed in the window, when GitHub reports them.
         limit: Option<u64>,
+        /// Expiration reported by the `GitHub-Authentication-Token-Expiration`
+        /// header, when present.
+        expires_at: Option<String>,
     },
     /// GitHub rejected the credentials.
     Invalid,
@@ -66,21 +70,35 @@ pub enum TokenCheck {
 /// Checks a GitHub token with `GET /rate_limit`.
 ///
 /// The request runs synchronously and is meant to be called from a worker
-/// thread.
+/// thread. The expiration header is read from that response; when GitHub does
+/// not send it there, a single `/user` request retrieves it.
 #[must_use]
 pub fn test_token(token: &str) -> TokenCheck {
-    let result = HttpClient::shared().get_json_with_token::<RateLimit>(
+    let client = HttpClient::shared();
+    let result = client.get_json_with_token_expiration::<RateLimit>(
         RATE_LIMIT_URL,
         Some(ACCEPT),
         Some(token),
     );
 
     match result {
-        Ok(rate_limit) => {
+        Ok((rate_limit, mut expires_at)) => {
+            if expires_at.is_none() {
+                expires_at = client
+                    .get_json_with_token_expiration::<serde_json::Value>(
+                        USER_URL,
+                        Some(ACCEPT),
+                        Some(token),
+                    )
+                    .ok()
+                    .and_then(|(_, expiration)| expiration);
+            }
+
             let core = rate_limit.resources.and_then(|resources| resources.core);
             TokenCheck::Valid {
                 remaining: core.as_ref().and_then(|core| core.remaining),
                 limit: core.as_ref().and_then(|core| core.limit),
+                expires_at,
             }
         }
         Err(Error::HttpStatus(status)) => match status.status {
@@ -180,6 +198,20 @@ impl Github {
         boolean(&self.config, "allow_prereleases")
     }
 
+    fn fetch_releases(&self, url: &str) -> Result<Vec<Release>> {
+        self.http
+            .get_json_with_token(url, Some(ACCEPT), self.token.as_deref())
+            .map_err(|error| {
+                if self.token.is_some()
+                    && matches!(&error, Error::HttpStatus(status) if status.status == 401)
+                {
+                    Error::GithubTokenInvalid
+                } else {
+                    error
+                }
+            })
+    }
+
     fn fetch_target(&self) -> Result<Option<Target>> {
         let (repo, pattern, allow_prereleases) =
             if let Some((repo, release, pattern)) = self.embedded_data() {
@@ -202,14 +234,9 @@ impl Github {
 
         let base = format!("https://api.github.com/repos/{repo}/releases");
         let releases: Vec<Release> = if allow_prereleases {
-            self.http
-                .get_json_with_token(&base, Some(ACCEPT), self.token.as_deref())?
+            self.fetch_releases(&base)?
         } else {
-            vec![self.http.get_json_with_token(
-                &format!("{base}/latest"),
-                Some(ACCEPT),
-                self.token.as_deref(),
-            )?]
+            self.fetch_releases(&format!("{base}/latest"))?
         };
 
         let release = releases

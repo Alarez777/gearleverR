@@ -287,9 +287,6 @@ msgstr "Introduce primero un token"
 msgid "The token contains invalid characters"
 msgstr "El token contiene caracteres no válidos"
 
-msgid "GitHub token saved"
-msgstr "Token de GitHub guardado"
-
 msgid "Could not save the token: {error}"
 msgstr "No se pudo guardar el token: {error}"
 
@@ -322,3 +319,42 @@ msgstr "Error de conexión: {error}"
 
 msgid "Unexpected response"
 msgstr "Respuesta inesperada"
+
+msgid "Personal access token (configured)"
+msgstr "Token de acceso personal (configurado)"
+
+msgid "GitHub token saved. Use Test to verify it."
+msgstr "Token de GitHub guardado. Usa Probar para verificarlo."
+
+msgid "Token configured, but it could not be loaded. Unlock the system keyring or enter a new token."
+msgstr "El token está configurado, pero no se pudo cargar. Desbloquea el llavero del sistema o introduce un token nuevo."
+
+msgid "Token configured · valid · expires {expires_at}"
+msgstr "Token configurado · válido · caduca el {expires_at}"
+
+msgid "Token configured · valid"
+msgstr "Token configurado · válido"
+
+msgid "Token configured · invalid or expired · expires {expires_at}"
+msgstr "Token configurado · no válido o caducado (caducidad: {expires_at})"
+
+msgid "Token configured · invalid or expired"
+msgstr "Token configurado · no válido o caducado"
+
+msgid "Token configured. Use Test to verify it."
+msgstr "Token configurado. Usa Probar para verificarlo."
+
+msgid "Token is valid — {remaining} / {limit} requests remaining · expires {expires_at}"
+msgstr "El token es válido: quedan {remaining} de {limit} solicitudes · caduca el {expires_at}"
+
+msgid "Token is valid — expires {expires_at}"
+msgstr "El token es válido: caduca el {expires_at}"
+
+msgid "GitHub authentication failed (401). Check your token in Preferences → GitHub."
+msgstr "Falló la autenticación de GitHub (401). Revisa tu token en Preferencias → GitHub."
+
+msgid "Open Preferences"
+msgstr "Abrir Preferencias"
+
+msgid "GitHub token expired or invalid"
+msgstr "El token de GitHub ha caducado o no es válido"

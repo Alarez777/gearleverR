@@ -103,6 +103,10 @@ pub enum Error {
     #[error("network error: {0}")]
     HttpStatus(HttpStatus),
 
+    /// GitHub rejected the configured token.
+    #[error("GitHub authentication failed (401). Check your token in Preferences → GitHub.")]
+    GithubTokenInvalid,
+
     /// An update manager is missing required configuration.
     #[error("invalid update configuration: {0}")]
     UpdateConfig(String),
@@ -176,6 +180,7 @@ mod tests {
         assert_eq!(status(404, None, None).retry_delay(), None);
         assert_eq!(status(403, Some(0), None).retry_delay(), None);
         assert_eq!(status(403, Some(42), None).retry_delay(), None);
+        assert_eq!(Error::GithubTokenInvalid.retry_delay(), None);
     }
 
     #[test]

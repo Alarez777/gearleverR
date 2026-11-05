@@ -21,6 +21,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::{ArgGroup, Parser};
 use serde::Serialize;
 
+use gearlever_core::Error as CoreError;
 use gearlever_core::appimage::{AppImage, MetadataOptions, is_running};
 use gearlever_core::config::Config;
 use gearlever_core::hash::HashCache;
@@ -30,6 +31,7 @@ use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
+use crate::i18n::t;
 use crate::settings::Settings;
 use crate::token_store::TokenStore;
 
@@ -434,7 +436,7 @@ impl Cli {
     }
 
     fn list_updates_command(&self, context: &CommandContext) -> Result<()> {
-        let updates = context.collect_updates()?;
+        let (updates, _) = context.collect_updates()?;
 
         if self.json {
             let entries: Vec<AppJson> = updates
@@ -497,7 +499,7 @@ impl Cli {
             let manager = context.manager_for(&app.image_path)?;
             vec![(app.clone(), manager)]
         } else {
-            let updates = context.collect_updates()?;
+            let (updates, _) = context.collect_updates()?;
             if updates.is_empty() {
                 println!("No updates available");
                 return Ok(());
@@ -636,7 +638,13 @@ impl Cli {
     }
 
     fn fetch_updates_command(context: &CommandContext) -> Result<()> {
-        let updates = context.collect_updates()?;
+        let (updates, token_invalid) = context.collect_updates()?;
+
+        if token_invalid {
+            Self::notify(&t(
+                "GitHub authentication failed (401). Check your token in Preferences → GitHub.",
+            ))?;
+        }
 
         if updates.is_empty() {
             println!("No updates available");
@@ -649,8 +657,14 @@ impl Cli {
             format!("{} updates available", updates.len())
         };
 
+        Self::notify(&message)?;
+
+        Ok(())
+    }
+
+    fn notify(message: &str) -> Result<()> {
         let result = Command::new("notify-send")
-            .arg(&message)
+            .arg(message)
             .arg("--action=Open Gear LeverR")
             .arg("--expire-time=600000")
             .output();
@@ -699,6 +713,9 @@ impl Cli {
     }
 }
 
+/// Updates found by a CLI check and whether the token became invalid.
+type CollectedUpdates = (Vec<(InstalledApp, Box<dyn update::UpdateManager>)>, bool);
+
 /// Shared state for a CLI invocation.
 struct CommandContext {
     paths: Paths,
@@ -745,9 +762,11 @@ impl CommandContext {
             .ok_or_else(|| anyhow!("No update method was found for this AppImage"))
     }
 
-    fn collect_updates(&self) -> Result<Vec<(InstalledApp, Box<dyn update::UpdateManager>)>> {
+    fn collect_updates(&self) -> Result<CollectedUpdates> {
         let hashes = HashCache::new(self.paths.cache_root().join("hashes"));
-        let token = TokenStore::new(self.settings.clone()).get();
+        let token_store = TokenStore::new(self.settings.clone());
+        let token = token_store.get();
+        let mut notify_token_invalid = false;
         let mut updates = Vec::new();
 
         for app in self.apps()? {
@@ -771,6 +790,16 @@ impl CommandContext {
             match manager.check(&hashes) {
                 Ok(UpdateStatus::Available) => updates.push((app, manager)),
                 Ok(_) => {}
+                Err(error @ CoreError::GithubTokenInvalid) => {
+                    tracing::warn!(
+                        app = %app.name,
+                        %error,
+                        "update check failed"
+                    );
+                    if token_store.mark_invalid() {
+                        notify_token_invalid = true;
+                    }
+                }
                 Err(error) => {
                     let Some(delay) = error.retry_delay() else {
                         tracing::warn!(
@@ -805,7 +834,7 @@ impl CommandContext {
             }
         }
 
-        Ok(updates)
+        Ok((updates, notify_token_invalid))
     }
 
     fn update_options(&self) -> UpdateOptions {

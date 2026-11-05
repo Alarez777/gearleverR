@@ -23,7 +23,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use hkdf::Hkdf;
 use secret_service::EncryptionType;
-use secret_service::blocking::SecretService;
+use secret_service::blocking::{Item, SecretService};
 use sha2::Sha256;
 use zbus::blocking::Connection;
 use zbus::blocking::fdo::DBusProxy;
@@ -41,6 +41,39 @@ const SALT_LEN: usize = 16;
 const NONCE_LEN: usize = 12;
 const KEY_LEN: usize = 32;
 const HKDF_INFO: &[u8] = b"github-token-v1";
+
+/// Persistent state of the configured GitHub token.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TokenStatus {
+    /// No token is configured.
+    None,
+    /// A token is stored but has not been verified.
+    Unchecked,
+    /// The last test accepted the token.
+    Valid,
+    /// The last test or API response rejected the token.
+    Invalid,
+}
+
+impl TokenStatus {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Unchecked => "unchecked",
+            Self::Valid => "valid",
+            Self::Invalid => "invalid",
+        }
+    }
+
+    fn parse(value: &str) -> Self {
+        match value {
+            "unchecked" => Self::Unchecked,
+            "valid" => Self::Valid,
+            "invalid" => Self::Invalid,
+            _ => Self::None,
+        }
+    }
+}
 
 /// Reads and writes the GitHub token.
 #[derive(Clone)]
@@ -62,9 +95,12 @@ impl TokenStore {
     }
 
     /// Returns the stored token, trying the keyring before the encrypted blob.
+    ///
+    /// This is the background-safe read: it does not activate the Secret
+    /// Service and never prompts to unlock a collection.
     #[must_use]
     pub(crate) fn get(&self) -> Option<String> {
-        match Self::get_keyring() {
+        match Self::get_keyring_background() {
             Ok(Some(token)) => return Some(token),
             Ok(None) => {}
             Err(error) => {
@@ -73,6 +109,72 @@ impl TokenStore {
         }
 
         self.get_cipher()
+    }
+
+    /// Returns the stored token, allowing the Secret Service to activate.
+    ///
+    /// Used only when Preferences is open, so a short D-Bus activation delay is
+    /// acceptable and matches what libsecret does for `AppManager`.
+    #[must_use]
+    pub(crate) fn get_interactive(&self) -> Option<String> {
+        match Self::get_keyring_interactive() {
+            Ok(Some(token)) => return Some(token),
+            Ok(None) => {}
+            Err(error) => {
+                tracing::debug!(%error, "cannot read the GitHub token from the keyring");
+            }
+        }
+
+        self.get_cipher()
+    }
+
+    /// Returns the stored token status.
+    #[must_use]
+    pub(crate) fn status(&self) -> TokenStatus {
+        self.settings
+            .github_token_status()
+            .as_deref()
+            .map_or(TokenStatus::None, TokenStatus::parse)
+    }
+
+    /// Returns the stored GitHub token expiration, when known.
+    #[must_use]
+    pub(crate) fn expires_at(&self) -> Option<String> {
+        self.settings.github_token_expires()
+    }
+
+    /// Marks the token as stored but not verified.
+    pub(crate) fn mark_unchecked(&self) -> bool {
+        let _ = self.settings.set_github_token_expires("");
+        self.write_status(TokenStatus::Unchecked)
+    }
+
+    /// Marks the token as valid and records its expiration, when known.
+    pub(crate) fn mark_valid(&self, expires_at: Option<&str>) -> bool {
+        let _ = self
+            .settings
+            .set_github_token_expires(expires_at.unwrap_or_default());
+        self.write_status(TokenStatus::Valid)
+    }
+
+    /// Marks the token as invalid or expired.
+    ///
+    /// Returns whether this was a transition from another status, which the
+    /// background CLI uses to notify only once.
+    pub(crate) fn mark_invalid(&self) -> bool {
+        let was_invalid = self.status() == TokenStatus::Invalid;
+        let written = self.write_status(TokenStatus::Invalid);
+        written && !was_invalid
+    }
+
+    /// Clears both the status and the expiration metadata.
+    pub(crate) fn mark_none(&self) -> bool {
+        let _ = self.settings.set_github_token_expires("");
+        self.write_status(TokenStatus::None)
+    }
+
+    fn write_status(&self, status: TokenStatus) -> bool {
+        self.settings.set_github_token_status(status.as_str())
     }
 
     /// Stores a token, preferring the keyring and falling back to the blob.
@@ -85,7 +187,7 @@ impl TokenStore {
     pub(crate) fn set(&self, token: &str) -> Result<()> {
         let token = normalize_token(token)?;
 
-        match Self::set_keyring(token) {
+        let result = match Self::set_keyring(token) {
             Ok(()) => {
                 let _ = self.settings.set_github_token_cipher("");
                 Ok(())
@@ -104,7 +206,12 @@ impl TokenStore {
                 }
                 Ok(())
             }
+        };
+
+        if result.is_ok() {
+            let _ = self.mark_unchecked();
         }
+        result
     }
 
     /// Removes the token from both tiers.
@@ -122,15 +229,41 @@ impl TokenStore {
         }
 
         keyring_result.context("clearing the GitHub token from the keyring")?;
+        let _ = self.mark_none();
         Ok(())
     }
 
-    fn get_keyring() -> Result<Option<String>> {
+    fn get_keyring_background() -> Result<Option<String>> {
         let Some(connection) = keyring_connection() else {
             return Ok(None);
         };
         let service = SecretService::connect_with_existing(EncryptionType::Dh, connection)
             .context("connecting to the Secret Service")?;
+        Self::read_keyring(&service)
+    }
+
+    fn get_keyring_interactive() -> Result<Option<String>> {
+        let service = SecretService::connect(EncryptionType::Dh)
+            .context("connecting to the Secret Service")?;
+        Self::read_keyring(&service)
+    }
+
+    fn read_keyring(service: &SecretService<'_>) -> Result<Option<String>> {
+        if let Ok(collection) = service.get_default_collection() {
+            let items = collection
+                .search_items(keyring_attributes())
+                .context("searching the default keyring collection")?;
+
+            for item in &items {
+                if item.is_locked().context("checking the keyring item")? {
+                    continue;
+                }
+                if let Some(token) = Self::read_item(item)? {
+                    return Ok(Some(token));
+                }
+            }
+        }
+
         let items = service
             .search_items(keyring_attributes())
             .context("searching the keyring for the GitHub token")?;
@@ -142,6 +275,10 @@ impl TokenStore {
             return Ok(None);
         };
 
+        Self::read_item(item)
+    }
+
+    fn read_item(item: &Item<'_>) -> Result<Option<String>> {
         let secret = item
             .get_secret()
             .context("reading the GitHub token from the keyring")?;
@@ -159,14 +296,18 @@ impl TokenStore {
     }
 
     fn set_keyring(token: &str) -> Result<()> {
-        let Some(connection) = keyring_connection() else {
-            bail!("the Secret Service is not running");
-        };
-        let service = SecretService::connect_with_existing(EncryptionType::Dh, connection)
+        let service = SecretService::connect(EncryptionType::Dh)
             .context("connecting to the Secret Service")?;
+
+        // Remove tokens stored by older builds in another collection. This is
+        // best effort: the default collection is searched first, so a stale
+        // locked item cannot shadow the new one.
+        if let Err(error) = Self::delete_keyring_items(&service) {
+            tracing::debug!(%error, "cannot remove the old keyring token");
+        }
+
         let collection = service
             .get_default_collection()
-            .or_else(|_| service.get_any_collection())
             .context("opening the default keyring collection")?;
         collection
             .create_item(
@@ -187,6 +328,10 @@ impl TokenStore {
         };
         let service = SecretService::connect_with_existing(EncryptionType::Dh, connection)
             .context("connecting to the Secret Service")?;
+        Self::delete_keyring_items(&service)
+    }
+
+    fn delete_keyring_items(service: &SecretService<'_>) -> Result<()> {
         let items = service
             .search_items(keyring_attributes())
             .context("searching the keyring for the GitHub token")?;
@@ -390,6 +535,18 @@ mod tests {
         assert!(!valid_token("   "));
         assert!(!valid_token("token with spaces"));
         assert!(!valid_token("token\nwith\nnewlines"));
+    }
+
+    #[test]
+    fn round_trips_token_status() {
+        for status in [
+            TokenStatus::None,
+            TokenStatus::Unchecked,
+            TokenStatus::Valid,
+            TokenStatus::Invalid,
+        ] {
+            assert_eq!(TokenStatus::parse(status.as_str()), status);
+        }
     }
 
     #[test]

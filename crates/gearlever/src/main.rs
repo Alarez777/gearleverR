@@ -26,6 +26,7 @@ use crate::settings::Settings;
 
 fn main() -> ExitCode {
     init_logging();
+    crate::i18n::init();
 
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
     let has_option = arguments

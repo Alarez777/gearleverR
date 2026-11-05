@@ -98,6 +98,16 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<String> {
+        self.get_text_with_auth_response(url, accept, token)
+            .map(|(body, _)| body)
+    }
+
+    fn get_text_with_auth_response(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<(String, http::HeaderMap)> {
         let mut request = self.agent.get(url);
         if let Some(accept) = accept {
             request = request.header("Accept", accept);
@@ -119,13 +129,14 @@ impl HttpClient {
             )));
         }
 
+        let headers = response.headers().clone();
         let mut body = response.into_body();
         let bytes = body
             .read_to_vec()
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
 
         // zsync control files carry binary checksums after a text header.
-        Ok(String::from_utf8_lossy(&bytes).into_owned())
+        Ok((String::from_utf8_lossy(&bytes).into_owned(), headers))
     }
 
     /// Fetches and decodes a JSON document.
@@ -157,6 +168,26 @@ impl HttpClient {
     ) -> Result<T> {
         let body = self.get_text_with_auth(url, accept, token)?;
         serde_json::from_str(&body).map_err(|error| Error::Http(format!("{url}: {error}")))
+    }
+
+    /// Fetches and decodes a JSON document, returning the GitHub token
+    /// expiration header when the response carries one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Http`] for transport errors and invalid JSON, and
+    /// [`Error::HttpStatus`] for non-success statuses.
+    pub fn get_json_with_token_expiration<T: serde::de::DeserializeOwned>(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<(T, Option<String>)> {
+        let (body, headers) = self.get_text_with_auth_response(url, accept, token)?;
+        let value =
+            serde_json::from_str(&body).map_err(|error| Error::Http(format!("{url}: {error}")))?;
+
+        Ok((value, token_expiration(&headers)))
     }
 
     /// Returns the `Content-Length` of `url`, using HEAD and falling back to GET.
@@ -316,6 +347,15 @@ fn header_u64(headers: &http::HeaderMap, name: &str) -> Option<u64> {
         .and_then(|value| value.trim().parse().ok())
 }
 
+fn token_expiration(headers: &http::HeaderMap) -> Option<String> {
+    headers
+        .get("github-authentication-token-expiration")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::TcpListener;
@@ -364,15 +404,15 @@ mod tests {
 
             let body = r#"{"resources":{"core":{"limit":5000,"remaining":4999}}}"#;
             let response = format!(
-                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\ngithub-authentication-token-expiration: 2026-11-10 12:00:00 +0000\r\nconnection: close\r\n\r\n{body}",
                 body.len()
             );
             stream.write_all(response.as_bytes()).unwrap();
         });
 
         let client = HttpClient::new();
-        let value: serde_json::Value = client
-            .get_json_with_token(
+        let (value, expires_at): (serde_json::Value, _) = client
+            .get_json_with_token_expiration(
                 &format!("http://{address}/rate_limit"),
                 None,
                 Some("test-token"),
@@ -380,6 +420,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(value["resources"]["core"]["remaining"], 4999);
+        assert_eq!(expires_at.as_deref(), Some("2026-11-10 12:00:00 +0000"));
         server.join().unwrap();
     }
 }

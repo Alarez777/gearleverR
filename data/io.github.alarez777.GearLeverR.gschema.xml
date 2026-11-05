@@ -36,5 +36,15 @@
             <summary>Encrypted GitHub token</summary>
             <description>Machine and user bound AES-256-GCM blob used when no Secret Service keyring is available. Managed from the GitHub section in Preferences.</description>
         </key>
+        <key name="github-token-status" type="s">
+            <default>"none"</default>
+            <summary>GitHub token status</summary>
+            <description>One of none, unchecked, valid or invalid. Used to tell whether a token is configured even when the keyring cannot be read.</description>
+        </key>
+        <key name="github-token-expires" type="s">
+            <default>""</default>
+            <summary>GitHub token expiration</summary>
+            <description>Expiration value reported by the GitHub-Authentication-Token-Expiration header, when available.</description>
+        </key>
     </schema>
 </schemalist>
