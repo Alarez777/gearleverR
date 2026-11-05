@@ -2532,14 +2532,23 @@ impl AppModel {
         let token_store = TokenStore::new(self.settings.clone());
         let mut status = token_store.status();
         let lookup = token_store.lookup_interactive();
-        if status == TokenStatus::None && !matches!(lookup, TokenLookup::Missing) {
+        if matches!(lookup, TokenLookup::Missing) && status != TokenStatus::None {
+            // A previous build could mark a token as valid after testing it
+            // without saving it. If no token exists now, the status is stale.
+            let _ = token_store.mark_none();
+            status = TokenStatus::None;
+        }
+        if status == TokenStatus::None
+            && matches!(lookup, TokenLookup::Found(_) | TokenLookup::Locked)
+        {
             let _ = token_store.mark_unchecked();
             status = TokenStatus::Unchecked;
         }
-        let configured = status != TokenStatus::None || !matches!(lookup, TokenLookup::Missing);
+        let configured = status != TokenStatus::None
+            || matches!(lookup, TokenLookup::Found(_) | TokenLookup::Locked);
         let current_token = match &lookup {
             TokenLookup::Found(token) => Some(token.as_str()),
-            TokenLookup::Locked | TokenLookup::Missing => None,
+            TokenLookup::Locked | TokenLookup::Unavailable | TokenLookup::Missing => None,
         };
         let token_missing = configured && current_token.is_none();
 
@@ -2580,7 +2589,7 @@ impl AppModel {
         let row_apply = token_row.clone();
         let status_apply = status_row.clone();
         apply.connect_clicked(move |_| {
-            save_github_token(&row_apply, &status_apply, &store_apply);
+            let _ = save_github_token(&row_apply, &status_apply, &store_apply);
         });
 
         let store_clear = token_store.clone();
@@ -2591,10 +2600,11 @@ impl AppModel {
             clear_github_token(&row_clear, &status_clear, &store_clear);
         });
 
+        let store_test = token_store.clone();
         let store_enter = token_store;
         let status_enter = status_row.clone();
         token_row.connect_entry_activated(move |row| {
-            save_github_token(row, &status_enter, &store_enter);
+            let _ = save_github_token(row, &status_enter, &store_enter);
         });
 
         let test_row = token_row.clone();
@@ -2606,6 +2616,9 @@ impl AppModel {
             let token = test_row.text().trim().to_owned();
             if !valid_token(&token) {
                 test_status.set_subtitle(&t("Enter a valid token"));
+                return;
+            }
+            if !save_github_token(&test_row, &test_status, &store_test) {
                 return;
             }
 
@@ -3577,22 +3590,27 @@ fn is_self_launch(app: &InstalledApp) -> bool {
     app.self_entry || running_appimage().is_some_and(|image| same_file(&image, &app.image_path))
 }
 
-fn save_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, store: &TokenStore) {
+fn save_github_token(
+    row: &adw::PasswordEntryRow,
+    status: &adw::ActionRow,
+    store: &TokenStore,
+) -> bool {
     let token = row.text().trim().to_owned();
 
     if token.is_empty() {
         status.set_subtitle(&t("Enter a token first"));
-        return;
+        return false;
     }
     if !valid_token(&token) {
         status.set_subtitle(&t("The token contains invalid characters"));
-        return;
+        return false;
     }
 
     match store.set(&token) {
         Ok(()) => {
             row.set_title(&t("Personal access token"));
             status.set_subtitle(&t("GitHub token saved. Use Test to verify it."));
+            true
         }
         Err(error) => {
             let error = error.to_string();
@@ -3600,6 +3618,7 @@ fn save_github_token(row: &adw::PasswordEntryRow, status: &adw::ActionRow, store
                 "Could not save the token: {error}",
                 &[("error", &error)],
             ));
+            false
         }
     }
 }
@@ -3628,10 +3647,10 @@ fn initial_github_status(store: &TokenStore, status: TokenStatus, lookup: &Token
                 "Token configured, but the keyring is locked. Unlock it or enter a new token.",
             );
         }
-        TokenLookup::Missing if status == TokenStatus::None => {
+        TokenLookup::Unavailable | TokenLookup::Missing if status == TokenStatus::None => {
             return t("Verify your token works and check rate limit status");
         }
-        TokenLookup::Missing => {
+        TokenLookup::Unavailable | TokenLookup::Missing => {
             return t(
                 "Token configured, but it could not be loaded. Unlock the system keyring or enter a new token.",
             );

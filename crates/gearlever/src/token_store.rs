@@ -91,6 +91,8 @@ pub(crate) enum TokenLookup {
     Found(String),
     /// A token exists but the keyring item is locked.
     Locked,
+    /// The keyring could not be read, so the lookup is inconclusive.
+    Unavailable,
     /// No token was found in either tier.
     Missing,
 }
@@ -140,12 +142,15 @@ impl TokenStore {
     #[must_use]
     pub(crate) fn lookup_interactive(&self) -> TokenLookup {
         let mut locked = false;
+        let mut unavailable = false;
 
         match Self::get_keyring_interactive() {
             Ok(TokenLookup::Found(token)) => return TokenLookup::Found(token),
             Ok(TokenLookup::Locked) => locked = true,
+            Ok(TokenLookup::Unavailable) => unavailable = true,
             Ok(TokenLookup::Missing) => {}
             Err(error) => {
+                unavailable = true;
                 tracing::debug!(%error, "cannot read the GitHub token from the keyring");
             }
         }
@@ -156,6 +161,8 @@ impl TokenStore {
 
         if locked {
             TokenLookup::Locked
+        } else if unavailable {
+            TokenLookup::Unavailable
         } else {
             TokenLookup::Missing
         }
@@ -279,7 +286,7 @@ impl TokenStore {
                 tracing::warn!("the GitHub token keyring item is locked");
                 Ok(None)
             }
-            TokenLookup::Missing => Ok(None),
+            TokenLookup::Unavailable | TokenLookup::Missing => Ok(None),
         }
     }
 
