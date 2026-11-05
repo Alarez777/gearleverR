@@ -2596,7 +2596,6 @@ impl AppModel {
         let row_clear = token_row.clone();
         let status_clear = status_row.clone();
         clear.connect_clicked(move |_| {
-            row_clear.set_text("");
             clear_github_token(&row_clear, &status_clear, &store_clear);
         });
 
