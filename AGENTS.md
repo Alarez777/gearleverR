@@ -105,8 +105,9 @@ cargo test --workspace --all-features
 - Never merge into `develop` on your own. Leave the branch implemented and
   tested, then wait for the user's explicit confirmation. Once confirmed, merge
   it into `develop`, then into `main`, and push both.
-- Never delete a branch (local or remote) without the user's explicit approval,
-  even after it is merged.
+- Never delete a remote branch without the user's explicit approval. The
+  confirmation to merge a branch into `develop` also authorizes deleting its
+  local branch after the merge.
 
 ## Conventions
 
