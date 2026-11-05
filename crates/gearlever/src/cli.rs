@@ -26,7 +26,9 @@ use gearlever_core::appimage::{AppImage, MetadataOptions, is_running};
 use gearlever_core::config::Config;
 use gearlever_core::error::RateLimitInfo;
 use gearlever_core::hash::HashCache;
-use gearlever_core::install::{Conflict, IntegrateOptions, PreviousInstall, integrate};
+use gearlever_core::install::{
+    Conflict, IntegrateOptions, PreviousInstall, integrate, is_installed_copy,
+};
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::uninstall::{Removal, uninstall};
@@ -213,21 +215,22 @@ impl Cli {
     fn integrate(&mut self, context: &mut CommandContext, file: &Path) -> Result<()> {
         let app_image = AppImage::open(file)
             .with_context(|| format!("{} is not a valid AppImage", file.display()))?;
-        let metadata = app_image
-            .metadata_with(&MetadataOptions {
-                allow_unsafe_extractor: !context.settings.values().block_unsafe_extractor,
-                work_dir: context.paths.temp_dir().join("metadata"),
-            })
-            .with_context(|| format!("cannot read the metadata of {}", file.display()))?;
 
         let apps = context.apps()?;
-        if let Some(existing) = apps.iter().find(|app| same_file(&app.image_path, file)) {
+        if let Some(existing) = context.installed_copy(&apps, file) {
             println!(
                 "This AppImage is already integrated ({})",
                 existing.image_path.display()
             );
             return Ok(());
         }
+
+        let metadata = app_image
+            .metadata_with(&MetadataOptions {
+                allow_unsafe_extractor: !context.settings.values().block_unsafe_extractor,
+                work_dir: context.paths.temp_dir().join("metadata"),
+            })
+            .with_context(|| format!("cannot read the metadata of {}", file.display()))?;
 
         let same_name = apps.iter().find(|app| app.name == metadata.name);
         let mut conflict = if self.replace {
@@ -765,6 +768,17 @@ impl CommandContext {
             },
         )
         .context("cannot list integrated AppImages")
+    }
+
+    /// Returns the integrated AppImage that corresponds to `file`.
+    fn installed_copy<'a>(
+        &self,
+        apps: &'a [InstalledApp],
+        file: &Path,
+    ) -> Option<&'a InstalledApp> {
+        apps.iter().find(|app| {
+            is_installed_copy(file, &app.image_path, &self.settings.values().appimages_dir)
+        })
     }
 
     fn manager_for(&self, image: &Path) -> Result<Box<dyn update::UpdateManager>> {

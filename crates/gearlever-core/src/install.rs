@@ -15,6 +15,7 @@ use crate::args;
 use crate::config::Config;
 use crate::desktop::DesktopFile;
 use crate::error::{Error, Result};
+use crate::hash::same_content;
 use crate::scan::InstalledApp;
 
 /// Environment variable the AppImage runtime uses to avoid double integration.
@@ -77,6 +78,29 @@ impl IntegrateOptions {
             name_suffix: None,
             update_desktop_database: true,
         }
+    }
+}
+
+/// Returns whether `candidate` is the integrated copy of `path`.
+///
+/// An exact path always counts. A candidate inside `appimages_dir` also matches
+/// when its contents are byte-identical, no matter where `path` lives: opening
+/// the same AppImage from `Downloads` or `dist` is reported as already
+/// integrated, like Gear Lever does. Integrations outside the managed folder
+/// only match by path.
+#[must_use]
+pub fn is_installed_copy(path: &Path, candidate: &Path, appimages_dir: &Path) -> bool {
+    same_path(path, candidate)
+        || (candidate
+            .parent()
+            .is_some_and(|parent| same_path(parent, appimages_dir))
+            && same_content(path, candidate))
+}
+
+fn same_path(left: &Path, right: &Path) -> bool {
+    match (fs::canonicalize(left), fs::canonicalize(right)) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
     }
 }
 
@@ -774,5 +798,91 @@ Exec=AppRun --new-window %U
     fn sanitizes_names_and_avoids_double_extension() {
         assert_eq!(sanitize("my app (beta)"), "myappbeta");
         assert_eq!(sanitize("a_b.c-d"), "a_b.cd");
+    }
+
+    #[test]
+    fn detects_an_identical_copy_outside_the_managed_folder() {
+        let directory = tempfile::tempdir().unwrap();
+        let managed = directory.path().join("AppImages");
+        let downloads = directory.path().join("Downloads");
+        fs::create_dir_all(&managed).unwrap();
+        fs::create_dir_all(&downloads).unwrap();
+        let installed = managed.join("Installed.AppImage");
+        let copy = downloads.join("Copy.AppImage");
+        fs::write(&installed, b"same bytes").unwrap();
+        fs::write(&copy, b"same bytes").unwrap();
+
+        assert!(
+            is_installed_copy(&copy, &installed, &managed),
+            "a byte-identical copy opened from outside the managed folder is installed"
+        );
+    }
+
+    #[test]
+    fn detects_an_identical_copy_inside_the_managed_folder() {
+        let directory = tempfile::tempdir().unwrap();
+        let managed = directory.path().join("AppImages");
+        fs::create_dir_all(&managed).unwrap();
+        let installed = managed.join("Installed.AppImage");
+        let copy = managed.join("Copy.AppImage");
+        fs::write(&installed, b"same bytes").unwrap();
+        fs::write(&copy, b"same bytes").unwrap();
+
+        assert!(
+            is_installed_copy(&copy, &installed, &managed),
+            "a copy in the managed folder is the installed AppImage"
+        );
+    }
+
+    #[test]
+    fn rejects_a_copy_with_different_contents() {
+        let directory = tempfile::tempdir().unwrap();
+        let managed = directory.path().join("AppImages");
+        let downloads = directory.path().join("Downloads");
+        fs::create_dir_all(&managed).unwrap();
+        fs::create_dir_all(&downloads).unwrap();
+        let installed = managed.join("Installed.AppImage");
+        let copy = downloads.join("Copy.AppImage");
+        fs::write(&installed, b"same bytes").unwrap();
+        fs::write(&copy, b"different bytes").unwrap();
+
+        assert!(
+            !is_installed_copy(&copy, &installed, &managed),
+            "different contents are a different AppImage"
+        );
+    }
+
+    #[test]
+    fn keeps_an_exact_path_outside_the_managed_folder() {
+        let directory = tempfile::tempdir().unwrap();
+        let managed = directory.path().join("AppImages");
+        let downloads = directory.path().join("Downloads");
+        fs::create_dir_all(&managed).unwrap();
+        fs::create_dir_all(&downloads).unwrap();
+        let outside = downloads.join("Installed.AppImage");
+        fs::write(&outside, b"same bytes").unwrap();
+
+        assert!(
+            is_installed_copy(&outside, &outside, &managed),
+            "the exact path always counts as installed"
+        );
+    }
+
+    #[test]
+    fn ignores_an_installed_copy_outside_the_managed_folder() {
+        let directory = tempfile::tempdir().unwrap();
+        let managed = directory.path().join("AppImages");
+        let downloads = directory.path().join("Downloads");
+        fs::create_dir_all(&managed).unwrap();
+        fs::create_dir_all(&downloads).unwrap();
+        let installed = downloads.join("Installed.AppImage");
+        let opened = managed.join("Opened.AppImage");
+        fs::write(&installed, b"same bytes").unwrap();
+        fs::write(&opened, b"same bytes").unwrap();
+
+        assert!(
+            !is_installed_copy(&opened, &installed, &managed),
+            "content only counts when the installed copy is managed"
+        );
     }
 }
