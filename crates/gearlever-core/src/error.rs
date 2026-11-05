@@ -1,6 +1,55 @@
 //! Error type shared by the whole core crate.
 
+use std::fmt;
 use std::path::PathBuf;
+use std::time::Duration;
+
+/// Largest `Retry-After` value honoured by the update-check retry pass.
+///
+/// Waiting longer than this would freeze the check for no useful gain: a
+/// primary GitHub rate limit resets in up to an hour and a token is the right
+/// fix, while secondary limits usually ask for a few seconds.
+const MAX_RETRY_AFTER: u64 = 5;
+
+/// A non-success HTTP response and its rate-limit metadata.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpStatus {
+    /// URL that returned the response.
+    pub url: String,
+    /// HTTP status code.
+    pub status: u16,
+    /// Remaining requests in the current GitHub rate-limit window.
+    pub rate_limit_remaining: Option<u64>,
+    /// Unix timestamp when the GitHub rate-limit window resets.
+    pub rate_limit_reset: Option<u64>,
+    /// Seconds the server asked the client to wait before retrying.
+    pub retry_after: Option<u64>,
+}
+
+impl fmt::Display for HttpStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: HTTP {}", self.url, self.status)?;
+        if let Some(remaining) = self.rate_limit_remaining {
+            write!(f, " (rate limit remaining: {remaining})")?;
+        }
+        if let Some(reset) = self.rate_limit_reset {
+            write!(f, " (resets at {reset})")?;
+        }
+        if let Some(retry_after) = self.retry_after {
+            write!(f, " (retry after {retry_after}s)")?;
+        }
+        Ok(())
+    }
+}
+
+/// Rate-limit details from a GitHub 403 or 429 response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimitInfo {
+    /// Unix timestamp when the limit resets.
+    pub reset: Option<u64>,
+    /// Seconds the server asked the client to wait.
+    pub retry_after: Option<u64>,
+}
 
 /// Errors returned by Gear LeverR's core.
 #[derive(Debug, thiserror::Error)]
@@ -55,9 +104,26 @@ pub enum Error {
     #[error("{0}: cannot derive a name from this path")]
     InvalidName(PathBuf),
 
-    /// A network request failed or returned an unexpected status.
+    /// A network request failed at the transport level.
     #[error("network error: {0}")]
     Http(String),
+
+    /// A server returned a document with an unexpected shape.
+    #[error("invalid response from {url}: {error}")]
+    InvalidResponse {
+        /// URL that returned the document.
+        url: String,
+        /// Decoder error.
+        error: String,
+    },
+
+    /// A network request returned a non-success HTTP status.
+    #[error("network error: {0}")]
+    HttpStatus(HttpStatus),
+
+    /// GitHub rejected the configured token.
+    #[error("GitHub authentication failed (401). Check your token in Preferences → GitHub.")]
+    GithubTokenInvalid,
 
     /// An update manager is missing required configuration.
     #[error("invalid update configuration: {0}")]
@@ -76,5 +142,134 @@ pub enum Error {
     NoMatchingAsset(String),
 }
 
+impl Error {
+    /// Returns rate-limit details when the response is a GitHub rate limit.
+    ///
+    /// A 403 is a rate limit when GitHub reports zero remaining requests or a
+    /// `Retry-After`; a 429 is always a rate limit. A 403 without either is a
+    /// permissions error.
+    #[must_use]
+    pub fn rate_limit_info(&self) -> Option<RateLimitInfo> {
+        let Self::HttpStatus(status) = self else {
+            return None;
+        };
+
+        if status.status == 429
+            || status.rate_limit_remaining == Some(0)
+            || status.retry_after.is_some()
+        {
+            Some(RateLimitInfo {
+                reset: status.rate_limit_reset,
+                retry_after: status.retry_after,
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Returns how long to wait before retrying, or `None` when a retry cannot
+    /// change the result.
+    ///
+    /// Transport errors, timeouts and 5xx responses are retried immediately.
+    /// A 403 or 429 is retried only when GitHub sends a short `Retry-After`;
+    /// 401, 404 and permission errors are deterministic.
+    #[must_use]
+    pub fn retry_delay(&self) -> Option<Duration> {
+        match self {
+            Self::Http(_) => Some(Duration::ZERO),
+            Self::HttpStatus(status) if status.status == 408 || status.status >= 500 => {
+                Some(Duration::ZERO)
+            }
+            Self::HttpStatus(status) if matches!(status.status, 403 | 429) => status
+                .retry_after
+                .filter(|seconds| *seconds <= MAX_RETRY_AFTER)
+                .map(Duration::from_secs),
+            _ => None,
+        }
+    }
+}
+
 /// Convenient alias for the crate's [`Result`].
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn status(code: u16, remaining: Option<u64>, retry_after: Option<u64>) -> Error {
+        Error::HttpStatus(HttpStatus {
+            url: "https://api.github.com/repos/o/r".to_owned(),
+            status: code,
+            rate_limit_remaining: remaining,
+            rate_limit_reset: None,
+            retry_after,
+        })
+    }
+
+    #[test]
+    fn retries_transient_failures() {
+        assert_eq!(status(500, None, None).retry_delay(), Some(Duration::ZERO));
+        assert_eq!(status(408, None, None).retry_delay(), Some(Duration::ZERO));
+        assert_eq!(
+            Error::Http("timed out".to_owned()).retry_delay(),
+            Some(Duration::ZERO)
+        );
+    }
+
+    #[test]
+    fn does_not_retry_deterministic_failures() {
+        assert_eq!(status(401, None, None).retry_delay(), None);
+        assert_eq!(status(404, None, None).retry_delay(), None);
+        assert_eq!(status(403, Some(0), None).retry_delay(), None);
+        assert_eq!(status(403, Some(42), None).retry_delay(), None);
+        assert_eq!(Error::GithubTokenInvalid.retry_delay(), None);
+        assert_eq!(
+            Error::InvalidResponse {
+                url: "https://api.github.com/repos/o/r/releases/latest".to_owned(),
+                error: "invalid type: map, expected a sequence".to_owned(),
+            }
+            .retry_delay(),
+            None
+        );
+    }
+
+    #[test]
+    fn honours_a_short_retry_after() {
+        assert_eq!(
+            status(429, None, Some(3)).retry_delay(),
+            Some(Duration::from_secs(3))
+        );
+        assert_eq!(
+            status(403, Some(0), Some(2)).retry_delay(),
+            Some(Duration::from_secs(2))
+        );
+        assert_eq!(status(429, None, Some(30)).retry_delay(), None);
+    }
+
+    #[test]
+    fn detects_rate_limits() {
+        assert_eq!(
+            status(403, Some(0), None).rate_limit_info(),
+            Some(RateLimitInfo {
+                reset: None,
+                retry_after: None
+            })
+        );
+        assert_eq!(
+            status(403, None, Some(2)).rate_limit_info(),
+            Some(RateLimitInfo {
+                reset: None,
+                retry_after: Some(2)
+            })
+        );
+        assert_eq!(
+            status(429, None, None).rate_limit_info(),
+            Some(RateLimitInfo {
+                reset: None,
+                retry_after: None
+            })
+        );
+        assert_eq!(status(403, Some(42), None).rate_limit_info(), None);
+        assert_eq!(status(404, None, None).rate_limit_info(), None);
+    }
+}

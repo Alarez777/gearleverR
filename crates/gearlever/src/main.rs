@@ -9,7 +9,9 @@ mod autostart;
 mod cli;
 mod i18n;
 mod launch;
+mod rate_limit;
 mod settings;
+mod token_store;
 mod ui;
 
 use std::fs;
@@ -25,6 +27,7 @@ use crate::settings::Settings;
 
 fn main() -> ExitCode {
     init_logging();
+    crate::i18n::init();
 
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
     let has_option = arguments

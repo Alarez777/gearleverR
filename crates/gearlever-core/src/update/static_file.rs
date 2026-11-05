@@ -47,14 +47,12 @@ impl StaticFile {
         value(&self.config, "url").map(ToOwned::to_owned)
     }
 
-    /// Resolves the URL to download and, for embedded sources, the zsync URL.
-    fn target(&self) -> Result<Option<(String, Option<String>)>> {
+    /// Resolves the URL to download and, for embedded sources, the parsed
+    /// zsync header.
+    fn target(&self) -> Result<Option<(String, Option<zsync::ZsyncInfo>)>> {
         if let Some(zsync_url) = self.embedded_url() {
             let info = zsync::parse(&self.http.get_text(&zsync_url)?);
-            return Ok(Some((
-                zsync::download_url(&zsync_url, &info),
-                Some(zsync_url),
-            )));
+            return Ok(Some((zsync::download_url(&zsync_url, &info), Some(info))));
         }
 
         Ok(self.configured_url().map(|url| (url, None)))
@@ -75,12 +73,16 @@ impl UpdateManager for StaticFile {
     }
 
     fn check(&self, hashes: &HashCache) -> Result<UpdateStatus> {
-        let Some((url, zsync_url)) = self.target()? else {
+        let Some((url, zsync)) = self.target()? else {
             return Ok(UpdateStatus::Unknown);
         };
+        let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
 
-        if let Some(zsync_url) = zsync_url {
-            let info = zsync::parse(&self.http.get_text(&zsync_url)?);
+        if let Some(info) = zsync {
+            if info.length.is_some_and(|length| length != local_size) {
+                return Ok(UpdateStatus::Available);
+            }
+
             if let Some(expected) = info.sha1 {
                 let actual = hashes.sha1(&self.image)?;
                 return Ok(if expected == actual {
@@ -94,7 +96,6 @@ impl UpdateManager for StaticFile {
         let Some(remote_size) = self.http.content_length(&url)? else {
             return Ok(UpdateStatus::Unknown);
         };
-        let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
 
         Ok(if remote_size == local_size {
             UpdateStatus::UpToDate

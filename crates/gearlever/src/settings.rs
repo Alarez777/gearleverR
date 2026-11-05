@@ -41,6 +41,12 @@ pub mod keys {
     pub const IS_MAXIMIZED: &str = "is-maximized";
     /// Whether the welcome dialog was shown.
     pub const FIRST_RUN: &str = "first-run";
+    /// Encrypted GitHub token used when no Secret Service is available.
+    pub const GITHUB_TOKEN_CIPHER: &str = "github-token-cipher";
+    /// Whether a GitHub token is configured and whether it was verified.
+    pub const GITHUB_TOKEN_STATUS: &str = "github-token-status";
+    /// GitHub token expiration header value, when available.
+    pub const GITHUB_TOKEN_EXPIRES: &str = "github-token-expires";
 }
 
 /// Plain snapshot of the settings, used by code that does not need GSettings.
@@ -186,6 +192,64 @@ impl Settings {
         if let Some(settings) = &self.settings {
             let _ = settings.set_string(keys::APPIMAGES_FOLDER, &path.to_string_lossy());
         }
+    }
+
+    /// Returns the encrypted GitHub token blob, when one is stored.
+    #[must_use]
+    pub fn github_token_cipher(&self) -> Option<String> {
+        self.string_value(keys::GITHUB_TOKEN_CIPHER)
+    }
+
+    /// Stores the encrypted GitHub token blob and returns whether it persisted.
+    pub fn set_github_token_cipher(&self, value: &str) -> bool {
+        self.set_string_value(keys::GITHUB_TOKEN_CIPHER, value)
+    }
+
+    /// Returns the stored GitHub token status.
+    #[must_use]
+    pub fn github_token_status(&self) -> Option<String> {
+        self.string_value(keys::GITHUB_TOKEN_STATUS)
+    }
+
+    /// Stores the GitHub token status and returns whether it persisted.
+    pub fn set_github_token_status(&self, value: &str) -> bool {
+        self.set_string_value(keys::GITHUB_TOKEN_STATUS, value)
+    }
+
+    /// Returns the stored GitHub token expiration.
+    #[must_use]
+    pub fn github_token_expires(&self) -> Option<String> {
+        self.string_value(keys::GITHUB_TOKEN_EXPIRES)
+    }
+
+    /// Stores the GitHub token expiration and returns whether it persisted.
+    pub fn set_github_token_expires(&self, value: &str) -> bool {
+        self.set_string_value(keys::GITHUB_TOKEN_EXPIRES, value)
+    }
+
+    fn string_value(&self, key: &str) -> Option<String> {
+        let settings = self.settings.as_ref()?;
+        let schema = settings.settings_schema()?;
+        if !schema.has_key(key) {
+            return None;
+        }
+
+        let value = settings.string(key);
+        (!value.is_empty()).then(|| value.to_string())
+    }
+
+    fn set_string_value(&self, key: &str, value: &str) -> bool {
+        let Some(settings) = &self.settings else {
+            return false;
+        };
+        let Some(schema) = settings.settings_schema() else {
+            return false;
+        };
+        if !schema.has_key(key) {
+            return false;
+        }
+
+        settings.set_string(key, value).is_ok()
     }
 
     /// Stores the managed folder.

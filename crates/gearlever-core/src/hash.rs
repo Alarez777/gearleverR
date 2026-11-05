@@ -118,7 +118,7 @@ struct CachedHash {
     value: String,
 }
 
-/// A persistent SHA-1 cache rooted at a directory.
+/// A persistent digest cache rooted at a directory.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HashCache {
     root: PathBuf,
@@ -138,38 +138,56 @@ impl HashCache {
     /// Returns [`Error::Io`] when the file cannot be read or the entry cannot be
     /// written, and [`Error::Cache`] when a cached entry is corrupt.
     pub fn sha1(&self, path: &Path) -> Result<String> {
+        self.digest(path, Algorithm::Sha1)
+    }
+
+    /// Returns the SHA-256 of `path`, computing it only when the entry is stale.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Io`] when the file cannot be read or the entry cannot be
+    /// written, and [`Error::Cache`] when a cached entry is corrupt.
+    pub fn sha256(&self, path: &Path) -> Result<String> {
+        self.digest(path, Algorithm::Sha256)
+    }
+
+    fn digest(&self, path: &Path, algorithm: Algorithm) -> Result<String> {
         let Some(fingerprint) = Fingerprint::of(path)? else {
             return Err(Error::Io(std::io::Error::from(
                 std::io::ErrorKind::NotFound,
             )));
         };
 
-        let entry = self.entry_path(path);
+        let entry = self.entry_path(path, algorithm);
         if let Ok(contents) = fs::read_to_string(&entry)
             && let Ok(cached) = serde_json::from_str::<CachedHash>(&contents)
-            && cached.algorithm == Algorithm::Sha1.name()
+            && cached.algorithm == algorithm.name()
             && cached.fingerprint == fingerprint
         {
             return Ok(cached.value);
         }
 
-        let value = hash_file(path, Algorithm::Sha1)?;
-        Self::store(&entry, Algorithm::Sha1, fingerprint, &value)?;
+        let value = hash_file(path, algorithm)?;
+        Self::store(&entry, algorithm, fingerprint, &value)?;
 
         Ok(value)
     }
 
-    /// Removes a cached digest.
+    /// Removes the cached digests.
     ///
     /// # Errors
     ///
     /// Returns [`Error::Io`] when an existing entry cannot be removed.
     pub fn remove(&self, path: &Path) -> Result<()> {
-        match fs::remove_file(self.entry_path(path)) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(Error::Io(error)),
+        for algorithm in [Algorithm::Sha1, Algorithm::Sha256] {
+            match fs::remove_file(self.entry_path(path, algorithm)) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(Error::Io(error)),
+            }
         }
+
+        Ok(())
     }
 
     fn store(
@@ -192,14 +210,21 @@ impl HashCache {
         Ok(())
     }
 
-    fn entry_path(&self, path: &Path) -> PathBuf {
+    fn entry_path(&self, path: &Path, algorithm: Algorithm) -> PathBuf {
         let digest = blake3::hash(path.to_string_lossy().as_bytes());
-        let mut name = String::with_capacity(32);
+        let mut name = String::with_capacity(48);
         for byte in &digest.as_bytes()[..16] {
             let _ = write!(name, "{byte:02x}");
         }
 
-        self.root.join(format!("{name}.json"))
+        // Keep the original SHA-1 file name so existing caches survive.
+        let suffix = match algorithm {
+            Algorithm::Sha1 => "",
+            Algorithm::Md5 => "-md5",
+            Algorithm::Sha256 => "-sha256",
+        };
+
+        self.root.join(format!("{name}{suffix}.json"))
     }
 }
 
@@ -305,5 +330,24 @@ mod tests {
 
         fs::write(&file, b"hello, world").unwrap();
         assert_ne!(first, cache.sha1(&file).unwrap());
+    }
+
+    #[test]
+    fn caches_sha1_and_sha256_separately() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("data");
+        fs::write(&file, b"hello").unwrap();
+
+        let cache = HashCache::new(directory.path().join("cache"));
+        let sha1 = cache.sha1(&file).unwrap();
+        let sha256 = cache.sha256(&file).unwrap();
+
+        assert_eq!(sha1, "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
+        assert_eq!(
+            sha256,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+        assert_eq!(cache.sha1(&file).unwrap(), sha1);
+        assert_eq!(cache.sha256(&file).unwrap(), sha256);
     }
 }

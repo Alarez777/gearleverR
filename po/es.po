@@ -69,6 +69,9 @@ msgstr "Mover todas al menú de aplicaciones"
 msgid "No update method was found for this AppImage"
 msgstr "No se encontró un método de actualización para esta AppImage"
 
+msgid "No updates found"
+msgstr "No se encontraron actualizaciones"
+
 msgid "Not computed"
 msgstr "Sin calcular"
 
@@ -263,43 +266,209 @@ msgstr ""
 "<b>Hecho con</b>\n"
 "Rust, GTK 4, libadwaita, Relm4, backhand y ureq."
 
-#: crates/gearlever/src/ui/mod.rs:1750
+msgid "Retrying failed checks..."
+msgstr "Reintentando comprobaciones fallidas..."
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid ""
+"Authenticate with GitHub to raise the API rate limit from 60 to 5,000 "
+"requests per hour"
+msgstr ""
+"Autentícate con GitHub para aumentar el límite de la API de 60 a 5000 "
+"solicitudes por hora"
+
+msgid "Personal access token"
+msgstr "Token de acceso personal"
+
+msgid "Apply token"
+msgstr "Aplicar token"
+
+msgid "Clear token"
+msgstr "Borrar token"
+
+msgid "Test token"
+msgstr "Probar token"
+
+msgid "Verify your token works and check rate limit status"
+msgstr ""
+"Comprueba que el token funciona y consulta el estado del límite de "
+"solicitudes"
+
+msgid "Test"
+msgstr "Probar"
+
+msgid "Enter a valid token"
+msgstr "Introduce un token válido"
+
+msgid "Testing..."
+msgstr "Probando..."
+
+msgid "Create a token on GitHub"
+msgstr "Crear un token en GitHub"
+
+msgid "Fine-grained token with read-only public repo access is sufficient"
+msgstr ""
+"Basta con un token detallado con acceso de solo lectura a repositorios "
+"públicos"
+
+msgid "Enter a token first"
+msgstr "Introduce primero un token"
+
+msgid "The token contains invalid characters"
+msgstr "El token contiene caracteres no válidos"
+
+msgid "Could not save the token: {error}"
+msgstr "No se pudo guardar el token: {error}"
+
+msgid "GitHub token cleared"
+msgstr "Token de GitHub borrado"
+
+msgid "Could not clear the token: {error}"
+msgstr "No se pudo borrar el token: {error}"
+
+msgid "Token is valid — {remaining} / {limit} requests remaining"
+msgstr "El token es válido: quedan {remaining} de {limit} solicitudes"
+
+msgid "Token is valid"
+msgstr "El token es válido"
+
+msgid "Authentication failed — token is invalid or expired"
+msgstr "Falló la autenticación: el token no es válido o ha caducado"
+
+msgid "Access forbidden — token lacks required permissions"
+msgstr "Acceso denegado: el token no tiene los permisos necesarios"
+
+msgid "Rate limit exceeded — try again later"
+msgstr "Se superó el límite de solicitudes: inténtalo más tarde"
+
+msgid "Unexpected response ({status})"
+msgstr "Respuesta inesperada ({status})"
+
+msgid "Connection error: {error}"
+msgstr "Error de conexión: {error}"
+
+msgid "Unexpected response"
+msgstr "Respuesta inesperada"
+
+msgid "Personal access token (configured)"
+msgstr "Token de acceso personal (configurado)"
+
+msgid "GitHub token saved. Use Test to verify it."
+msgstr "Token de GitHub guardado. Usa Probar para verificarlo."
+
+msgid ""
+"Token configured, but it could not be loaded. Unlock the system keyring or "
+"enter a new token."
+msgstr ""
+"El token está configurado, pero no se pudo cargar. Desbloquea el llavero del "
+"sistema o introduce un token nuevo."
+
+msgid "Token configured · valid · expires {expires_at}"
+msgstr "Token configurado · válido · caduca el {expires_at}"
+
+msgid "Token configured · valid"
+msgstr "Token configurado · válido"
+
+msgid "Token configured · invalid or expired · expires {expires_at}"
+msgstr "Token configurado · no válido o caducado (caducidad: {expires_at})"
+
+msgid "Token configured · invalid or expired"
+msgstr "Token configurado · no válido o caducado"
+
+msgid "Token configured. Use Test to verify it."
+msgstr "Token configurado. Usa Probar para verificarlo."
+
+msgid ""
+"Token is valid — {remaining} / {limit} requests remaining · expires "
+"{expires_at}"
+msgstr ""
+"El token es válido: quedan {remaining} de {limit} solicitudes · caduca el "
+"{expires_at}"
+
+msgid "Token is valid — expires {expires_at}"
+msgstr "El token es válido: caduca el {expires_at}"
+
+msgid ""
+"GitHub authentication failed (401). Check your token in Preferences → GitHub."
+msgstr ""
+"Falló la autenticación de GitHub (401). Revisa tu token en Preferencias → "
+"GitHub."
+
+msgid "Open Preferences"
+msgstr "Abrir Preferencias"
+
+msgid "GitHub token expired or invalid"
+msgstr "El token de GitHub ha caducado o no es válido"
+
+msgid ""
+"Token configured, but the keyring is locked. Unlock it or enter a new token."
+msgstr ""
+"El token está configurado, pero el llavero está bloqueado. Desbloquéalo o "
+"introduce un token nuevo."
+
+msgid "Rate limit: retry in {wait}."
+msgstr "Límite: reintenta en {wait}."
+
+msgid "Rate limit exhausted. Retry later."
+msgstr "Límite agotado. Reintenta más tarde."
+
+msgid "Rate limit: unlock the keyring or retry in {wait}."
+msgstr "Límite: desbloquea el llavero o reintenta en {wait}."
+
+msgid "Rate limit: unlock the keyring or add a token."
+msgstr "Límite: desbloquea el llavero o añade un token."
+
+msgid "Rate limit: retry in {wait} or add a token."
+msgstr "Límite: reintenta en {wait} o añade un token."
+
+msgid "Rate limit exhausted. Add a token in Preferences."
+msgstr "Límite agotado. Añade un token en Preferencias."
+
+msgid "{minutes} min"
+msgstr "{minutes} min"
+
+msgid "{seconds} s"
+msgstr "{seconds} s"
+
+#: crates/gearlever/src/ui/mod.rs:2042
 msgid "Add a website"
 msgstr "Agregar un sitio web"
 
-#: crates/gearlever/src/ui/mod.rs:1975
+#: crates/gearlever/src/ui/mod.rs:2267
 msgid "Add or customize environment for this application"
 msgstr "Añadir o personalizar el entorno para esta aplicación"
 
-#: crates/gearlever/src/ui/mod.rs:2154 crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/mod.rs:2446 crates/gearlever/src/ui/welcome.rs:134
 msgid "AppImage default location"
 msgstr "Ubicación por defecto de la AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:1394 crates/gearlever/src/ui/mod.rs:2175
-#: crates/gearlever/src/ui/mod.rs:2407 crates/gearlever/src/ui/mod.rs:2452
-#: crates/gearlever/src/ui/mod.rs:2502 crates/gearlever/src/ui/mod.rs:2540
+#: crates/gearlever/src/ui/mod.rs:1686 crates/gearlever/src/ui/mod.rs:2467
+#: crates/gearlever/src/ui/mod.rs:2826 crates/gearlever/src/ui/mod.rs:2871
+#: crates/gearlever/src/ui/mod.rs:2921 crates/gearlever/src/ui/mod.rs:2959
 #: crates/gearlever/src/ui/welcome.rs:157
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: crates/gearlever/src/ui/mod.rs:2066 crates/gearlever/src/ui/mod.rs:2624
-#: crates/gearlever/src/ui/mod.rs:2631 crates/gearlever/src/ui/mod.rs:2806
+#: crates/gearlever/src/ui/mod.rs:2358 crates/gearlever/src/ui/mod.rs:3070
+#: crates/gearlever/src/ui/mod.rs:3077 crates/gearlever/src/ui/mod.rs:3264
 msgid "Cancel update"
 msgstr "Cancelar actualización"
 
-#: crates/gearlever/src/ui/mod.rs:2713
+#: crates/gearlever/src/ui/mod.rs:734 crates/gearlever/src/ui/mod.rs:3159
 msgid "Check for updates"
 msgstr "Buscar actualizaciones"
 
-#: crates/gearlever/src/ui/mod.rs:2225 crates/gearlever/src/ui/welcome.rs:201
+#: crates/gearlever/src/ui/mod.rs:2517 crates/gearlever/src/ui/welcome.rs:201
 msgid "Check updates on system startup"
 msgstr "Comprobar actualizaciones al iniciar el sistema"
 
-#: crates/gearlever/src/ui/mod.rs:452
+#: crates/gearlever/src/ui/mod.rs:476
 msgid "Checking updates..."
 msgstr "Comprobando actualizaciones..."
 
-#: crates/gearlever/src/ui/mod.rs:2265
+#: crates/gearlever/src/ui/mod.rs:2683
 msgid "Clone AppImages into the destination folder"
 msgstr "Clonar AppImages hacia la carpeta destinada"
 
@@ -307,55 +476,55 @@ msgstr "Clonar AppImages hacia la carpeta destinada"
 msgid "Close"
 msgstr "Cerrar"
 
-#: crates/gearlever/src/ui/mod.rs:1705
+#: crates/gearlever/src/ui/mod.rs:1997
 msgid "Command line arguments"
 msgstr "Argumentos de la línea de comandos"
 
-#: crates/gearlever/src/ui/mod.rs:2431
+#: crates/gearlever/src/ui/mod.rs:2850
 msgid "Conflict with \"{app_name}\""
 msgstr "Conflicto con \"{app_name}\""
 
-#: crates/gearlever/src/ui/mod.rs:2283
+#: crates/gearlever/src/ui/mod.rs:2701
 msgid "Debugging"
 msgstr "Depurando"
 
-#: crates/gearlever/src/ui/mod.rs:1862
+#: crates/gearlever/src/ui/mod.rs:2154
 msgid "Default"
 msgstr "Por defecto"
 
-#: crates/gearlever/src/ui/mod.rs:2405
+#: crates/gearlever/src/ui/mod.rs:2824
 msgid "Do you really want to remove this app?"
 msgstr "¿Realmente desea eliminar esta aplicación?"
 
-#: crates/gearlever/src/ui/mod.rs:2741
+#: crates/gearlever/src/ui/mod.rs:3199
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "Arrastra y suelta una AppImage aqui o da click al icono \"+\"."
 
-#: crates/gearlever/src/ui/mod.rs:2827
+#: crates/gearlever/src/ui/mod.rs:3285
 msgid "Drop your file here"
 msgstr "Suelta tu archivo aqui"
 
-#: crates/gearlever/src/ui/mod.rs:2285
+#: crates/gearlever/src/ui/mod.rs:2703
 msgid "Enable debug logs"
 msgstr "Habilitar registros de depuración"
 
-#: crates/gearlever/src/ui/mod.rs:1974
+#: crates/gearlever/src/ui/mod.rs:2266
 msgid "Environment variables"
 msgstr "Variables de entorno"
 
-#: crates/gearlever/src/ui/mod.rs:2235 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:2653 crates/gearlever/src/ui/welcome.rs:177
 msgid "File management"
 msgstr "Gestión de archivos"
 
-#: crates/gearlever/src/ui/mod.rs:2695
+#: crates/gearlever/src/ui/mod.rs:3141
 msgid "Filter installed applications"
 msgstr "Filtrar aplicaciones instaladas"
 
-#: crates/gearlever/src/ui/mod.rs:2740
+#: crates/gearlever/src/ui/mod.rs:3198
 msgid "Get started"
 msgstr "Empezar"
 
-#: crates/gearlever/src/ui/mod.rs:2214
+#: crates/gearlever/src/ui/mod.rs:2506
 msgid ""
 "If enabled, the app will try to load an Appimage without using the built-in "
 "appimage-extract command.\n"
@@ -367,8 +536,8 @@ msgstr ""
 "Desactívelo solo si confía en sus fuentes: las aplicaciones maliciosas "
 "podrían ejecutar código al cargar los metadatos."
 
-#: crates/gearlever/src/ui/mod.rs:1420 crates/gearlever/src/ui/mod.rs:2645
-#: crates/gearlever/src/ui/mod.rs:2707
+#: crates/gearlever/src/ui/mod.rs:1712 crates/gearlever/src/ui/mod.rs:3091
+#: crates/gearlever/src/ui/mod.rs:3153
 msgid "Installed applications"
 msgstr "Aplicaciones instaladas"
 
@@ -376,76 +545,72 @@ msgstr "Aplicaciones instaladas"
 msgid "Installing..."
 msgstr "Instalando..."
 
-#: crates/gearlever/src/ui/mod.rs:555
+#: crates/gearlever/src/ui/mod.rs:809
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2449
+#: crates/gearlever/src/ui/mod.rs:2868
 msgid "Keep both"
 msgstr "Mantener ambas"
 
-#: crates/gearlever/src/ui/mod.rs:2266
+#: crates/gearlever/src/ui/mod.rs:2684
 msgid "Keep the original file and create a copy in the destination folder"
 msgstr "Mantiene el archivo original y crea una copia en la otra carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:2930
+#: crates/gearlever/src/ui/mod.rs:3390
 msgid "Key"
 msgstr "Clave"
 
-#: crates/gearlever/src/ui/mod.rs:1634 crates/gearlever/src/ui/mod.rs:1814
+#: crates/gearlever/src/ui/mod.rs:1926 crates/gearlever/src/ui/mod.rs:2106
 msgid "Launch"
 msgstr "Lanzar"
 
-#: crates/gearlever/src/ui/mod.rs:1858
+#: crates/gearlever/src/ui/mod.rs:2150
 msgid "Manage update details for this application"
 msgstr "Gestionar los datos de actualización de esta aplicación"
 
-#: crates/gearlever/src/ui/mod.rs:2260 crates/gearlever/src/ui/welcome.rs:180
+#: crates/gearlever/src/ui/mod.rs:2678 crates/gearlever/src/ui/welcome.rs:180
 msgid "Move AppImages into the destination folder"
 msgstr "Mueve las AppImages a la carpeta destinada"
 
-#: crates/gearlever/src/ui/mod.rs:1821
+#: crates/gearlever/src/ui/mod.rs:2113
 msgid "Move to the app menu"
 msgstr "Mover al menu de aplicaciones"
 
-#: crates/gearlever/src/ui/mod.rs:2271
+#: crates/gearlever/src/ui/mod.rs:2689
 msgid "Naming conventions"
 msgstr "Convenciones de nomenclatura"
 
-#: crates/gearlever/src/ui/mod.rs:778
+#: crates/gearlever/src/ui/mod.rs:1064
 msgid "No updates available"
 msgstr "No hay actualizaciones disponibles"
 
-#: crates/gearlever/src/ui/mod.rs:1395
+#: crates/gearlever/src/ui/mod.rs:1687
 msgid "Open"
 msgstr "Abrir"
 
-#: crates/gearlever/src/ui/mod.rs:1695
+#: crates/gearlever/src/ui/mod.rs:1987
 msgid "Open Folder"
 msgstr "Abrir carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:2746
-msgid "Open Preferences"
-msgstr "Abrir Preferencias"
-
-#: crates/gearlever/src/ui/mod.rs:1759
+#: crates/gearlever/src/ui/mod.rs:2051
 msgid "Open URL"
 msgstr "Abrir URL"
 
-#: crates/gearlever/src/ui/mod.rs:1449 crates/gearlever/src/ui/mod.rs:2649
+#: crates/gearlever/src/ui/mod.rs:1741 crates/gearlever/src/ui/mod.rs:3095
 msgid "Open a new AppImage"
 msgstr "Abrir una nueva AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:1689
+#: crates/gearlever/src/ui/mod.rs:1981
 msgid "Path"
 msgstr "Directorio"
 
-#: crates/gearlever/src/ui/mod.rs:2206
+#: crates/gearlever/src/ui/mod.rs:2498
 msgid "Preview new apps in a minimal UI"
 msgstr ""
 "Previsualiza nuevas aplicaciones en una interfaz de usuario minimalista"
 
-#: crates/gearlever/src/ui/mod.rs:2226
+#: crates/gearlever/src/ui/mod.rs:2518
 msgid ""
 "Receive a notification when a new update is detected; updates will not be "
 "installed automatically"
@@ -453,29 +618,29 @@ msgstr ""
 "Recibir una notificación cuando se detecte una nueva actualización; las "
 "actualizaciones no se instalarán automáticamente"
 
-#: crates/gearlever/src/ui/mod.rs:2261
+#: crates/gearlever/src/ui/mod.rs:2679
 msgid "Reduce disk usage"
 msgstr "Reducir uso del disco"
 
-#: crates/gearlever/src/ui/mod.rs:1642 crates/gearlever/src/ui/mod.rs:2408
+#: crates/gearlever/src/ui/mod.rs:1934 crates/gearlever/src/ui/mod.rs:2827
 msgid "Remove"
 msgstr "Eliminar"
 
-#: crates/gearlever/src/ui/mod.rs:2445
+#: crates/gearlever/src/ui/mod.rs:2864
 msgid "Replace"
 msgstr "Remplazar"
 
-#: crates/gearlever/src/ui/mod.rs:1930 crates/gearlever/src/ui/mod.rs:1987
+#: crates/gearlever/src/ui/mod.rs:2222 crates/gearlever/src/ui/mod.rs:2279
 msgid "Save"
 msgstr "Guardar"
 
-#: crates/gearlever/src/ui/mod.rs:2162 crates/gearlever/src/ui/mod.rs:2170
+#: crates/gearlever/src/ui/mod.rs:2454 crates/gearlever/src/ui/mod.rs:2462
 #: crates/gearlever/src/ui/welcome.rs:147
 #: crates/gearlever/src/ui/welcome.rs:152
 msgid "Select a folder"
 msgstr "Selecciona una carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:1869
+#: crates/gearlever/src/ui/mod.rs:2161
 msgid "Select the source type"
 msgstr "Seleccione el tipo de fuente"
 
@@ -483,33 +648,33 @@ msgstr "Seleccione el tipo de fuente"
 msgid "Set the AppImage location"
 msgstr "Selecciona la ubicación de la AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:2197
+#: crates/gearlever/src/ui/mod.rs:2489
 msgid "Show integrated AppImages outside the default folder"
 msgstr "Muestra las AppImages integradas fuera de la carpeta por defecto"
 
-#: crates/gearlever/src/ui/mod.rs:1868
+#: crates/gearlever/src/ui/mod.rs:2160
 msgid "Source"
 msgstr "Fuente"
 
-#: crates/gearlever/src/ui/mod.rs:2435
+#: crates/gearlever/src/ui/mod.rs:2854
 msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr "Tienes una app con el mismo nombre ¿Como quieres proceder?"
 
-#: crates/gearlever/src/ui/mod.rs:1854
+#: crates/gearlever/src/ui/mod.rs:2146
 msgid "This application includes update information provided by the developer"
 msgstr ""
 "Esta aplicación incluye información actualizada proporcionada por el "
 "desarrollador"
 
-#: crates/gearlever/src/ui/mod.rs:1653
+#: crates/gearlever/src/ui/mod.rs:1945
 msgid "Update"
 msgstr "Actualizar"
 
-#: crates/gearlever/src/ui/mod.rs:2718
+#: crates/gearlever/src/ui/mod.rs:3174
 msgid "Update all"
 msgstr "Actualizar todo"
 
-#: crates/gearlever/src/ui/mod.rs:1670
+#: crates/gearlever/src/ui/mod.rs:1962
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -517,34 +682,34 @@ msgstr ""
 "Actualizar información como icono, versión y descripción.\n"
 "Útil si la aplicación se actualizó por si misma."
 
-#: crates/gearlever/src/ui/mod.rs:1840
+#: crates/gearlever/src/ui/mod.rs:2132
 msgid "Update management"
 msgstr "Gestión de la actualización"
 
-#: crates/gearlever/src/ui/mod.rs:2223 crates/gearlever/src/ui/welcome.rs:198
+#: crates/gearlever/src/ui/mod.rs:2515 crates/gearlever/src/ui/welcome.rs:198
 msgid "Updates management"
 msgstr "Gestión de actualizaciones"
 
-#: crates/gearlever/src/ui/mod.rs:2273
+#: crates/gearlever/src/ui/mod.rs:2691
 msgid "Use executable name for integrated terminal apps"
 msgstr "Utilizar nombre ejecutable para aplicaciones de terminal integradas"
 
-#: crates/gearlever/src/ui/mod.rs:2213
+#: crates/gearlever/src/ui/mod.rs:2505
 msgid "Use safe mechanisms to load metadata"
 msgstr "Utilice mecanismos seguros para cargar metadatos"
 
-#: crates/gearlever/src/ui/mod.rs:2935
+#: crates/gearlever/src/ui/mod.rs:3395
 msgid "Value"
 msgstr "Valor"
 
-#: crates/gearlever/src/ui/mod.rs:1752
+#: crates/gearlever/src/ui/mod.rs:2044
 msgid "Website"
 msgstr "Sitio Web"
 
-#: crates/gearlever/src/ui/mod.rs:2665
+#: crates/gearlever/src/ui/mod.rs:3111
 msgid "_Open Log File"
 msgstr "_Abrir archivo Log"
 
-#: crates/gearlever/src/ui/mod.rs:2664
+#: crates/gearlever/src/ui/mod.rs:3110
 msgid "_Preferences"
 msgstr "_Preferencias"
