@@ -117,6 +117,13 @@ enum LoadSource {
     External,
 }
 
+/// What happens to the window after starting an installed application.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WindowAfterLaunch {
+    StayOpen,
+    Close,
+}
+
 #[expect(
     clippy::large_enum_variant,
     reason = "the installed path is the common case and cloning is cheap enough"
@@ -179,6 +186,7 @@ enum Msg {
         errors: Vec<String>,
     },
     Launch(PathBuf),
+    CloseAfterLaunch,
     StartUpdate(PathBuf),
     StartAllUpdates,
     Progress(f64, String),
@@ -967,7 +975,7 @@ impl Component for AppModel {
                     if is_self_launch(app) {
                         Self::restart(widgets, app);
                     } else {
-                        Self::launch(app);
+                        Self::launch(app, &sender, self.window_after_launch());
                     }
                 } else if self
                     .pending_metadata(&path)
@@ -978,6 +986,7 @@ impl Component for AppModel {
                     Self::launch_file(&path);
                 }
             }
+            Msg::CloseAfterLaunch => widgets.window.close(),
             Msg::StartUpdate(path) => {
                 if self.cancel_token.is_some() {
                     Self::toast(widgets, &t("An update is already running"));
@@ -1500,6 +1509,19 @@ impl AppModel {
     /// Returns whether a file opened from the file manager uses the small preview.
     fn minimal_preview(&self) -> bool {
         self.opened_from_file && self.settings.values().preview_minimal_ui
+    }
+
+    /// Returns whether launching an installed app should close the window.
+    ///
+    /// Gear LeverR only closes when the file manager or the command line opened
+    /// it to handle an AppImage; launching from the in-app chooser or the list
+    /// keeps the main window open.
+    fn window_after_launch(&self) -> WindowAfterLaunch {
+        if self.external_open {
+            WindowAfterLaunch::Close
+        } else {
+            WindowAfterLaunch::StayOpen
+        }
     }
 
     fn refresh_apps(&mut self) {
@@ -2984,9 +3006,14 @@ impl AppModel {
         confirm.present();
     }
 
-    fn launch(app: &InstalledApp) {
+    fn launch(
+        app: &InstalledApp,
+        sender: &ComponentSender<Self>,
+        window_after_launch: WindowAfterLaunch,
+    ) {
         let desktop_id = app.desktop_id.clone();
         let image_path = app.image_path.clone();
+        let sender = sender.clone();
 
         // gtk-launch returns immediately once the app is started, so waiting for
         // it does not block anything the user can see.
@@ -2996,8 +3023,10 @@ impl AppModel {
                 .status()
                 .is_ok_and(|status| status.success());
 
-            if !launched {
-                let _ = launch::command(&image_path).spawn();
+            let launched = launched || launch::command(&image_path).spawn().is_ok();
+
+            if launched && window_after_launch == WindowAfterLaunch::Close {
+                sender.input(Msg::CloseAfterLaunch);
             }
         });
     }
