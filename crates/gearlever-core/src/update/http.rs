@@ -7,13 +7,16 @@ use std::fmt;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use crate::error::{Error, Result};
+use crate::error::{Error, HttpStatus, Result};
 
 const USER_AGENT: &str = concat!("GearLeverR/", env!("CARGO_PKG_VERSION"));
-const TIMEOUT: Duration = Duration::from_secs(30);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
+const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// A blocking HTTP client shared by all update sources.
 #[derive(Clone)]
@@ -34,18 +37,35 @@ impl Default for HttpClient {
 }
 
 impl HttpClient {
-    /// Creates a client with a user agent and a global timeout.
+    /// Creates a client with a user agent and connect, response and read
+    /// timeouts.
+    ///
+    /// There is deliberately no global timeout: a large AppImage may take
+    /// longer than a fixed budget, while a stalled read still fails.
     #[must_use]
     pub fn new() -> Self {
         let config = ureq::Agent::config_builder()
             .user_agent(USER_AGENT)
-            .timeout_global(Some(TIMEOUT))
+            .timeout_connect(Some(CONNECT_TIMEOUT))
+            .timeout_recv_response(Some(RESPONSE_TIMEOUT))
+            .timeout_per_read(Some(READ_TIMEOUT))
             .http_status_as_error(false)
             .build();
 
         Self {
             agent: ureq::Agent::new_with_config(config),
         }
+    }
+
+    /// Returns the shared client used by update checks and downloads.
+    ///
+    /// Cloning it shares the connection pool, so checks against the same host
+    /// reuse the existing TLS connection.
+    #[must_use]
+    pub fn shared() -> Self {
+        static SHARED: OnceLock<HttpClient> = OnceLock::new();
+
+        SHARED.get_or_init(Self::new).clone()
     }
 
     /// Fetches a text document.
@@ -61,11 +81,39 @@ impl HttpClient {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Http`] for transport errors and non-success statuses.
+    /// Returns [`Error::Http`] for transport errors and
+    /// [`Error::HttpStatus`] for non-success statuses.
     pub fn get_text_with_accept(&self, url: &str, accept: Option<&str>) -> Result<String> {
+        self.get_text_with_auth(url, accept, None)
+    }
+
+    /// Fetches a text document with optional `Accept` and `Authorization`
+    /// headers.
+    ///
+    /// The token is only added when the caller passes one; update sources are
+    /// responsible for using it exclusively against their own API host.
+    fn get_text_with_auth(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<String> {
+        self.get_text_with_auth_response(url, accept, token)
+            .map(|(body, _)| body)
+    }
+
+    fn get_text_with_auth_response(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<(String, http::HeaderMap)> {
         let mut request = self.agent.get(url);
         if let Some(accept) = accept {
             request = request.header("Accept", accept);
+        }
+        if let Some(token) = token {
+            request = request.header("Authorization", format!("Bearer {token}"));
         }
 
         let response = request
@@ -74,34 +122,86 @@ impl HttpClient {
         let status = response.status();
 
         if !status.is_success() {
-            return Err(Error::Http(format!("{url}: HTTP {status}")));
+            return Err(Error::HttpStatus(http_status(
+                url,
+                status.as_u16(),
+                response.headers(),
+            )));
         }
 
+        let headers = response.headers().clone();
         let mut body = response.into_body();
         let bytes = body
             .read_to_vec()
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
 
         // zsync control files carry binary checksums after a text header.
-        Ok(String::from_utf8_lossy(&bytes).into_owned())
+        Ok((String::from_utf8_lossy(&bytes).into_owned(), headers))
     }
 
     /// Fetches and decodes a JSON document.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Http`] for transport errors, non-success statuses and
-    /// invalid JSON.
+    /// Returns [`Error::Http`] for transport errors,
+    /// [`Error::InvalidResponse`] for invalid JSON, and [`Error::HttpStatus`]
+    /// for non-success statuses.
     pub fn get_json<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
         accept: Option<&str>,
     ) -> Result<T> {
-        let body = self.get_text_with_accept(url, accept)?;
-        serde_json::from_str(&body).map_err(|error| Error::Http(format!("{url}: {error}")))
+        self.get_json_with_token(url, accept, None)
+    }
+
+    /// Fetches and decodes a JSON document, optionally authenticating with a
+    /// bearer token.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Http`] for transport errors,
+    /// [`Error::InvalidResponse`] for invalid JSON, and [`Error::HttpStatus`]
+    /// for non-success statuses.
+    pub fn get_json_with_token<T: serde::de::DeserializeOwned>(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<T> {
+        let body = self.get_text_with_auth(url, accept, token)?;
+        serde_json::from_str(&body).map_err(|error| Error::InvalidResponse {
+            url: url.to_owned(),
+            error: error.to_string(),
+        })
+    }
+
+    /// Fetches and decodes a JSON document, returning the GitHub token
+    /// expiration header when the response carries one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Http`] for transport errors,
+    /// [`Error::InvalidResponse`] for invalid JSON, and [`Error::HttpStatus`]
+    /// for non-success statuses.
+    pub fn get_json_with_token_expiration<T: serde::de::DeserializeOwned>(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<(T, Option<String>)> {
+        let (body, headers) = self.get_text_with_auth_response(url, accept, token)?;
+        let value = serde_json::from_str(&body).map_err(|error| Error::InvalidResponse {
+            url: url.to_owned(),
+            error: error.to_string(),
+        })?;
+
+        Ok((value, token_expiration(&headers)))
     }
 
     /// Returns the `Content-Length` of `url`, using HEAD and falling back to GET.
+    ///
+    /// A transport error is not retried: a server that accepted the connection
+    /// but never answered would otherwise run the whole timeout twice.
     ///
     /// # Errors
     ///
@@ -113,7 +213,7 @@ impl HttpClient {
             }
             Ok(_) => {}
             Err(error) => {
-                tracing::debug!(%url, %error, "HEAD failed, retrying with GET");
+                return Err(Error::Http(format!("{url}: {error}")));
             }
         }
 
@@ -124,7 +224,11 @@ impl HttpClient {
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
         let status = response.status();
         if !status.is_success() {
-            return Err(Error::Http(format!("{url}: HTTP {status}")));
+            return Err(Error::HttpStatus(http_status(
+                url,
+                status.as_u16(),
+                response.headers(),
+            )));
         }
 
         Ok(content_length(response.headers()))
@@ -154,7 +258,11 @@ impl HttpClient {
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
         let status = response.status();
         if !status.is_success() {
-            return Err(Error::Http(format!("{url}: HTTP {status}")));
+            return Err(Error::HttpStatus(http_status(
+                url,
+                status.as_u16(),
+                response.headers(),
+            )));
         }
 
         if let Some(parent) = destination.parent() {
@@ -228,8 +336,38 @@ fn content_length(headers: &http::HeaderMap) -> Option<u64> {
         .and_then(|value| value.parse().ok())
 }
 
+/// Builds an [`HttpStatus`] from a response, including the GitHub rate-limit
+/// headers used by the retry policy.
+fn http_status(url: &str, status: u16, headers: &http::HeaderMap) -> HttpStatus {
+    HttpStatus {
+        url: url.to_owned(),
+        status,
+        rate_limit_remaining: header_u64(headers, "x-ratelimit-remaining"),
+        rate_limit_reset: header_u64(headers, "x-ratelimit-reset"),
+        retry_after: header_u64(headers, "retry-after"),
+    }
+}
+
+fn header_u64(headers: &http::HeaderMap, name: &str) -> Option<u64> {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse().ok())
+}
+
+fn token_expiration(headers: &http::HeaderMap) -> Option<String> {
+    headers
+        .get("github-authentication-token-expiration")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 #[cfg(test)]
 mod tests {
+    use std::net::TcpListener;
+
     use super::*;
 
     #[test]
@@ -238,5 +376,85 @@ mod tests {
         headers.insert("content-length", http::HeaderValue::from_static("1234"));
 
         assert_eq!(content_length(&headers), Some(1234));
+    }
+
+    #[test]
+    fn reads_github_rate_limit_headers() {
+        let mut headers = http::HeaderMap::new();
+        headers.insert("x-ratelimit-remaining", http::HeaderValue::from_static("0"));
+        headers.insert(
+            "x-ratelimit-reset",
+            http::HeaderValue::from_static("1700000000"),
+        );
+        headers.insert("retry-after", http::HeaderValue::from_static("3"));
+
+        let status = http_status("https://api.github.com/repos/o/r", 403, &headers);
+
+        assert_eq!(status.rate_limit_remaining, Some(0));
+        assert_eq!(status.rate_limit_reset, Some(1_700_000_000));
+        assert_eq!(status.retry_after, Some(3));
+    }
+
+    #[test]
+    fn sends_a_bearer_token() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buffer = [0_u8; 4096];
+            let read = stream.read(&mut buffer).unwrap();
+            let request = String::from_utf8_lossy(&buffer[..read]).to_ascii_lowercase();
+
+            assert!(
+                request.contains("authorization: bearer test-token"),
+                "request had no bearer token: {request}"
+            );
+
+            let body = r#"{"resources":{"core":{"limit":5000,"remaining":4999}}}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\ngithub-authentication-token-expiration: 2026-11-10 12:00:00 +0000\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+
+        let client = HttpClient::new();
+        let (value, expires_at): (serde_json::Value, _) = client
+            .get_json_with_token_expiration(
+                &format!("http://{address}/rate_limit"),
+                None,
+                Some("test-token"),
+            )
+            .unwrap();
+
+        assert_eq!(value["resources"]["core"]["remaining"], 4999);
+        assert_eq!(expires_at.as_deref(), Some("2026-11-10 12:00:00 +0000"));
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn reports_invalid_json_as_an_invalid_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buffer = [0_u8; 4096];
+            let _ = stream.read(&mut buffer).unwrap();
+            let body = "{}";
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+
+        let client = HttpClient::new();
+        let error = client
+            .get_json::<Vec<serde_json::Value>>(&format!("http://{address}/releases/latest"), None)
+            .unwrap_err();
+
+        assert!(matches!(error, Error::InvalidResponse { .. }), "{error}");
+        assert_eq!(error.retry_delay(), None);
+        server.join().unwrap();
     }
 }

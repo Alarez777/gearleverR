@@ -7,7 +7,7 @@ faster and use less memory while keeping the same features, the same configurati
 files and the same interface.
 
 - **UI**: GTK4 + libadwaita + Relm4
-- **AppImage**: two variants: `gtk-required` (uses the system GTK) and
+- **AppImage**: two variants: the default build (uses the system GTK) and
   `gtk-included` (bundles GTK/libadwaita and their dependencies)
 - **License**: GPL-3.0-or-later
 
@@ -38,6 +38,9 @@ updates from six sources, a compatible CLI and the full interface. See
 - Edit arguments, environment variables, the website and the update source.
 - Reload metadata, move an app to the trash and open its folder.
 - Preferences, about dialog, search and update notifications.
+- Optional GitHub token in Preferences, stored in the system keyring with an
+  encrypted fallback, to raise the API rate limit from 60 to 5,000 requests per
+  hour.
 - First-run window that integrates Gear LeverR into the application menu and asks for
   the AppImages folder and the move/clone policy.
 - gettext translations based on the original Gear Lever catalogs (22 languages).
@@ -57,15 +60,15 @@ updates from six sources, a compatible CLI and the full interface. See
 
 Download one of the two AppImages, make it executable and open it:
 
+- `GearLeverR-<version>-x86_64.AppImage`: recommended. Smaller and uses the
+  system GTK 4.8 + libadwaita 1.2+.
 - `GearLeverR-<version>-x86_64-gtk-included.AppImage`: GTK 4 and libadwaita are
   inside the AppImage. Use it when your distribution does not provide GTK 4.8 +
   libadwaita 1.2+.
-- `GearLeverR-<version>-x86_64-gtk-required.AppImage`: smaller and uses the
-  system GTK 4.8 + libadwaita 1.2+.
 
 ```sh
-chmod +x GearLeverR-0.1.0-x86_64-gtk-required.AppImage
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage
+chmod +x GearLeverR-0.1.0-x86_64.AppImage
+./GearLeverR-0.1.0-x86_64.AppImage
 ```
 
 The first launch shows a welcome window: it installs Gear LeverR in the application menu
@@ -79,21 +82,21 @@ uninstall only Gear LeverR or every integrated AppImage.
 You can also pass an AppImage directly:
 
 ```sh
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage ~/Downloads/App.AppImage
+./GearLeverR-0.1.0-x86_64.AppImage ~/Downloads/App.AppImage
 ```
 
 ### CLI
 
 ```sh
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --integrate App.AppImage
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --list-installed
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --list-installed --json
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --update App.AppImage
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --update --all
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --remove App.AppImage
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --set-update-source App.AppImage \
+./GearLeverR-0.1.0-x86_64.AppImage --integrate App.AppImage
+./GearLeverR-0.1.0-x86_64.AppImage --list-installed
+./GearLeverR-0.1.0-x86_64.AppImage --list-installed --json
+./GearLeverR-0.1.0-x86_64.AppImage --update App.AppImage
+./GearLeverR-0.1.0-x86_64.AppImage --update --all
+./GearLeverR-0.1.0-x86_64.AppImage --remove App.AppImage
+./GearLeverR-0.1.0-x86_64.AppImage --set-update-source App.AppImage \
     --manager GithubUpdater repo=owner/repo repo_filename=App-*.AppImage allow_prereleases=false
-./GearLeverR-0.1.0-x86_64-gtk-required.AppImage --list-update-managers
+./GearLeverR-0.1.0-x86_64.AppImage --list-update-managers
 ```
 
 `--json` documents use `schema_version: 1` and the same keys as the original
@@ -117,7 +120,7 @@ packaging/appimage/build-in-debian12.sh
 ```
 
 The script builds inside `rust:1.98-bookworm` and packages both variants into
-`dist/`: `...-gtk-required.AppImage` and `...-gtk-included.AppImage`. The
+`dist/`: `...AppImage` (default, system GTK) and `...-gtk-included.AppImage`. The
 `gtk-included` variant is assembled with `linuxdeploy` and its GTK plugin, which
 are downloaded automatically. The resulting binaries also run on newer
 distributions.
@@ -166,7 +169,7 @@ scripts/bench-metadata.sh ~/AppImages/*.appimage
 scripts/bench-startup.sh
 
 # UI smoke test (Xvfb + openbox + xdotool): no blocking modal and real clicks work
-scripts/ui-smoke.sh ./dist/GearLeverR-0.1.0-x86_64-gtk-required.AppImage
+scripts/ui-smoke.sh ./dist/GearLeverR-0.1.0-x86_64.AppImage
 ```
 
 Results measured on the development machine: see

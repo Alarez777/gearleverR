@@ -21,8 +21,10 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::{ArgGroup, Parser};
 use serde::Serialize;
 
+use gearlever_core::Error as CoreError;
 use gearlever_core::appimage::{AppImage, MetadataOptions, is_running};
 use gearlever_core::config::Config;
+use gearlever_core::error::RateLimitInfo;
 use gearlever_core::hash::HashCache;
 use gearlever_core::install::{Conflict, IntegrateOptions, PreviousInstall, integrate};
 use gearlever_core::paths::Paths;
@@ -30,7 +32,10 @@ use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 
+use crate::i18n::t;
+use crate::rate_limit::{self, TokenState};
 use crate::settings::Settings;
+use crate::token_store::{TokenStatus, TokenStore};
 
 /// Manage AppImages with ease.
 #[expect(
@@ -252,7 +257,7 @@ impl Cli {
                 ],
                 vec![
                     "Update Source".to_owned(),
-                    update::resolve(app_image.path(), &BTreeMap::new())
+                    update::resolve(app_image.path(), &BTreeMap::new(), None)
                         .ok()
                         .flatten()
                         .map_or_else(
@@ -433,7 +438,7 @@ impl Cli {
     }
 
     fn list_updates_command(&self, context: &CommandContext) -> Result<()> {
-        let updates = context.collect_updates()?;
+        let updates = context.collect_updates()?.updates;
 
         if self.json {
             let entries: Vec<AppJson> = updates
@@ -496,7 +501,7 @@ impl Cli {
             let manager = context.manager_for(&app.image_path)?;
             vec![(app.clone(), manager)]
         } else {
-            let updates = context.collect_updates()?;
+            let updates = context.collect_updates()?.updates;
             if updates.is_empty() {
                 println!("No updates available");
                 return Ok(());
@@ -635,21 +640,38 @@ impl Cli {
     }
 
     fn fetch_updates_command(context: &CommandContext) -> Result<()> {
-        let updates = context.collect_updates()?;
+        let collected = context.collect_updates()?;
 
-        if updates.is_empty() {
+        if collected.token_invalid {
+            Self::notify(&t(
+                "GitHub authentication failed (401). Check your token in Preferences → GitHub.",
+            ))?;
+        }
+
+        if let Some(info) = &collected.rate_limit {
+            let message = rate_limit::message(info, collected.token_state);
+            Self::notify(&message)?;
+        }
+
+        if collected.updates.is_empty() {
             println!("No updates available");
             return Ok(());
         }
 
-        let message = if updates.len() == 1 {
+        let message = if collected.updates.len() == 1 {
             "1 update available".to_owned()
         } else {
-            format!("{} updates available", updates.len())
+            format!("{} updates available", collected.updates.len())
         };
 
+        Self::notify(&message)?;
+
+        Ok(())
+    }
+
+    fn notify(message: &str) -> Result<()> {
         let result = Command::new("notify-send")
-            .arg(&message)
+            .arg(message)
             .arg("--action=Open Gear LeverR")
             .arg("--expire-time=600000")
             .output();
@@ -698,6 +720,14 @@ impl Cli {
     }
 }
 
+/// Updates found by a CLI check and the account/token conditions encountered.
+struct CollectedUpdates {
+    updates: Vec<(InstalledApp, Box<dyn update::UpdateManager>)>,
+    token_invalid: bool,
+    rate_limit: Option<RateLimitInfo>,
+    token_state: TokenState,
+}
+
 /// Shared state for a CLI invocation.
 struct CommandContext {
     paths: Paths,
@@ -739,37 +769,115 @@ impl CommandContext {
 
     fn manager_for(&self, image: &Path) -> Result<Box<dyn update::UpdateManager>> {
         let config = self.config.update_manager(image);
-        update::resolve(image, &config)?
+        let token = TokenStore::new(self.settings.clone()).get();
+        update::resolve(image, &config, token.as_deref())?
             .ok_or_else(|| anyhow!("No update method was found for this AppImage"))
     }
 
-    fn collect_updates(&self) -> Result<Vec<(InstalledApp, Box<dyn update::UpdateManager>)>> {
+    fn collect_updates(&self) -> Result<CollectedUpdates> {
         let hashes = HashCache::new(self.paths.cache_root().join("hashes"));
+        let token_store = TokenStore::new(self.settings.clone());
+        let token = token_store.get();
+        let token_state = if token.is_some() {
+            TokenState::Used
+        } else if token_store.status() != TokenStatus::None {
+            TokenState::ConfiguredNotLoaded
+        } else {
+            TokenState::None
+        };
+        let mut notify_token_invalid = false;
+        let mut rate_limit = None;
         let mut updates = Vec::new();
 
         for app in self.apps()? {
-            let Some(manager) = update::resolve(
+            let manager = match update::resolve(
                 &app.image_path,
                 &self.config.update_manager(&app.image_path),
-            )?
-            else {
-                continue;
+                token.as_deref(),
+            ) {
+                Ok(Some(manager)) => manager,
+                Ok(None) => continue,
+                Err(error) => {
+                    tracing::warn!(
+                        app = %app.name,
+                        %error,
+                        "cannot resolve the update manager"
+                    );
+                    continue;
+                }
             };
 
             match manager.check(&hashes) {
                 Ok(UpdateStatus::Available) => updates.push((app, manager)),
                 Ok(_) => {}
-                Err(error) => {
+                Err(error @ CoreError::GithubTokenInvalid) => {
                     tracing::warn!(
                         app = %app.name,
                         %error,
                         "update check failed"
                     );
+                    if token_store.mark_invalid() {
+                        notify_token_invalid = true;
+                    }
+                }
+                Err(error) => {
+                    let Some(delay) = error.retry_delay() else {
+                        if let Some(info) = error.rate_limit_info() {
+                            tracing::warn!(
+                                app = %app.name,
+                                %error,
+                                "GitHub API rate limit exhausted"
+                            );
+                            rate_limit = Some(info);
+                        } else {
+                            tracing::warn!(
+                                app = %app.name,
+                                %error,
+                                "update check failed"
+                            );
+                        }
+                        continue;
+                    };
+
+                    tracing::debug!(
+                        app = %app.name,
+                        %error,
+                        "update check failed, retrying"
+                    );
+                    if !delay.is_zero() {
+                        std::thread::sleep(delay);
+                    }
+
+                    match manager.check(&hashes) {
+                        Ok(UpdateStatus::Available) => updates.push((app, manager)),
+                        Ok(_) => {}
+                        Err(error) => {
+                            if let Some(info) = error.rate_limit_info() {
+                                tracing::warn!(
+                                    app = %app.name,
+                                    %error,
+                                    "GitHub API rate limit exhausted after retry"
+                                );
+                                rate_limit = Some(info);
+                            } else {
+                                tracing::warn!(
+                                    app = %app.name,
+                                    %error,
+                                    "update check failed after retry"
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        Ok(updates)
+        Ok(CollectedUpdates {
+            updates,
+            token_invalid: notify_token_invalid,
+            rate_limit,
+            token_state,
+        })
     }
 
     fn update_options(&self) -> UpdateOptions {
@@ -809,7 +917,7 @@ struct UpdatesJson {
 }
 
 fn manager_name(config: &Config, image: &Path) -> Option<String> {
-    match update::resolve(image, &config.update_manager(image)) {
+    match update::resolve(image, &config.update_manager(image), None) {
         Ok(Some(manager)) => Some(manager.kind().name().to_owned()),
         Ok(None) => None,
         Err(error) => {
@@ -820,7 +928,7 @@ fn manager_name(config: &Config, image: &Path) -> Option<String> {
 }
 
 fn manager_embedded(config: &Config, image: &Path) -> bool {
-    update::resolve(image, &config.update_manager(image))
+    update::resolve(image, &config.update_manager(image), None)
         .ok()
         .flatten()
         .is_some_and(|manager| manager.embedded().is_some())

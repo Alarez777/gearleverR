@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Assembles the Gear LeverR AppImages.
 #
-# VARIANT=system   GTK 4 and libadwaita are provided by the host.
+# VARIANT=default  GTK 4 and libadwaita are provided by the host (recommended).
+# VARIANT=system   Alias for default.
 # VARIANT=bundled  GTK 4, libadwaita and their dependencies are inside.
 # VARIANT=all      Build both variants (default).
 #
 # Usage:
 #   packaging/appimage/build.sh
-#   VARIANT=system packaging/appimage/build.sh
+#   VARIANT=default packaging/appimage/build.sh
 #   APPIMAGETOOL=/path/to/appimagetool packaging/appimage/build.sh
 set -euo pipefail
 
@@ -18,7 +19,7 @@ VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/Cargo.toml" | head -n 1)
 DIST="$ROOT/dist"
 SYSTEM_APPDIR="$ROOT/packaging/appimage/AppDir"
 BUNDLED_APPDIR="$ROOT/packaging/appimage/AppDir-bundled"
-SYSTEM_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}-gtk-required.AppImage"
+SYSTEM_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}.AppImage"
 BUNDLED_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}-gtk-included.AppImage"
 APPIMAGETOOL=${APPIMAGETOOL:-appimagetool}
 LINUXDEPLOY=${LINUXDEPLOY:-$ROOT/.cache/linuxdeploy-x86_64.AppImage}
@@ -128,11 +129,11 @@ ensure_linuxdeploy() {
 }
 
 build_system() {
-    echo ":: assembling the gtk-required variant"
+    echo ":: assembling the default variant (system GTK)"
     rm -rf "$SYSTEM_APPDIR"
     install -Dm755 "$BINARY" "$SYSTEM_APPDIR/gearlever-r"
     install_common "$SYSTEM_APPDIR"
-    package_appimage "$SYSTEM_APPDIR" "$SYSTEM_OUTPUT" "gtk-required"
+    package_appimage "$SYSTEM_APPDIR" "$SYSTEM_OUTPUT" "default"
 }
 
 build_bundled() {
@@ -196,7 +197,7 @@ build_bundled() {
 }
 
 case "$VARIANT" in
-    system|required)
+    default|system|required)
         build_system
         ;;
     bundled|included)
@@ -207,7 +208,7 @@ case "$VARIANT" in
         build_bundled
         ;;
     *)
-        echo "error: VARIANT must be system, bundled or all (got '$VARIANT')" >&2
+        echo "error: VARIANT must be default, system, bundled or all (got '$VARIANT')" >&2
         exit 1
         ;;
 esac

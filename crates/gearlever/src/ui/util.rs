@@ -164,6 +164,21 @@ pub fn install_css() {
         .multi-progress > trough > progress {
             min-height: 4px;
             border-radius: 0;
+        }
+        .update-progress {
+            margin-top: 2px;
+        }
+        .update-progress > trough {
+            min-height: 4px;
+            border-radius: 9999px;
+        }
+        .update-progress > trough > progress {
+            min-height: 4px;
+            border-radius: 9999px;
+            background-color: @accent_bg_color;
+        }
+        .update-progress.success > trough > progress {
+            background-color: @success_bg_color;
         }",
     );
     gtk::style_context_add_provider_for_display(

@@ -63,6 +63,9 @@ msgstr "Mover todas al menú de aplicaciones"
 msgid "No update method was found for this AppImage"
 msgstr "No se encontró un método de actualización para esta AppImage"
 
+msgid "No updates found"
+msgstr "No se encontraron actualizaciones"
+
 msgid "Not computed"
 msgstr "Sin calcular"
 
@@ -238,3 +241,147 @@ msgstr ""
 "\n"
 "<b>Hecho con</b>\n"
 "Rust, GTK 4, libadwaita, Relm4, backhand y ureq."
+
+msgid "Retrying failed checks..."
+msgstr "Reintentando comprobaciones fallidas..."
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid "Authenticate with GitHub to raise the API rate limit from 60 to 5,000 requests per hour"
+msgstr "Autentícate con GitHub para aumentar el límite de la API de 60 a 5000 solicitudes por hora"
+
+msgid "Personal access token"
+msgstr "Token de acceso personal"
+
+msgid "Apply token"
+msgstr "Aplicar token"
+
+msgid "Clear token"
+msgstr "Borrar token"
+
+msgid "Test token"
+msgstr "Probar token"
+
+msgid "Verify your token works and check rate limit status"
+msgstr "Comprueba que el token funciona y consulta el estado del límite de solicitudes"
+
+msgid "Test"
+msgstr "Probar"
+
+msgid "Enter a valid token"
+msgstr "Introduce un token válido"
+
+msgid "Testing..."
+msgstr "Probando..."
+
+msgid "Create a token on GitHub"
+msgstr "Crear un token en GitHub"
+
+msgid "Fine-grained token with read-only public repo access is sufficient"
+msgstr "Basta con un token detallado con acceso de solo lectura a repositorios públicos"
+
+msgid "Enter a token first"
+msgstr "Introduce primero un token"
+
+msgid "The token contains invalid characters"
+msgstr "El token contiene caracteres no válidos"
+
+msgid "Could not save the token: {error}"
+msgstr "No se pudo guardar el token: {error}"
+
+msgid "GitHub token cleared"
+msgstr "Token de GitHub borrado"
+
+msgid "Could not clear the token: {error}"
+msgstr "No se pudo borrar el token: {error}"
+
+msgid "Token is valid — {remaining} / {limit} requests remaining"
+msgstr "El token es válido: quedan {remaining} de {limit} solicitudes"
+
+msgid "Token is valid"
+msgstr "El token es válido"
+
+msgid "Authentication failed — token is invalid or expired"
+msgstr "Falló la autenticación: el token no es válido o ha caducado"
+
+msgid "Access forbidden — token lacks required permissions"
+msgstr "Acceso denegado: el token no tiene los permisos necesarios"
+
+msgid "Rate limit exceeded — try again later"
+msgstr "Se superó el límite de solicitudes: inténtalo más tarde"
+
+msgid "Unexpected response ({status})"
+msgstr "Respuesta inesperada ({status})"
+
+msgid "Connection error: {error}"
+msgstr "Error de conexión: {error}"
+
+msgid "Unexpected response"
+msgstr "Respuesta inesperada"
+
+msgid "Personal access token (configured)"
+msgstr "Token de acceso personal (configurado)"
+
+msgid "GitHub token saved. Use Test to verify it."
+msgstr "Token de GitHub guardado. Usa Probar para verificarlo."
+
+msgid "Token configured, but it could not be loaded. Unlock the system keyring or enter a new token."
+msgstr "El token está configurado, pero no se pudo cargar. Desbloquea el llavero del sistema o introduce un token nuevo."
+
+msgid "Token configured · valid · expires {expires_at}"
+msgstr "Token configurado · válido · caduca el {expires_at}"
+
+msgid "Token configured · valid"
+msgstr "Token configurado · válido"
+
+msgid "Token configured · invalid or expired · expires {expires_at}"
+msgstr "Token configurado · no válido o caducado (caducidad: {expires_at})"
+
+msgid "Token configured · invalid or expired"
+msgstr "Token configurado · no válido o caducado"
+
+msgid "Token configured. Use Test to verify it."
+msgstr "Token configurado. Usa Probar para verificarlo."
+
+msgid "Token is valid — {remaining} / {limit} requests remaining · expires {expires_at}"
+msgstr "El token es válido: quedan {remaining} de {limit} solicitudes · caduca el {expires_at}"
+
+msgid "Token is valid — expires {expires_at}"
+msgstr "El token es válido: caduca el {expires_at}"
+
+msgid "GitHub authentication failed (401). Check your token in Preferences → GitHub."
+msgstr "Falló la autenticación de GitHub (401). Revisa tu token en Preferencias → GitHub."
+
+msgid "Open Preferences"
+msgstr "Abrir Preferencias"
+
+msgid "GitHub token expired or invalid"
+msgstr "El token de GitHub ha caducado o no es válido"
+
+msgid "Token configured, but the keyring is locked. Unlock it or enter a new token."
+msgstr "El token está configurado, pero el llavero está bloqueado. Desbloquéalo o introduce un token nuevo."
+
+msgid "Rate limit: retry in {wait}."
+msgstr "Límite: reintenta en {wait}."
+
+msgid "Rate limit exhausted. Retry later."
+msgstr "Límite agotado. Reintenta más tarde."
+
+msgid "Rate limit: unlock the keyring or retry in {wait}."
+msgstr "Límite: desbloquea el llavero o reintenta en {wait}."
+
+msgid "Rate limit: unlock the keyring or add a token."
+msgstr "Límite: desbloquea el llavero o añade un token."
+
+msgid "Rate limit: retry in {wait} or add a token."
+msgstr "Límite: reintenta en {wait} o añade un token."
+
+msgid "Rate limit exhausted. Add a token in Preferences."
+msgstr "Límite agotado. Añade un token en Preferencias."
+
+msgid "{minutes} min"
+msgstr "{minutes} min"
+
+msgid "{seconds} s"
+msgstr "{seconds} s"
