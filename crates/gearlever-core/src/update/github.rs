@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -154,6 +154,21 @@ struct Target {
     zsync_url: Option<String>,
 }
 
+/// Pairs the `.zsync` asset selected by `pattern` with the AppImage it describes.
+fn pick_zsync_target(assets: &[Asset], pattern: &str) -> Option<Target> {
+    let zsync_asset = pick_asset(assets, pattern)?;
+    let target_name = Path::new(&zsync_asset.name).file_stem()?.to_str()?;
+    let asset = assets
+        .iter()
+        .find(|asset| asset.name == target_name)?
+        .clone();
+
+    Some(Target {
+        asset,
+        zsync_url: Some(zsync_asset.url),
+    })
+}
+
 impl Github {
     /// Creates the manager.
     #[must_use]
@@ -268,16 +283,11 @@ impl Github {
             })
             .collect();
 
-        if let Some(target_pattern) = pattern.strip_suffix(".zsync") {
-            let zsync_asset = pick_asset(&assets, &pattern);
-            let Some(asset) = pick_asset(&assets, target_pattern) else {
-                return Ok(None);
-            };
-
-            return Ok(Some(Target {
-                asset,
-                zsync_url: zsync_asset.map(|asset| asset.url),
-            }));
+        if Path::new(&pattern)
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("zsync"))
+        {
+            return Ok(pick_zsync_target(&assets, &pattern));
         }
 
         Ok(pick_asset(&assets, &pattern).map(|asset| Target {
@@ -396,6 +406,46 @@ mod tests {
             HttpClient::new(),
             None,
         )
+    }
+
+    fn asset(name: &str) -> Asset {
+        Asset {
+            name: name.to_owned(),
+            url: format!("https://example.com/{name}"),
+            size: Some(1),
+            digest: None,
+        }
+    }
+
+    #[test]
+    fn pairs_a_wildcard_zsync_with_its_appimage() {
+        let assets = [
+            "kdiskmark-3.3.0-1.aarch64.rpm",
+            "kdiskmark-3.3.0-1.x86_64.rpm",
+            "KDiskMark-3.3.0-fio-3.42-x86_64.AppImage",
+            "KDiskMark-3.3.0-fio-3.42-x86_64.AppImage.sig",
+            "KDiskMark-3.3.0-fio-3.42-x86_64.AppImage.zsync",
+            "kdiskmark-3.3.0-source.tar.gz",
+            "kdiskmark_3.3.0_amd64.deb",
+            "kdiskmark_3.3.0_arm64.deb",
+            "package-signing-key.pub",
+        ]
+        .map(asset);
+
+        let target = pick_zsync_target(&assets, "*.zsync").unwrap();
+
+        assert_eq!(
+            target.asset.name,
+            "KDiskMark-3.3.0-fio-3.42-x86_64.AppImage"
+        );
+        assert_eq!(
+            target.asset.url,
+            "https://example.com/KDiskMark-3.3.0-fio-3.42-x86_64.AppImage"
+        );
+        assert_eq!(
+            target.zsync_url.as_deref(),
+            Some("https://example.com/KDiskMark-3.3.0-fio-3.42-x86_64.AppImage.zsync")
+        );
     }
 
     #[test]
