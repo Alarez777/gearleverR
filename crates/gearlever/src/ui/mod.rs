@@ -214,6 +214,8 @@ enum Msg {
         path: PathBuf,
         enabled: bool,
     },
+    UiScaleChanged(u32),
+    RestartApp,
     ConfigSaved(Result<Config, String>),
     ReloadMetadata(PathBuf),
     MetadataReloaded(Result<(PathBuf, AppMetadata), String>),
@@ -246,6 +248,7 @@ enum Msg {
 struct AppModel {
     paths: Paths,
     settings: Settings,
+    applied_ui_scale: u32,
     config: Config,
     apps: Vec<InstalledApp>,
     page: Page,
@@ -316,9 +319,8 @@ impl Component for AppModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        util::install_css();
-
         let mut model = Self::new();
+        util::install_css(model.applied_ui_scale);
         model.opened_from_file = opened_from_file;
 
         OPEN_SENDER.with(|slot| *slot.borrow_mut() = Some(sender.clone()));
@@ -1125,6 +1127,8 @@ impl Component for AppModel {
                     }
                 }
             }
+            Msg::UiScaleChanged(percent) => self.settings.set_ui_scale(percent),
+            Msg::RestartApp => Self::restart_self(self, widgets),
             Msg::ConfigSaved(result) => match result {
                 Ok(config) => {
                     self.config = config;
@@ -1303,10 +1307,12 @@ impl AppModel {
             tracing::warn!(%error, "cannot refresh the Gear LeverR desktop entry");
         }
         let config = Config::load_or_default(&paths.config_file()).unwrap_or_default();
+        let applied_ui_scale = settings.values().ui_scale;
 
         let mut model = Self {
             paths,
             settings,
+            applied_ui_scale,
             config,
             apps: Vec::new(),
             page: Page::List,
@@ -2679,6 +2685,131 @@ impl AppModel {
             sender,
         ));
 
+        let appearance = adw::PreferencesGroup::new();
+        appearance.set_title(&t("Appearance"));
+
+        let scale_row = adw::ActionRow::builder()
+            .title(t("Interface scale"))
+            .subtitle(t("Increase the size of text and buttons"))
+            .build();
+        scale_row.add_prefix(&gtk::Image::from_icon_name(
+            "preferences-desktop-font-symbolic",
+        ));
+
+        let scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, 100.0, 200.0, 10.0);
+        scale.set_digits(0);
+        scale.set_draw_value(false);
+        scale.set_size_request(180, -1);
+        scale.set_valign(gtk::Align::Center);
+        scale.set_value(f64::from(self.settings.values().ui_scale));
+
+        let spin = gtk::SpinButton::with_range(100.0, 200.0, 10.0);
+        spin.set_digits(0);
+        spin.set_numeric(true);
+        spin.set_width_chars(4);
+        spin.set_max_width_chars(4);
+        spin.set_valign(gtk::Align::Center);
+        spin.set_value(f64::from(self.settings.values().ui_scale));
+
+        let percent = gtk::Label::new(Some("%"));
+        percent.add_css_class("dim-label");
+
+        let controls = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        controls.set_valign(gtk::Align::Center);
+        controls.append(&scale);
+        controls.append(&spin);
+        controls.append(&percent);
+        scale_row.add_suffix(&controls);
+        appearance.add(&scale_row);
+
+        let applied_scale = self.applied_ui_scale;
+        let sender_scale = sender.clone();
+        let preferences_ref = window.downgrade();
+        let main_ref = widgets.window.downgrade();
+        let generation = Rc::new(Cell::new(0_u64));
+        let dialog_open = Rc::new(Cell::new(false));
+
+        let scale_ref = scale.downgrade();
+        spin.connect_value_changed(move |spin| {
+            let value = spin.value();
+            if let Some(scale) = scale_ref.upgrade()
+                && (scale.value() - value).abs() > f64::EPSILON
+            {
+                scale.set_value(value);
+            }
+
+            let percent = u32::try_from(spin.value_as_int()).unwrap_or(100);
+            sender_scale.input(Msg::UiScaleChanged(percent));
+
+            if percent == applied_scale {
+                return;
+            }
+
+            let current = generation.get().wrapping_add(1);
+            generation.set(current);
+            let generation_timer = Rc::clone(&generation);
+            let dialog_open = Rc::clone(&dialog_open);
+            let sender_restart = sender_scale.clone();
+            let preferences_ref = preferences_ref.clone();
+            let main_ref = main_ref.clone();
+
+            glib::timeout_add_local_once(Duration::from_millis(500), move || {
+                if generation_timer.get() != current || dialog_open.get() {
+                    return;
+                }
+
+                let preferences = preferences_ref.upgrade();
+                let main = main_ref.upgrade();
+                let parent = preferences
+                    .as_ref()
+                    .filter(|window| window.is_visible())
+                    .map(|window| window.clone().upcast::<gtk::Window>())
+                    .or_else(|| {
+                        main.as_ref()
+                            .map(|window| window.clone().upcast::<gtk::Window>())
+                    });
+                let Some(parent) = parent else {
+                    return;
+                };
+
+                dialog_open.set(true);
+                let dialog = adw::MessageDialog::new(
+                    Some(&parent),
+                    Some(&t("Restart required")),
+                    Some(&t("Restart Gear LeverR to apply the new interface scale.")),
+                );
+                dialog.add_response("later", &t("Later"));
+                dialog.add_response("restart", &t("Restart"));
+                dialog.set_response_appearance("restart", adw::ResponseAppearance::Suggested);
+                dialog.set_default_response(Some("restart"));
+                dialog.set_close_response("later");
+
+                let sender = sender_restart.clone();
+                let dialog_open = Rc::clone(&dialog_open);
+                dialog.connect_response(
+                    None,
+                    move |dialog: &adw::MessageDialog, response: &str| {
+                        dialog_open.set(false);
+                        if response == "restart" {
+                            sender.input(Msg::RestartApp);
+                        }
+                        dialog.close();
+                    },
+                );
+                dialog.present();
+            });
+        });
+
+        let spin_ref = spin.downgrade();
+        scale.connect_value_changed(move |scale| {
+            let value = scale.value();
+            if let Some(spin) = spin_ref.upgrade()
+                && (spin.value() - value).abs() > f64::EPSILON
+            {
+                spin.set_value(value);
+            }
+        });
+
         let updates = adw::PreferencesGroup::new();
         updates.set_title(&t("Updates management"));
         updates.add(&self.switch_row(
@@ -2890,6 +3021,7 @@ impl AppModel {
         ));
 
         page.add(&general);
+        page.add(&appearance);
         page.add(&updates);
         page.add(&github);
         page.add(&files);
@@ -3184,6 +3316,25 @@ impl AppModel {
     /// request and quit. The helper waits for this process to exit first.
     fn restart(widgets: &Widgets, app: &InstalledApp) {
         let _ = Self::restart_into(widgets, &app.image_path, None);
+    }
+
+    /// Restarts the program that is running Gear LeverR.
+    fn restart_self(&self, widgets: &Widgets) {
+        let program = running_appimage()
+            .or_else(|| std::env::current_exe().ok())
+            .or_else(|| {
+                self.apps
+                    .iter()
+                    .find(|app| app.self_entry)
+                    .map(|app| app.image_path.clone())
+            });
+
+        let Some(program) = program else {
+            Self::toast(widgets, &t("Cannot restart Gear LeverR"));
+            return;
+        };
+
+        let _ = Self::restart_into(widgets, &program, None);
     }
 
     /// Closes Gear LeverR and starts a candidate AppImage.
