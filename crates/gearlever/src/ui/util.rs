@@ -137,50 +137,55 @@ pub fn pill(text: &str) -> gtk::Label {
     label
 }
 
+/// Static styles used by the interface.
+const STYLE: &str = r"
+    .app-pill {
+        background-color: alpha(@theme_fg_color, 0.1);
+        border-radius: 9999px;
+        padding: 4px 12px;
+    }
+    .multi-progress {
+        margin: 0;
+        padding: 0;
+    }
+    .multi-progress > trough {
+        min-height: 4px;
+        border-radius: 0;
+    }
+    .multi-progress > trough > progress {
+        min-height: 4px;
+        border-radius: 0;
+    }
+    .update-progress {
+        margin-top: 2px;
+    }
+    .update-progress > trough {
+        min-height: 4px;
+        border-radius: 9999px;
+    }
+    .update-progress > trough > progress {
+        min-height: 4px;
+        border-radius: 9999px;
+        background-color: @accent_bg_color;
+    }
+    .update-progress.success > trough > progress {
+        background-color: @success_bg_color;
+    }
+";
+
 /// Installs the small stylesheet used by the interface.
 ///
 /// libadwaita 1.4 has `AdwToggleGroup`, but the project targets 1.2, so the
-/// details page builds its pills from labels and styles them here.
-pub fn install_css() {
+/// details page builds its pills from labels and styles them here. The window
+/// font size applies the saved interface scale to every label and button.
+pub fn install_css(ui_scale: u32) {
     let Some(display) = gdk::Display::default() else {
         return;
     };
 
+    let em = f64::from(ui_scale.max(100)) / 100.0;
     let provider = gtk::CssProvider::new();
-    provider.load_from_data(
-        ".app-pill {
-            background-color: alpha(@theme_fg_color, 0.1);
-            border-radius: 9999px;
-            padding: 4px 12px;
-        }
-        .multi-progress {
-            margin: 0;
-            padding: 0;
-        }
-        .multi-progress > trough {
-            min-height: 4px;
-            border-radius: 0;
-        }
-        .multi-progress > trough > progress {
-            min-height: 4px;
-            border-radius: 0;
-        }
-        .update-progress {
-            margin-top: 2px;
-        }
-        .update-progress > trough {
-            min-height: 4px;
-            border-radius: 9999px;
-        }
-        .update-progress > trough > progress {
-            min-height: 4px;
-            border-radius: 9999px;
-            background-color: @accent_bg_color;
-        }
-        .update-progress.success > trough > progress {
-            background-color: @success_bg_color;
-        }",
-    );
+    provider.load_from_data(&format!("window {{ font-size: {em:.2}em; }}\n{STYLE}"));
     gtk::style_context_add_provider_for_display(
         &display,
         &provider,

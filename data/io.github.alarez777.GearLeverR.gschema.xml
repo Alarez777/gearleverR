@@ -22,6 +22,16 @@
         <key name="is-maximized" type="b">
             <default>false</default>
         </key>
+        <key name="window-width" type="i">
+            <default>720</default>
+            <summary>Window width</summary>
+            <description>Last normal window width in logical pixels.</description>
+        </key>
+        <key name="window-height" type="i">
+            <default>720</default>
+            <summary>Window height</summary>
+            <description>Last normal window height in logical pixels.</description>
+        </key>
         <key name="fetch-updates-in-background" type="b">
             <default>false</default>
         </key>
@@ -30,6 +40,12 @@
         </key>
         <key name="block-unsafe-extractor" type="b">
             <default>true</default>
+        </key>
+        <key name="ui-scale" type="i">
+            <default>100</default>
+            <range min="100" max="200"/>
+            <summary>Interface scale</summary>
+            <description>Percentage used to scale text and buttons.</description>
         </key>
         <key name="github-token-cipher" type="s">
             <default>""</default>

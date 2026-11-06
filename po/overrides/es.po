@@ -388,3 +388,33 @@ msgstr "{seconds} s"
 
 msgid "Look for new versions of this application"
 msgstr "Buscar nuevas versiones de esta aplicación"
+
+msgid "Updates"
+msgstr "Actualizaciones"
+
+msgid "Installed"
+msgstr "Instaladas"
+
+msgid "Applications"
+msgstr "Aplicaciones"
+
+msgid "Appearance"
+msgstr "Apariencia"
+
+msgid "Interface scale"
+msgstr "Escala de la interfaz"
+
+msgid "Increase the size of text and buttons"
+msgstr "Aumenta el tamaño de los textos y los botones"
+
+msgid "Restart required"
+msgstr "Reinicio necesario"
+
+msgid "Restart Gear LeverR to apply the new interface scale."
+msgstr "Reinicia Gear LeverR para aplicar la nueva escala de la interfaz."
+
+msgid "Restart"
+msgstr "Reiniciar"
+
+msgid "Later"
+msgstr "Más tarde"
