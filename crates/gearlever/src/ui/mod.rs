@@ -320,6 +320,11 @@ impl Component for AppModel {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let mut model = Self::new();
+        let (width, height) = fit_window_size(
+            model.settings.values().window_width,
+            model.settings.values().window_height,
+        );
+        root.set_default_size(width, height);
         util::install_css(model.applied_ui_scale);
         model.opened_from_file = opened_from_file;
 
@@ -3686,6 +3691,13 @@ impl AppModel {
         let settings = Settings::load(&paths);
         let window_close = root.clone();
         root.connect_close_request(move |window| {
+            if !window.is_maximized() {
+                let width = window.default_width();
+                let height = window.default_height();
+                if width > 0 && height > 0 {
+                    settings.store_window_size(width, height);
+                }
+            }
             settings.store_boolean(keys::IS_MAXIMIZED, window.is_maximized());
             let _ = fs::remove_dir_all(&temp);
             glib::Propagation::Proceed
@@ -4189,6 +4201,27 @@ fn has_visible_rows(group: &adw::PreferencesGroup) -> bool {
     }
 
     false
+}
+
+/// Clamps a saved window size to the current monitor.
+fn fit_window_size(width: i32, height: i32) -> (i32, i32) {
+    let width = width.clamp(480, 10_000);
+    let height = height.clamp(360, 10_000);
+    let Some(display) = gdk::Display::default() else {
+        return (width, height);
+    };
+    let monitors = display.monitors();
+    let Some(monitor) = (0..monitors.n_items())
+        .find_map(|index| monitors.item(index).and_downcast::<gdk::Monitor>())
+    else {
+        return (width, height);
+    };
+    let geometry = monitor.geometry();
+
+    (
+        width.min(geometry.width().saturating_sub(80)).max(480),
+        height.min(geometry.height().saturating_sub(80)).max(360),
+    )
 }
 
 fn section_header(title: &str) -> gtk::Label {
