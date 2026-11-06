@@ -280,6 +280,7 @@ struct Widgets {
     installed_section: gtk::Box,
     installed_header: gtk::Label,
     installed_list: gtk::ListBox,
+    list_title: gtk::Label,
     list_stack: gtk::Stack,
     updates_button: gtk::Button,
     updates_progress: gtk::ProgressBar,
@@ -1915,10 +1916,21 @@ impl AppModel {
             }
         }
 
-        let sections = self.has_updates() && update_visible > 0;
+        let has_updates = self.has_updates();
+        let sections = has_updates && update_visible > 0;
         widgets.updates_section.set_visible(sections);
         widgets.installed_section.set_visible(installed_visible > 0);
         widgets.installed_header.set_visible(sections);
+
+        let title = if sections {
+            t("Applications")
+        } else {
+            t("Installed applications")
+        };
+        widgets.list_title.set_label(&title);
+        if self.page == Page::List {
+            widgets.title.set_label(&title);
+        }
 
         widgets
             .list_stack
@@ -1927,7 +1939,7 @@ impl AppModel {
             } else {
                 "list"
             });
-        widgets.update_all_button.set_visible(self.has_updates());
+        widgets.update_all_button.set_visible(has_updates);
     }
 
     /// Returns whether any installed app has a known update.
@@ -3383,11 +3395,6 @@ impl AppModel {
         list_sections.append(&updates_section);
         list_sections.append(&installed_section);
 
-        let list_scroll = gtk::ScrolledWindow::builder()
-            .vexpand(true)
-            .child(&list_sections)
-            .build();
-
         let empty = adw::StatusPage::builder()
             .icon_name("system-software-install-symbolic")
             .title(t("Get started"))
@@ -3404,7 +3411,7 @@ impl AppModel {
         empty.set_child(Some(&empty_buttons));
 
         let list_stack = gtk::Stack::new();
-        list_stack.add_named(&list_scroll, Some("list"));
+        list_stack.add_named(&list_sections, Some("list"));
         list_stack.add_named(&empty, Some("empty"));
 
         let list_page = gtk::Box::new(gtk::Orientation::Vertical, 12);
@@ -3547,6 +3554,7 @@ impl AppModel {
             installed_section,
             installed_header,
             installed_list,
+            list_title,
             list_stack,
             updates_button,
             updates_progress,
