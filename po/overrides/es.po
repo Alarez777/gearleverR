@@ -388,3 +388,12 @@ msgstr "{seconds} s"
 
 msgid "Look for new versions of this application"
 msgstr "Buscar nuevas versiones de esta aplicación"
+
+msgid "Updates"
+msgstr "Actualizaciones"
+
+msgid "Installed"
+msgstr "Instaladas"
+
+msgid "Applications"
+msgstr "Aplicaciones"
