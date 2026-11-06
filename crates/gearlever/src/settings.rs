@@ -39,6 +39,10 @@ pub mod keys {
     pub const DEBUG_LOGS: &str = "debug-logs";
     /// Whether the window was maximized.
     pub const IS_MAXIMIZED: &str = "is-maximized";
+    /// Last normal window width.
+    pub const WINDOW_WIDTH: &str = "window-width";
+    /// Last normal window height.
+    pub const WINDOW_HEIGHT: &str = "window-height";
     /// Whether the welcome dialog was shown.
     pub const FIRST_RUN: &str = "first-run";
     /// Percentage used to scale text and buttons.
@@ -76,6 +80,10 @@ pub struct Values {
     pub debug_logs: bool,
     /// Whether the window was maximized.
     pub is_maximized: bool,
+    /// Last normal window width.
+    pub window_width: i32,
+    /// Last normal window height.
+    pub window_height: i32,
     /// Whether the welcome dialog was shown.
     pub first_run: bool,
     /// Percentage used to scale text and buttons.
@@ -94,6 +102,8 @@ impl Values {
             fetch_in_background: false,
             debug_logs: false,
             is_maximized: false,
+            window_width: 720,
+            window_height: 720,
             first_run: true,
             ui_scale: 100,
         }
@@ -136,6 +146,8 @@ impl Settings {
             fetch_in_background: settings.boolean(keys::FETCH_IN_BACKGROUND),
             debug_logs: settings.boolean(keys::DEBUG_LOGS),
             is_maximized: settings.boolean(keys::IS_MAXIMIZED),
+            window_width: integer_value(&settings, keys::WINDOW_WIDTH, 720).clamp(320, 10_000),
+            window_height: integer_value(&settings, keys::WINDOW_HEIGHT, 720).clamp(240, 10_000),
             first_run: settings.boolean(keys::FIRST_RUN),
             ui_scale: ui_scale(&settings),
         };
@@ -197,6 +209,25 @@ impl Settings {
     pub fn store_appimages_dir(&self, path: &Path) {
         if let Some(settings) = &self.settings {
             let _ = settings.set_string(keys::APPIMAGES_FOLDER, &path.to_string_lossy());
+        }
+    }
+
+    /// Stores the last normal window size.
+    pub fn store_window_size(&self, width: i32, height: i32) {
+        let width = width.clamp(320, 10_000);
+        let height = height.clamp(240, 10_000);
+        let Some(settings) = &self.settings else {
+            return;
+        };
+        let Some(schema) = settings.settings_schema() else {
+            return;
+        };
+
+        if schema.has_key(keys::WINDOW_WIDTH) {
+            let _ = settings.set_int(keys::WINDOW_WIDTH, width);
+        }
+        if schema.has_key(keys::WINDOW_HEIGHT) {
+            let _ = settings.set_int(keys::WINDOW_HEIGHT, height);
         }
     }
 
@@ -330,18 +361,24 @@ fn migrate_legacy(
     }
 }
 
+/// Returns an integer setting, falling back when the installed schema predates
+/// the key.
+fn integer_value(settings: &gio::Settings, key: &str, default: i32) -> i32 {
+    let Some(schema) = settings.settings_schema() else {
+        return default;
+    };
+
+    if schema.has_key(key) {
+        settings.int(key)
+    } else {
+        default
+    }
+}
+
 /// Returns the saved interface scale, falling back to 100 when the installed
 /// schema predates the key.
 fn ui_scale(settings: &gio::Settings) -> u32 {
-    let Some(schema) = settings.settings_schema() else {
-        return 100;
-    };
-
-    if !schema.has_key(keys::UI_SCALE) {
-        return 100;
-    }
-
-    u32::try_from(settings.int(keys::UI_SCALE))
+    u32::try_from(integer_value(settings, keys::UI_SCALE, 100))
         .unwrap_or(100)
         .clamp(100, 200)
 }
@@ -369,6 +406,18 @@ mod tests {
         );
         assert_eq!(expand("~/", home), PathBuf::from("/home/tester"));
         assert_eq!(expand("/opt/apps", home), PathBuf::from("/opt/apps"));
+    }
+
+    #[test]
+    fn defaults_the_window_size() {
+        let paths = Paths::with_home(Path::new("/home/tester"));
+        let settings = Settings {
+            settings: None,
+            values: Values::defaults(&paths),
+        };
+
+        assert_eq!(settings.values().window_width, 720);
+        assert_eq!(settings.values().window_height, 720);
     }
 
     #[test]
