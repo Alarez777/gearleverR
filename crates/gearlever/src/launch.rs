@@ -90,6 +90,15 @@ fn relaunch_after(pid: u32, program: &Path, file: Option<&Path>) -> std::io::Res
     }
 
     let mut helper = command("/bin/sh");
+
+    // `command` strips the AppImage runtime variables so child apps start
+    // clean. This helper starts the same AppImage again, so it must keep the
+    // extraction mode used to launch the current instance; otherwise a restart
+    // fails on systems without FUSE.
+    if let Some(value) = std::env::var_os("APPIMAGE_EXTRACT_AND_RUN") {
+        helper.env("APPIMAGE_EXTRACT_AND_RUN", value);
+    }
+
     helper
         .arg("-c")
         .arg(WAIT)
