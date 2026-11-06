@@ -275,7 +275,11 @@ struct Widgets {
     search_bar: gtk::SearchBar,
     stack: gtk::Stack,
     toast: adw::ToastOverlay,
-    listbox: gtk::ListBox,
+    updates_section: gtk::Box,
+    updates_list: gtk::ListBox,
+    installed_section: gtk::Box,
+    installed_header: gtk::Label,
+    installed_list: gtk::ListBox,
     list_stack: gtk::Stack,
     updates_button: gtk::Button,
     updates_progress: gtk::ProgressBar,
@@ -534,13 +538,11 @@ impl Component for AppModel {
                     widgets.updates_progress.set_visible(false);
                 }
 
-                widgets
-                    .updates_button
-                    .set_label(&if self.updates.is_empty() {
-                        t("No updates found")
-                    } else {
-                        t("Check for updates")
-                    });
+                widgets.updates_button.set_label(&if self.has_updates() {
+                    t("Check for updates")
+                } else {
+                    t("No updates found")
+                });
                 Self::rebuild_list(self, widgets);
             }
             Msg::GithubTokenTested(check) => {
@@ -706,6 +708,7 @@ impl Component for AppModel {
                 Ok((path, config)) => {
                     self.config = config;
                     let _ = self.config.save(&self.paths.config_file());
+                    self.updates.remove(&path);
 
                     if self.removing_self {
                         self.removing_self = false;
@@ -762,6 +765,7 @@ impl Component for AppModel {
                     return;
                 }
 
+                self.updates.clear();
                 self.refresh_apps();
                 Self::rebuild_list(self, widgets);
                 if errors.is_empty() {
@@ -1878,17 +1882,18 @@ impl AppModel {
     }
 
     fn rebuild_list(&self, widgets: &Widgets) {
-        clear_listbox(&widgets.listbox);
+        clear_listbox(&widgets.updates_list);
+        clear_listbox(&widgets.installed_list);
 
         let query = normalize(&self.search);
-        let mut visible = 0;
+        let mut update_visible = 0;
+        let mut installed_visible = 0;
 
         for app in &self.apps {
             if !query.is_empty() && !normalize(&app.name).contains(&query) {
                 continue;
             }
 
-            visible += 1;
             let mut display = app.clone();
             if let Some((path, metadata)) = &self.reloaded
                 && path == &app.image_path
@@ -1897,20 +1902,39 @@ impl AppModel {
                 display.description.clone_from(&metadata.comment);
                 display.version.clone_from(&metadata.version);
             }
-            let row = Self::list_row(
-                &display,
-                self.updates.contains(&app.image_path),
-                &self.paths.metadata_cache_dir(),
-            );
-            widgets.listbox.append(&row);
+
+            let has_update = self.updates.contains(&app.image_path);
+            let row = Self::list_row(&display, has_update, &self.paths.metadata_cache_dir());
+
+            if has_update {
+                update_visible += 1;
+                widgets.updates_list.append(&row);
+            } else {
+                installed_visible += 1;
+                widgets.installed_list.append(&row);
+            }
         }
+
+        let sections = self.has_updates() && update_visible > 0;
+        widgets.updates_section.set_visible(sections);
+        widgets.installed_section.set_visible(installed_visible > 0);
+        widgets.installed_header.set_visible(sections);
 
         widgets
             .list_stack
-            .set_visible_child_name(if visible == 0 { "empty" } else { "list" });
-        widgets
-            .update_all_button
-            .set_visible(!self.updates.is_empty());
+            .set_visible_child_name(if update_visible + installed_visible == 0 {
+                "empty"
+            } else {
+                "list"
+            });
+        widgets.update_all_button.set_visible(self.has_updates());
+    }
+
+    /// Returns whether any installed app has a known update.
+    fn has_updates(&self) -> bool {
+        self.apps
+            .iter()
+            .any(|app| self.updates.contains(&app.image_path))
     }
 
     #[expect(
@@ -3331,17 +3355,37 @@ impl AppModel {
 
         let updates_generation = Rc::new(Cell::new(0_u64));
 
-        let listbox = gtk::ListBox::new();
-        listbox.add_css_class("boxed-list");
-        listbox.set_selection_mode(gtk::SelectionMode::None);
-        let sender_row = sender.clone();
-        listbox.connect_row_activated(move |_, row| {
-            sender_row.input(Msg::OpenPath(PathBuf::from(row.widget_name())));
-        });
+        let updates_list = gtk::ListBox::new();
+        let installed_list = gtk::ListBox::new();
+
+        for listbox in [&updates_list, &installed_list] {
+            listbox.add_css_class("boxed-list");
+            listbox.set_selection_mode(gtk::SelectionMode::None);
+            let sender_row = sender.clone();
+            listbox.connect_row_activated(move |_, row| {
+                sender_row.input(Msg::OpenPath(PathBuf::from(row.widget_name())));
+            });
+        }
+
+        let updates_section = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        updates_section.append(&section_header(&t("Updates")));
+        updates_section.append(&updates_list);
+        updates_section.set_visible(false);
+
+        let installed_header = section_header(&t("Installed"));
+        installed_header.set_visible(false);
+
+        let installed_section = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        installed_section.append(&installed_header);
+        installed_section.append(&installed_list);
+
+        let list_sections = gtk::Box::new(gtk::Orientation::Vertical, 18);
+        list_sections.append(&updates_section);
+        list_sections.append(&installed_section);
 
         let list_scroll = gtk::ScrolledWindow::builder()
             .vexpand(true)
-            .child(&listbox)
+            .child(&list_sections)
             .build();
 
         let empty = adw::StatusPage::builder()
@@ -3498,7 +3542,11 @@ impl AppModel {
             search_bar,
             stack,
             toast,
-            listbox,
+            updates_section,
+            updates_list,
+            installed_section,
+            installed_header,
+            installed_list,
             list_stack,
             updates_button,
             updates_progress,
@@ -3982,6 +4030,14 @@ fn has_visible_rows(group: &adw::PreferencesGroup) -> bool {
     }
 
     false
+}
+
+fn section_header(title: &str) -> gtk::Label {
+    let label = gtk::Label::new(Some(title));
+    label.add_css_class("title-4");
+    label.set_halign(gtk::Align::Start);
+    label.set_margin_start(6);
+    label
 }
 
 fn clear_listbox(listbox: &gtk::ListBox) {
