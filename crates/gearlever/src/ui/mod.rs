@@ -333,7 +333,7 @@ impl Component for AppModel {
             PENDING_OPEN.with(|pending| pending.borrow_mut().drain(..).collect::<Vec<_>>());
 
         let widgets = Self::build_shell(&root, &sender);
-        Self::rebuild_list(&model, &widgets);
+        Self::rebuild_list(&model, &widgets, &sender);
         Self::show_page(&model, &widgets);
 
         if model.settings.values().is_maximized {
@@ -366,7 +366,7 @@ impl Component for AppModel {
             Msg::Refresh => {
                 self.settings = Settings::load(&self.paths);
                 self.refresh_apps();
-                Self::rebuild_list(self, widgets);
+                Self::rebuild_list(self, widgets, &sender);
                 Self::rebuild_details(self, widgets, &sender);
             }
             Msg::ShowList => {
@@ -375,7 +375,7 @@ impl Component for AppModel {
                 self.details = None;
                 self.reloaded = None;
                 Self::show_page(self, widgets);
-                Self::rebuild_list(self, widgets);
+                Self::rebuild_list(self, widgets, &sender);
             }
             Msg::OpenPath(path) => {
                 self.external_open = false;
@@ -404,7 +404,7 @@ impl Component for AppModel {
             }
             Msg::SearchChanged(query) => {
                 self.search = query;
-                Self::rebuild_list(self, widgets);
+                Self::rebuild_list(self, widgets, &sender);
             }
             Msg::OpenChooser => Self::open_chooser(root, &sender),
             Msg::OpenedFiles(paths) => {
@@ -551,7 +551,7 @@ impl Component for AppModel {
                 } else {
                     t("No updates found")
                 });
-                Self::rebuild_list(self, widgets);
+                Self::rebuild_list(self, widgets, &sender);
             }
             Msg::GithubTokenTested(check) => {
                 let store = TokenStore::new(self.settings.clone());
@@ -680,7 +680,7 @@ impl Component for AppModel {
                         self.page = Page::List;
                         self.refresh_apps();
                         Self::show_page(self, widgets);
-                        Self::rebuild_list(self, widgets);
+                        Self::rebuild_list(self, widgets, &sender);
                         Self::toast(widgets, &t("AppImages integrated"));
                     }
                     Err(error) => Self::toast(widgets, &error),
@@ -733,7 +733,7 @@ impl Component for AppModel {
                     self.details = None;
                     self.refresh_apps();
                     Self::show_page(self, widgets);
-                    Self::rebuild_list(self, widgets);
+                    Self::rebuild_list(self, widgets, &sender);
                     Self::toast(
                         widgets,
                         &tf("Removed {path}", &[("path", &path.display().to_string())]),
@@ -775,7 +775,7 @@ impl Component for AppModel {
 
                 self.updates.clear();
                 self.refresh_apps();
-                Self::rebuild_list(self, widgets);
+                Self::rebuild_list(self, widgets, &sender);
                 if errors.is_empty() {
                     Self::toast(widgets, &t("AppImages removed"));
                 } else {
@@ -999,7 +999,7 @@ impl Component for AppModel {
                             .cloned()
                             .map(DetailsItem::Installed);
                         Self::rebuild_details(self, widgets, &sender);
-                        Self::rebuild_list(self, widgets);
+                        Self::rebuild_list(self, widgets, &sender);
                         Self::toast(widgets, &tf("{name} updated", &[("name", &app.name)]));
                     }
                     Err(error) => Self::toast(widgets, &error),
@@ -1030,7 +1030,7 @@ impl Component for AppModel {
                         self.page = Page::List;
                         self.refresh_apps();
                         Self::show_page(self, widgets);
-                        Self::rebuild_list(self, widgets);
+                        Self::rebuild_list(self, widgets, &sender);
                         if cancelled {
                             Self::toast(widgets, &t("Updates cancelled"));
                         } else {
@@ -1119,7 +1119,7 @@ impl Component for AppModel {
 
                         if !enabled && self.updates.remove(&path) {
                             Self::rebuild_details(self, widgets, &sender);
-                            Self::rebuild_list(self, widgets);
+                            Self::rebuild_list(self, widgets, &sender);
                         }
 
                         if enabled {
@@ -1168,7 +1168,7 @@ impl Component for AppModel {
                     self.reloaded = Some((path, metadata));
                     self.refresh_apps();
                     Self::rebuild_details(self, widgets, &sender);
-                    Self::rebuild_list(self, widgets);
+                    Self::rebuild_list(self, widgets, &sender);
                     Self::toast(widgets, &t("Metadata reloaded"));
                 }
                 Err(error) => Self::toast(widgets, &error),
@@ -1223,7 +1223,7 @@ impl Component for AppModel {
                     welcome.folder_row.set_subtitle(&path.to_string_lossy());
                 }
                 self.refresh_apps();
-                Self::rebuild_list(self, widgets);
+                Self::rebuild_list(self, widgets, &sender);
             }
             Msg::WelcomeMove(move_source) => {
                 self.settings
@@ -1279,7 +1279,7 @@ impl Component for AppModel {
                         "Gear LeverR installed"
                     );
                     self.refresh_apps();
-                    Self::rebuild_list(self, widgets);
+                    Self::rebuild_list(self, widgets, &sender);
                     Self::toast(widgets, &t("Gear LeverR installed"));
                 }
                 Err(error) => {
@@ -1893,7 +1893,7 @@ impl AppModel {
         }
     }
 
-    fn rebuild_list(&self, widgets: &Widgets) {
+    fn rebuild_list(&self, widgets: &Widgets, sender: &ComponentSender<Self>) {
         clear_listbox(&widgets.updates_list);
         clear_listbox(&widgets.installed_list);
 
@@ -1916,7 +1916,12 @@ impl AppModel {
             }
 
             let has_update = self.updates.contains(&app.image_path);
-            let row = Self::list_row(&display, has_update, &self.paths.metadata_cache_dir());
+            let row = Self::list_row(
+                &display,
+                has_update,
+                &self.paths.metadata_cache_dir(),
+                sender,
+            );
 
             if has_update {
                 update_visible += 1;
@@ -1962,9 +1967,14 @@ impl AppModel {
 
     #[expect(
         clippy::fn_params_excessive_bools,
-        reason = "the update badge is a boolean property of the row"
+        reason = "the row action switches between Open and Update"
     )]
-    fn list_row(app: &InstalledApp, has_update: bool, cache_dir: &Path) -> gtk::ListBoxRow {
+    fn list_row(
+        app: &InstalledApp,
+        has_update: bool,
+        cache_dir: &Path,
+        sender: &ComponentSender<Self>,
+    ) -> gtk::ListBoxRow {
         let row = gtk::ListBoxRow::new();
         row.set_activatable(true);
         row.set_widget_name(&app.image_path.to_string_lossy());
@@ -1983,6 +1993,8 @@ impl AppModel {
 
         let name = gtk::Label::new(Some(&app.name));
         name.set_halign(gtk::Align::Start);
+        name.set_hexpand(true);
+        name.set_ellipsize(gtk::pango::EllipsizeMode::End);
         name.add_css_class("heading");
         text.append(&name);
 
@@ -1995,16 +2007,29 @@ impl AppModel {
 
         let subtitle = gtk::Label::new(Some(&subtitle));
         subtitle.set_halign(gtk::Align::Start);
+        subtitle.set_hexpand(true);
+        subtitle.set_ellipsize(gtk::pango::EllipsizeMode::End);
         subtitle.add_css_class("dim-label");
         text.append(&subtitle);
 
         line.append(&text);
 
+        let label = if has_update { t("Update") } else { t("Open") };
+        let action = gtk::Button::with_label(&label);
+        action.set_valign(gtk::Align::Center);
         if has_update {
-            line.append(&gtk::Image::from_icon_name(
-                "software-update-available-symbolic",
-            ));
+            action.add_css_class("suggested-action");
         }
+        let sender = sender.clone();
+        let path = app.image_path.clone();
+        action.connect_clicked(move |_| {
+            if has_update {
+                sender.input(Msg::StartUpdate(path.clone()));
+            } else {
+                sender.input(Msg::Launch(path.clone()));
+            }
+        });
+        line.append(&action);
 
         row.set_child(Some(&line));
         row
