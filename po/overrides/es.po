@@ -394,3 +394,6 @@ msgstr "Actualizaciones"
 
 msgid "Installed"
 msgstr "Instaladas"
+
+msgid "Applications"
+msgstr "Aplicaciones"
