@@ -31,6 +31,12 @@
         <key name="block-unsafe-extractor" type="b">
             <default>true</default>
         </key>
+        <key name="ui-scale" type="i">
+            <default>100</default>
+            <range min="100" max="200"/>
+            <summary>Interface scale</summary>
+            <description>Percentage used to scale text and buttons.</description>
+        </key>
         <key name="github-token-cipher" type="s">
             <default>""</default>
             <summary>Encrypted GitHub token</summary>
