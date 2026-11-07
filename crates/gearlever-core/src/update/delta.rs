@@ -25,6 +25,9 @@ const MAX_RETRIES: u32 = 3;
 /// How often a worker waiting for the scan lock checks for cancellation.
 const SCAN_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
+/// Share of the progress bar reserved for scanning the installed AppImage.
+const SCAN_PROGRESS_SHARE: f64 = 0.2;
+
 #[cfg(test)]
 const RETRY_BASE_DELAY: Duration = Duration::from_millis(10);
 #[cfg(not(test))]
@@ -134,23 +137,30 @@ fn run(
         .map_err(|error| map_assembly_error(error, cancel))?;
     assembly.set_abort_flag(Arc::clone(cancel));
 
-    let progress_for_callback = Arc::clone(&progress);
-    assembly.set_progress_callback(move |done, total| {
-        if total == 0 {
-            return;
-        }
-        let fraction = fraction(done, total);
-        if let Ok(sender) = progress_for_callback.lock() {
-            let _ = sender.send(fraction);
+    let scan_progress = Arc::clone(&progress);
+    assembly.set_scan_progress_callback(move |done, total| {
+        if total > 0 {
+            send_progress(&scan_progress, fraction(done, total) * SCAN_PROGRESS_SHARE);
         }
     });
-    // The callback now owns the only sender. Dropping this copy lets the
+
+    let download_progress = Arc::clone(&progress);
+    assembly.set_progress_callback(move |done, total| {
+        if total > 0 {
+            let fraction = fraction(done, total);
+            send_progress(
+                &download_progress,
+                SCAN_PROGRESS_SHARE + fraction * (1.0 - SCAN_PROGRESS_SHARE),
+            );
+        }
+    });
+    // The callbacks now own the only senders. Dropping this copy lets the
     // receiving loop finish as soon as the assembly is gone.
     drop(progress);
 
     let wait_started = Instant::now();
     let (scan_wait, scan_elapsed) = {
-        let _guard = lock_for_scan(cancel)?;
+        let _guard = lock_for_scan(&SCAN_LOCK, cancel)?;
         let scan_wait = wait_started.elapsed();
         let scan_started = Instant::now();
         let found = assembly
@@ -187,7 +197,7 @@ fn run(
                     %error,
                     "zsync range download failed, retrying"
                 );
-                sleep_or_cancel(retry_delay(retries), cancel)?;
+                sleep_or_cancel(retry_delay(retries - 1), cancel)?;
             }
             Err(error) => return Err(map_assembly_error(error, cancel)),
         }
@@ -230,12 +240,18 @@ fn run(
     Ok(())
 }
 
-fn lock_for_scan(cancel: &AtomicBool) -> Result<std::sync::MutexGuard<'static, ()>> {
+fn lock_for_scan<'a>(
+    lock: &'a Mutex<()>,
+    cancel: &AtomicBool,
+) -> Result<std::sync::MutexGuard<'a, ()>> {
     loop {
-        match SCAN_LOCK.try_lock() {
+        match lock.try_lock() {
             Ok(guard) => return Ok(guard),
-            Err(TryLockError::Poisoned(_)) => {
-                return Err(Error::Http("zsync scan lock poisoned".to_owned()));
+            Err(TryLockError::Poisoned(poisoned)) => {
+                // The mutex guards no data; a panic in a scan must not disable
+                // delta downloads for the rest of the process.
+                tracing::warn!("zsync scan lock was poisoned; continuing");
+                return Ok(poisoned.into_inner());
             }
             Err(TryLockError::WouldBlock) => {
                 if cancel.load(Ordering::Relaxed) {
@@ -247,8 +263,8 @@ fn lock_for_scan(cancel: &AtomicBool) -> Result<std::sync::MutexGuard<'static, (
     }
 }
 
-fn retry_delay(retries: u32) -> Duration {
-    RETRY_BASE_DELAY.saturating_mul(1_u32 << retries)
+fn retry_delay(attempt: u32) -> Duration {
+    RETRY_BASE_DELAY.saturating_mul(1_u32 << attempt)
 }
 
 fn sleep_or_cancel(delay: Duration, cancel: &AtomicBool) -> Result<()> {
@@ -271,6 +287,12 @@ fn map_assembly_error(error: AssemblyError, cancel: &AtomicBool) -> Error {
     match error {
         AssemblyError::Aborted if cancel.load(Ordering::Relaxed) => Error::Cancelled,
         other => Error::Http(format!("zsync: {other}")),
+    }
+}
+
+fn send_progress(sender: &Arc<Mutex<mpsc::SyncSender<f64>>>, fraction: f64) {
+    if let Ok(sender) = sender.lock() {
+        let _ = sender.send(fraction);
     }
 }
 
@@ -352,6 +374,10 @@ mod tests {
         assert!(
             server.range_bytes() < u64::try_from(new.len()).unwrap(),
             "the delta path must download fewer bytes than the full file"
+        );
+        assert!(
+            progress.iter().any(|value| *value <= SCAN_PROGRESS_SHARE),
+            "progress must include the scan phase: {progress:?}"
         );
         assert!(
             progress.windows(2).all(|pair| pair[0] <= pair[1]),
@@ -620,6 +646,25 @@ mod tests {
 
         assert!(matches!(result, Err(Error::Cancelled)));
         assert!(server.requests().is_empty());
+    }
+
+    #[test]
+    fn retries_start_at_the_base_delay() {
+        assert_eq!(retry_delay(0), RETRY_BASE_DELAY);
+        assert_eq!(retry_delay(1), RETRY_BASE_DELAY.saturating_mul(2));
+        assert_eq!(retry_delay(3), RETRY_BASE_DELAY.saturating_mul(8));
+    }
+
+    #[test]
+    fn recovers_a_poisoned_scan_lock() {
+        let lock = Mutex::new(());
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = lock.lock().unwrap();
+            panic!("poison the scan lock");
+        }));
+
+        let guard = lock_for_scan(&lock, &AtomicBool::new(false)).unwrap();
+        drop(guard);
     }
 
     #[test]

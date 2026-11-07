@@ -313,6 +313,40 @@ impl fmt::Debug for DownloadContext<'_> {
     }
 }
 
+/// Reports progress without ever moving backwards.
+///
+/// Managers use one tracker for both the delta attempt and a full-download
+/// fallback, so a failure after a partial delta does not reset the interface.
+pub(crate) struct ProgressTracker<'a> {
+    progress: &'a mut dyn FnMut(f64),
+    last: f64,
+}
+
+impl fmt::Debug for ProgressTracker<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ProgressTracker")
+            .field("last", &self.last)
+            .finish()
+    }
+}
+
+impl<'a> ProgressTracker<'a> {
+    pub(crate) fn new(progress: &'a mut dyn FnMut(f64)) -> Self {
+        Self {
+            progress,
+            last: 0.0,
+        }
+    }
+
+    pub(crate) fn report(&mut self, fraction: f64) {
+        let fraction = fraction.clamp(0.0, 1.0);
+        if fraction > self.last {
+            self.last = fraction;
+            (self.progress)(fraction);
+        }
+    }
+}
+
 impl<'a> DownloadContext<'a> {
     /// Builds a context for `directory`.
     pub fn new(directory: impl Into<PathBuf>, progress: &'a mut dyn FnMut(f64)) -> Self {
@@ -1197,6 +1231,21 @@ mod tests {
             size: Some(10),
             digest: None,
         }
+    }
+
+    #[test]
+    fn progress_tracker_never_moves_backwards() {
+        let mut values = Vec::new();
+        {
+            let mut progress = |fraction| values.push(fraction);
+            let mut tracker = ProgressTracker::new(&mut progress);
+            tracker.report(0.5);
+            tracker.report(0.2);
+            tracker.report(0.7);
+            tracker.report(1.2);
+        }
+
+        assert_eq!(values, vec![0.5, 0.7, 1.0]);
     }
 
     #[test]

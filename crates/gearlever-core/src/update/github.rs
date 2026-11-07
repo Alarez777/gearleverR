@@ -13,8 +13,8 @@ use crate::hash::HashCache;
 
 use super::http::HttpClient;
 use super::{
-    Asset, DownloadContext, ManagerKind, UpdateManager, UpdateStatus, boolean, delta, pick_asset,
-    value,
+    Asset, DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus, boolean,
+    delta, pick_asset, value,
 };
 
 const ACCEPT: &str = "application/vnd.github+json";
@@ -424,9 +424,13 @@ impl Github {
             return Err(Error::Cancelled);
         }
 
-        if context.use_zsync_delta
-            && let Some(zsync_url) = target.zsync_url.as_deref()
-        {
+        let output = context.output_path();
+        let use_zsync_delta = context.use_zsync_delta;
+        let directory = context.directory.clone();
+        let cancel = Arc::clone(&context.cancel);
+        let mut tracker = ProgressTracker::new(context.progress);
+
+        if use_zsync_delta && let Some(zsync_url) = target.zsync_url.as_deref() {
             let control = match &target.zsync_control {
                 Some(control) => Some(Arc::clone(control)),
                 None => match self.http.get_bytes(zsync_url) {
@@ -443,7 +447,24 @@ impl Github {
             };
 
             if let Some(control) = control {
-                match delta::download(zsync_url, &control, &self.image, context, &self.http) {
+                let delta_result = {
+                    let mut progress = |fraction| tracker.report(fraction);
+                    let mut delta_context = DownloadContext {
+                        directory: directory.clone(),
+                        progress: &mut progress,
+                        cancel: Arc::clone(&cancel),
+                        use_zsync_delta: true,
+                    };
+                    delta::download(
+                        zsync_url,
+                        &control,
+                        &self.image,
+                        &mut delta_context,
+                        &self.http,
+                    )
+                };
+
+                match delta_result {
                     Ok(path) => return Ok(path),
                     Err(Error::Cancelled) => return Err(Error::Cancelled),
                     Err(error) => {
@@ -457,16 +478,12 @@ impl Github {
             }
         }
 
-        fs::create_dir_all(&context.directory)?;
-        let path = context.output_path();
-        self.http.download(
-            &target.asset.url,
-            &path,
-            &mut *context.progress,
-            &context.cancel,
-        )?;
+        fs::create_dir_all(&directory)?;
+        let mut progress = |fraction| tracker.report(fraction);
+        self.http
+            .download(&target.asset.url, &output, &mut progress, &cancel)?;
 
-        Ok(path)
+        Ok(output)
     }
 }
 

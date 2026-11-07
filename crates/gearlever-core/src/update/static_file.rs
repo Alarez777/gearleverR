@@ -10,7 +10,9 @@ use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
 use super::http::HttpClient;
-use super::{DownloadContext, ManagerKind, UpdateManager, UpdateStatus, delta, value, zsync};
+use super::{
+    DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus, delta, value, zsync,
+};
 
 #[derive(Clone)]
 struct Target {
@@ -165,11 +167,34 @@ impl UpdateManager for StaticFile {
             ));
         };
 
-        if context.use_zsync_delta
+        let output = context.output_path();
+        let use_zsync_delta = context.use_zsync_delta;
+        let directory = context.directory.clone();
+        let cancel = Arc::clone(&context.cancel);
+        let mut tracker = ProgressTracker::new(context.progress);
+
+        if use_zsync_delta
             && let (Some(zsync_url), Some(control)) =
                 (target.zsync_url.as_deref(), target.control.as_deref())
         {
-            match delta::download(zsync_url, control, &self.image, context, &self.http) {
+            let delta_result = {
+                let mut progress = |fraction| tracker.report(fraction);
+                let mut delta_context = DownloadContext {
+                    directory: directory.clone(),
+                    progress: &mut progress,
+                    cancel: Arc::clone(&cancel),
+                    use_zsync_delta: true,
+                };
+                delta::download(
+                    zsync_url,
+                    control,
+                    &self.image,
+                    &mut delta_context,
+                    &self.http,
+                )
+            };
+
+            match delta_result {
                 Ok(path) => return Ok(path),
                 Err(Error::Cancelled) => return Err(Error::Cancelled),
                 Err(error) => {
@@ -182,12 +207,12 @@ impl UpdateManager for StaticFile {
             }
         }
 
-        fs::create_dir_all(&context.directory)?;
-        let path = context.output_path();
+        fs::create_dir_all(&directory)?;
+        let mut progress = |fraction| tracker.report(fraction);
         self.http
-            .download(&target.url, &path, &mut *context.progress, &context.cancel)?;
+            .download(&target.url, &output, &mut progress, &cancel)?;
 
-        Ok(path)
+        Ok(output)
     }
 }
 
@@ -351,15 +376,23 @@ mod tests {
             Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
             HttpClient::new(),
         );
-        let mut progress = |_fraction: f64| {};
-        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
-        context.use_zsync_delta = true;
-
-        let downloaded = manager.download(&mut context).unwrap();
+        let mut progress_values = Vec::new();
+        let downloaded = {
+            let mut progress = |fraction: f64| progress_values.push(fraction);
+            let mut context =
+                DownloadContext::new(directory.path().join("downloads"), &mut progress);
+            context.use_zsync_delta = true;
+            manager.download(&mut context).unwrap()
+        };
 
         assert_eq!(fs::read(downloaded).unwrap(), new);
         assert!(server.range_requests() > 0);
         assert!(server.full_requests("/new.AppImage") >= 1);
+        assert!(
+            progress_values.windows(2).all(|pair| pair[0] <= pair[1]),
+            "fallback progress must be monotonic: {progress_values:?}"
+        );
+        assert_eq!(progress_values.last().copied(), Some(1.0));
     }
 
     #[test]
