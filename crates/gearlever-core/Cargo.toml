@@ -25,6 +25,7 @@ trash.workspace = true
 ureq.workspace = true
 url.workspace = true
 urlencoding.workspace = true
+zsync-rs.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
