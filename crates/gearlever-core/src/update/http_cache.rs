@@ -88,7 +88,9 @@ impl HttpCache {
     /// Returns the cache key for a request.
     pub(crate) fn key(url: &str, accept: Option<&str>, token: Option<&str>) -> String {
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"gearlever-r-http-v2\0");
+        // Keep the key namespace stable across entry-format changes: the
+        // version field in each entry invalidates old files when they load.
+        hasher.update(b"gearlever-r-http-v1\0");
         hasher.update(url.as_bytes());
         hasher.update(b"\0");
         if let Some(accept) = accept {
@@ -238,6 +240,21 @@ mod tests {
         let loaded = cache.load(&key).expect("entry is cached");
         assert_eq!(loaded.body, b"hello");
         assert_eq!(loaded.etag.as_deref(), Some("\"v1\""));
+    }
+
+    #[test]
+    fn removes_entries_from_an_older_version() {
+        let directory = tempfile::tempdir().unwrap();
+        let cache = HttpCache::new(directory.path().join("http"));
+        let key = "old-entry";
+        let mut old = entry(b"hello");
+        old.version = 1;
+        let path = cache.path(key);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, serde_json::to_vec(&old).unwrap()).unwrap();
+
+        assert!(cache.load(key).is_none());
+        assert!(!path.exists());
     }
 
     #[test]
