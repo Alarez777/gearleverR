@@ -57,6 +57,9 @@ const MAX_PARALLEL_CHECKS: usize = update::DEFAULT_PARALLEL_CHECKS;
 /// Time budget for the sequential retry pass after the parallel checks.
 const RETRY_BUDGET: Duration = update::DEFAULT_RETRY_BUDGET;
 
+/// Application name used by the main window and its header.
+const APP_NAME: &str = "Gear LeverR";
+
 /// Starts the graphical application.
 pub(crate) fn run(arguments: Vec<String>) {
     tracing::info!("starting the Gear LeverR interface");
@@ -304,7 +307,7 @@ impl Component for AppModel {
 
     fn init_root() -> Self::Root {
         adw::ApplicationWindow::builder()
-            .title("Gear LeverR")
+            .title(APP_NAME)
             .default_width(720)
             .default_height(720)
             .build()
@@ -1782,7 +1785,7 @@ impl AppModel {
 
     fn show_page(&self, widgets: &Widgets) {
         let (name, title, icon) = match self.page {
-            Page::List => ("list", t("Installed applications"), "list-add-symbolic"),
+            Page::List => ("list", APP_NAME.to_owned(), "list-add-symbolic"),
             Page::Details => ("details", t("App details"), "go-previous-symbolic"),
             Page::MultiInstall => (
                 "multi",
@@ -1872,9 +1875,6 @@ impl AppModel {
             t("Installed applications")
         };
         widgets.list_title.set_label(&title);
-        if self.page == Page::List {
-            widgets.title.set_label(&title);
-        }
 
         widgets
             .list_stack
@@ -3389,7 +3389,7 @@ impl AppModel {
     fn build_shell(root: &adw::ApplicationWindow, sender: &ComponentSender<Self>) -> Widgets {
         let header = adw::HeaderBar::new();
 
-        let title = gtk::Label::new(Some(&t("Installed applications")));
+        let title = gtk::Label::new(Some(APP_NAME));
         header.set_title_widget(Some(&title));
 
         let left_button = gtk::Button::from_icon_name("list-add-symbolic");
