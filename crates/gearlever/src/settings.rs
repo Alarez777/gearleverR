@@ -129,7 +129,7 @@ impl Settings {
         let schema =
             gio::SettingsSchemaSource::default().and_then(|source| source.lookup(APP_ID, true));
 
-        let Some(schema) = schema else {
+        let Some(_schema) = schema else {
             tracing::debug!("GSettings schema not found, using defaults");
             return Self {
                 settings: None,
@@ -138,11 +138,17 @@ impl Settings {
         };
 
         let settings = gio::Settings::new(APP_ID);
+        Self::from_settings(settings, paths)
+    }
+
+    fn from_settings(settings: gio::Settings, paths: &Paths) -> Self {
         // A newer binary may run against an older installed schema. Reading a
         // missing key emits a GLib critical, so fall back to the documented
         // default instead.
-        let use_zsync_delta =
-            !schema.has_key(keys::USE_ZSYNC_DELTA) || settings.boolean(keys::USE_ZSYNC_DELTA);
+        let use_zsync_delta = settings
+            .settings_schema()
+            .is_none_or(|schema| !schema.has_key(keys::USE_ZSYNC_DELTA))
+            || settings.boolean(keys::USE_ZSYNC_DELTA);
         let values = Values {
             appimages_dir: expand(
                 settings.string(keys::APPIMAGES_FOLDER).as_str(),
@@ -406,7 +412,44 @@ fn expand(value: &str, home: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::process::Command;
+
     use super::*;
+
+    #[test]
+    fn persists_the_zsync_delta_setting_in_gsettings() {
+        let directory = tempfile::tempdir().unwrap();
+        let schema_dir = directory.path().join("schemas");
+        fs::create_dir_all(&schema_dir).unwrap();
+        let schema = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../data/io.github.alarez777.GearLeverR.gschema.xml");
+        fs::copy(
+            &schema,
+            schema_dir.join("io.github.alarez777.GearLeverR.gschema.xml"),
+        )
+        .unwrap();
+
+        let status = Command::new("glib-compile-schemas")
+            .arg("--strict")
+            .arg(&schema_dir)
+            .status()
+            .expect("glib-compile-schemas is required for the settings test");
+        assert!(status.success(), "schema compilation failed");
+
+        let source = gio::SettingsSchemaSource::from_directory(&schema_dir, None, true).unwrap();
+        let schema = source.lookup(APP_ID, true).unwrap();
+        let backend = gio::memory_settings_backend_new();
+        let raw = gio::Settings::new_full(&schema, Some(&backend), None);
+        let paths = Paths::with_home(Path::new("/home/tester"));
+
+        let mut settings = Settings::from_settings(raw.clone(), &paths);
+        assert!(settings.values().use_zsync_delta);
+        settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
+
+        let reloaded = Settings::from_settings(raw, &paths);
+        assert!(!reloaded.values().use_zsync_delta);
+    }
 
     #[test]
     fn expands_tilde() {
