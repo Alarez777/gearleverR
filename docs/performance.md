@@ -59,6 +59,11 @@ tiempo de red puede superar al de una descarga completa; con cambios muy densos
 los rangos se fusionan y se acaba descargando el archivo entero. Por eso el
 ajuste queda activado por defecto y se puede desactivar sin cambiar de fuente.
 
+Prueba real con Neovide 0.16.2 → 0.17.2 (12,9 MB): solo se reutilizaron 198 de
+6.582 bloques y se descargaron 12,5 MB. El payload SquashFS se había recompreso
+casi por completo, así que el delta no ahorró bytes en ese caso. El resumen
+aparece en el log como `zsync delta downloaded 12.5 MB of 12.9 MB`.
+
 ## De dónde sale la mejora
 
 - Sin intérprete Python ni PyGObject al arrancar.
