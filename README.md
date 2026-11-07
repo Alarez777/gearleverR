@@ -34,6 +34,9 @@ updates from six sources, a compatible CLI and the full interface. See
   without external tools for SquashFS.
 - Manage updates from a static URL, GitHub, GitLab, Codeberg, Forgejo and FTP,
   including embedded `.upd_info` data (`zsync` and `gh-releases-zsync`).
+- Download only the blocks that changed when a static or GitHub source publishes
+  `.zsync` data, with a full download as fallback. This delta path can be disabled in
+  Preferences.
 - Update everything at once, with progress, cancellation and a check for running apps.
 - Edit arguments, environment variables, the website and the update source.
 - Reload metadata, move an app to the trash and open its folder.
@@ -203,7 +206,6 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
   in other languages, new Gear LeverR strings may appear in English until they are
   translated (see `po/`).
 - Environment variables are edited as `KEY=value` lines, not row by row.
-- There are no delta updates: the whole AppImage is downloaded.
 - DwarFS and ISO9660 require `dwarfsextract` or `7zz` to be installed.
 - There is no self-update for the AppImage itself.
 
@@ -212,3 +214,6 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
 GPL-3.0-or-later. This is a derivative work of Gear Lever by Lorenzo Paderi
 (<https://github.com/mijorus/gearlever>). The original name and icon are not used;
 this project is distributed as Gear LeverR.
+
+Delta updates use [zsync-rs](https://crates.io/crates/zsync-rs), MIT licensed. Its
+notice is included in `LICENSES/zsync-rs-MIT.txt` and in the AppImage.

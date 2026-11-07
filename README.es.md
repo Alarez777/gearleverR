@@ -30,6 +30,9 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
   herramientas externas para SquashFS.
 - Gestionar actualizaciones desde URL estática, GitHub, GitLab, Codeberg, Forgejo y FTP,
   incluida la información `.upd_info` embebida (`zsync` y `gh-releases-zsync`).
+- Descargar solo los bloques que han cambiado cuando una fuente estática o de GitHub
+  publica datos `.zsync`, con descarga completa como respaldo. Este modo delta se puede
+  desactivar en Preferencias.
 - Actualizar todo a la vez, con progreso, cancelación y comprobación de apps en ejecución.
 - Editar argumentos, variables de entorno, sitio web y fuente de actualizaciones.
 - Recargar metadata, borrar a la papelera y abrir la carpeta de la app.
@@ -192,7 +195,6 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 - El tutorial tiene tres páginas (el original tiene cuatro) y no incluye el
   AppImage de demostración.
 - Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.
-- No hay actualizaciones delta: se descarga el AppImage completo.
 - DwarFS e ISO9660 requieren `dwarfsextract` o `7zz` instalados.
 - No hay auto-actualización del propio AppImage.
 
@@ -201,3 +203,6 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 GPL-3.0-or-later. Es un trabajo derivado de Gear Lever, de Lorenzo Paderi
 (<https://github.com/mijorus/gearlever>). El nombre y el icono originales no se
 usan; este proyecto se distribuye como Gear LeverR.
+
+Las actualizaciones delta usan [zsync-rs](https://crates.io/crates/zsync-rs), con
+licencia MIT. Su aviso está en `LICENSES/zsync-rs-MIT.txt` y dentro del AppImage.

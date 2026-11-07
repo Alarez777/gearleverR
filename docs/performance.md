@@ -40,6 +40,25 @@ con el Flatpak incluye la copia privada de GTK que trae el runtime; la versión
 nativa comparte GTK con el resto del sistema, por eso su memoria privada es la
 cifra relevante.
 
+## Actualizaciones delta (zsync)
+
+Medido con un AppImage real de 115.210.744 bytes, bloques de 4096 bytes y un
+servidor HTTP local, en la máquina de desarrollo (32 núcleos, release):
+
+| Cambios en la versión nueva | Bytes descargados | Tiempo total | Escaneo | Rangos |
+| --- | --- | --- | --- | --- |
+| 1 bloque de 4 KB | 4 KB (0,004 %) | 131 ms | 83 ms | 1 petición |
+| 10 % de bloques, repartidos | 11,6 MB (10,04 %) | 5,95 s | 91 ms | 2.813 peticiones |
+| 50 % de bloques, repartidos | 115 MB (100 %) | 266 ms | 100 ms | rangos fusionados |
+
+El escaneo del AppImage instalado cuesta unos 80-100 ms en esta máquina; en
+equipos modestos será bastante mayor, que es el motivo del aviso de Preferencias.
+El caso de un solo bloque es el que más se beneficia. Cuando los cambios están
+repartidos cada pocos bloques, `zsync-rs` abre muchos rangos pequeños y el
+tiempo de red puede superar al de una descarga completa; con cambios muy densos
+los rangos se fusionan y se acaba descargando el archivo entero. Por eso el
+ajuste queda activado por defecto y se puede desactivar sin cambiar de fuente.
+
 ## De dónde sale la mejora
 
 - Sin intérprete Python ni PyGObject al arrancar.
@@ -51,5 +70,7 @@ cifra relevante.
 - Caché HTTP condicional (ETag/`304`) con deduplicación de peticiones concurrentes.
 - Descargas de un lote con 2-3 preparaciones en paralelo e integración serial; sin copia
   intermedia del AppImage.
+- Actualizaciones delta con `zsync-rs` para las fuentes que publican `.zsync`: solo se
+  descargan los bloques que faltan y el escaneo del AppImage instalado se serializa.
 - Detección de procesos vía `/proc` y arquitectura vía cabecera ELF.
 - Cero subprocesos en el flujo normal de listar, integrar y detalles.
