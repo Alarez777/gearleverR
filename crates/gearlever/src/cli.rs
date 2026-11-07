@@ -923,6 +923,7 @@ impl CommandContext {
             exec_name_for_terminal_apps: self.settings.values().exec_name_terminal,
             update_desktop_database: true,
             allow_unsafe_extractor: !self.settings.values().block_unsafe_extractor,
+            use_zsync_delta: self.settings.values().use_zsync_delta,
         }
     }
 }

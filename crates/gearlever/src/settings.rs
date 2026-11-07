@@ -35,6 +35,8 @@ pub mod keys {
     pub const BLOCK_UNSAFE_EXTRACTOR: &str = "block-unsafe-extractor";
     /// Whether updates are checked at login.
     pub const FETCH_IN_BACKGROUND: &str = "fetch-updates-in-background";
+    /// Whether update sources that publish zsync data use delta downloads.
+    pub const USE_ZSYNC_DELTA: &str = "use-zsync-delta";
     /// Verbose logging.
     pub const DEBUG_LOGS: &str = "debug-logs";
     /// Whether the window was maximized.
@@ -76,6 +78,8 @@ pub struct Values {
     pub block_unsafe_extractor: bool,
     /// Whether updates are checked at login.
     pub fetch_in_background: bool,
+    /// Whether update sources that publish zsync data use delta downloads.
+    pub use_zsync_delta: bool,
     /// Verbose logging.
     pub debug_logs: bool,
     /// Whether the window was maximized.
@@ -100,6 +104,7 @@ impl Values {
             preview_minimal_ui: true,
             block_unsafe_extractor: true,
             fetch_in_background: false,
+            use_zsync_delta: true,
             debug_logs: false,
             is_maximized: false,
             window_width: 720,
@@ -124,7 +129,7 @@ impl Settings {
         let schema =
             gio::SettingsSchemaSource::default().and_then(|source| source.lookup(APP_ID, true));
 
-        let Some(_schema) = schema else {
+        let Some(schema) = schema else {
             tracing::debug!("GSettings schema not found, using defaults");
             return Self {
                 settings: None,
@@ -133,6 +138,11 @@ impl Settings {
         };
 
         let settings = gio::Settings::new(APP_ID);
+        // A newer binary may run against an older installed schema. Reading a
+        // missing key emits a GLib critical, so fall back to the documented
+        // default instead.
+        let use_zsync_delta =
+            !schema.has_key(keys::USE_ZSYNC_DELTA) || settings.boolean(keys::USE_ZSYNC_DELTA);
         let values = Values {
             appimages_dir: expand(
                 settings.string(keys::APPIMAGES_FOLDER).as_str(),
@@ -144,6 +154,7 @@ impl Settings {
             preview_minimal_ui: settings.boolean(keys::PREVIEW_MINIMAL_UI),
             block_unsafe_extractor: settings.boolean(keys::BLOCK_UNSAFE_EXTRACTOR),
             fetch_in_background: settings.boolean(keys::FETCH_IN_BACKGROUND),
+            use_zsync_delta,
             debug_logs: settings.boolean(keys::DEBUG_LOGS),
             is_maximized: settings.boolean(keys::IS_MAXIMIZED),
             window_width: integer_value(&settings, keys::WINDOW_WIDTH, 720).clamp(320, 10_000),
@@ -187,6 +198,7 @@ impl Settings {
             keys::PREVIEW_MINIMAL_UI => self.values.preview_minimal_ui = value,
             keys::BLOCK_UNSAFE_EXTRACTOR => self.values.block_unsafe_extractor = value,
             keys::FETCH_IN_BACKGROUND => self.values.fetch_in_background = value,
+            keys::USE_ZSYNC_DELTA => self.values.use_zsync_delta = value,
             keys::DEBUG_LOGS => self.values.debug_logs = value,
             keys::IS_MAXIMIZED => self.values.is_maximized = value,
             keys::FIRST_RUN => self.values.first_run = value,
@@ -418,6 +430,19 @@ mod tests {
 
         assert_eq!(settings.values().window_width, 720);
         assert_eq!(settings.values().window_height, 720);
+    }
+
+    #[test]
+    fn enables_zsync_delta_by_default_and_can_disable_it() {
+        let paths = Paths::with_home(Path::new("/home/tester"));
+        let mut settings = Settings {
+            settings: None,
+            values: Values::defaults(&paths),
+        };
+
+        assert!(settings.values().use_zsync_delta);
+        settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
+        assert!(!settings.values().use_zsync_delta);
     }
 
     #[test]
