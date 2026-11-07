@@ -48,6 +48,7 @@ cifra relevante.
   el AppImage completo en cada vista.
 - Un solo pase de hashing, solo cuando el usuario lo pide.
 - Comprobación de actualizaciones en paralelo (5 en vuelo, también en la CLI) y caché de SHA-1.
+- Caché HTTP condicional (ETag/`304`) con deduplicación de peticiones concurrentes.
 - Descargas de un lote con 2-3 preparaciones en paralelo e integración serial; sin copia
   intermedia del AppImage.
 - Detección de procesos vía `/proc` y arquitectura vía cabecera ELF.

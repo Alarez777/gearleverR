@@ -10,6 +10,7 @@ pub mod gitea;
 pub mod github;
 pub mod gitlab;
 pub mod http;
+mod http_cache;
 pub mod static_file;
 pub mod zsync;
 
@@ -1169,6 +1170,8 @@ mod tests {
     use std::collections::{BTreeMap, VecDeque};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use crate::error::HttpStatus;
+
     use super::*;
 
     fn asset(name: &str) -> Asset {
@@ -1415,6 +1418,42 @@ mod tests {
         assert!(report.token_invalid);
         assert_eq!(report.outcomes, vec![UpdateStatus::Unknown; 2]);
         assert_eq!(invalid_events, 1);
+    }
+
+    #[test]
+    fn check_batch_reports_rate_limit_on_every_run() {
+        let directory = tempfile::tempdir().unwrap();
+        let hashes = HashCache::new(directory.path().join("hashes"));
+        let error = || {
+            Error::HttpStatus(HttpStatus {
+                url: "https://api.github.com/repos/o/r/releases/latest".to_owned(),
+                status: 403,
+                rate_limit_remaining: Some(0),
+                rate_limit_reset: Some(1_700_000_000),
+                retry_after: None,
+            })
+        };
+
+        for run in 0..2 {
+            let jobs: Vec<UpdateJob> = (0..2)
+                .map(|index| {
+                    UpdateJob::new(
+                        app(&format!("rate-{run}-{index}"), directory.path()),
+                        Arc::new(FakeManager::new([Err(error())])),
+                    )
+                })
+                .collect();
+            let mut events = 0;
+
+            let report = check_batch(&jobs, &hashes, 2, Duration::ZERO, &mut |event| {
+                if matches!(event, CheckEvent::RateLimited(_)) {
+                    events += 1;
+                }
+            });
+
+            assert!(report.rate_limit.is_some(), "run {run}");
+            assert_eq!(events, 1, "run {run} must show the notice again");
+        }
     }
 
     #[test]
