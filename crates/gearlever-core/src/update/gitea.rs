@@ -25,6 +25,7 @@ pub struct Gitea {
     config: BTreeMap<String, String>,
     embedded: Option<String>,
     http: HttpClient,
+    cache: super::TargetCache<Asset>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,6 +81,7 @@ impl Gitea {
             config,
             embedded,
             http,
+            cache: super::TargetCache::new(),
         }
     }
 
@@ -118,6 +120,19 @@ impl Gitea {
     }
 
     fn target(&self) -> Result<Option<Asset>> {
+        if let Some(target) = self.cache.get() {
+            return Ok(Some(target));
+        }
+
+        let target = self.resolve_target()?;
+        if let Some(target) = &target {
+            self.cache.set(target.clone());
+        }
+
+        Ok(target)
+    }
+
+    fn resolve_target(&self) -> Result<Option<Asset>> {
         let (base, repo) = self.instance()?;
         let pattern = value(&self.config, "repo_filename")
             .ok_or_else(|| Error::UpdateConfig("missing repo_filename".to_owned()))?;

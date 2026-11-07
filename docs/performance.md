@@ -47,6 +47,8 @@ cifra relevante.
 - Caché de metadata e iconos invalidada por tamaño y mtime, en lugar de hashear
   el AppImage completo en cada vista.
 - Un solo pase de hashing, solo cuando el usuario lo pide.
-- Comprobación de actualizaciones en paralelo (5 en vuelo) y caché de SHA-1.
+- Comprobación de actualizaciones en paralelo (5 en vuelo, también en la CLI) y caché de SHA-1.
+- Descargas de un lote con 2-3 preparaciones en paralelo e integración serial; sin copia
+  intermedia del AppImage.
 - Detección de procesos vía `/proc` y arquitectura vía cabecera ELF.
 - Cero subprocesos en el flujo normal de listar, integrar y detalles.

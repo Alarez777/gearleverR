@@ -15,14 +15,14 @@ mod util;
 mod welcome;
 
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use relm4::adw::prelude::*;
 use relm4::gtk::{gdk, gio, glib};
@@ -51,11 +51,11 @@ use crate::settings::{APP_ID, Settings, keys};
 use crate::token_store::{TokenLookup, TokenStatus, TokenStore, valid_token};
 use util::{normalize, pill};
 
-/// Maximum update checks in flight at once, matching `AppManager`'s probe pool.
-const MAX_PARALLEL_CHECKS: usize = 5;
+/// Maximum update checks in flight at once.
+const MAX_PARALLEL_CHECKS: usize = update::DEFAULT_PARALLEL_CHECKS;
 
 /// Time budget for the sequential retry pass after the parallel checks.
-const RETRY_BUDGET: Duration = Duration::from_secs(20);
+const RETRY_BUDGET: Duration = update::DEFAULT_RETRY_BUDGET;
 
 /// Starts the graphical application.
 pub(crate) fn run(arguments: Vec<String>) {
@@ -154,7 +154,7 @@ enum Msg {
     CheckUpdates,
     CheckAppUpdates(PathBuf),
     UpdateCheckStarted(usize),
-    UpdateChecked(PathBuf, bool),
+    UpdateChecked(PathBuf, bool, Option<Arc<dyn update::UpdateManager>>),
     UpdateRetryStarted,
     CheckDone,
     GithubTokenTested(TokenCheck),
@@ -249,6 +249,7 @@ struct AppModel {
     details_source: Option<ManagerKind>,
     search: String,
     updates: HashSet<PathBuf>,
+    managers: HashMap<PathBuf, Arc<dyn update::UpdateManager>>,
     checking: bool,
     check_total: usize,
     check_done: usize,
@@ -496,7 +497,7 @@ impl Component for AppModel {
                     widgets.updates_progress.set_fraction(0.0);
                 }
             }
-            Msg::UpdateChecked(path, available) => {
+            Msg::UpdateChecked(path, available, manager) => {
                 self.check_done = self.check_done.saturating_add(1);
                 if self.check_total > 0 {
                     widgets
@@ -506,8 +507,12 @@ impl Component for AppModel {
 
                 if available && !self.config.updates_disabled(&path) {
                     self.updates.insert(path.clone());
+                    if let Some(manager) = manager {
+                        self.managers.insert(path.clone(), manager);
+                    }
                 } else {
                     self.updates.remove(&path);
+                    self.managers.remove(&path);
                 }
 
                 if let Some(DetailsItem::Installed(app)) = &self.details
@@ -712,6 +717,7 @@ impl Component for AppModel {
                     self.config = config;
                     let _ = self.config.save(&self.paths.config_file());
                     self.updates.remove(&path);
+                    self.managers.remove(&path);
 
                     if self.removing_self {
                         self.removing_self = false;
@@ -769,6 +775,7 @@ impl Component for AppModel {
                 }
 
                 self.updates.clear();
+                self.managers.clear();
                 self.refresh_apps();
                 Self::rebuild_list(self, widgets, &sender);
                 if errors.is_empty() {
@@ -812,30 +819,35 @@ impl Component for AppModel {
                 let options = self.update_options();
                 let config = self.config.clone();
                 let paths = self.paths.clone();
-                let download_dir = self.paths.temp_dir().join("downloads");
+                let stored_manager = self.managers.get(&path).cloned();
+                let download_dir = options.staging_dir();
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
                 Self::show_progress(widgets);
 
                 std::thread::spawn(move || {
                     let mut config = config;
-                    let settings = Settings::load(&paths);
-                    let token = TokenStore::new(settings).get();
-                    let manager = match update::resolve(
-                        &app.image_path,
-                        &config.update_manager(&app.image_path),
-                        token.as_deref(),
-                    ) {
-                        Ok(Some(manager)) => manager,
-                        Ok(None) => {
-                            sender.input(Msg::Updated(Err(t(
-                                "No update method was found for this AppImage",
-                            ))));
-                            return;
-                        }
-                        Err(error) => {
-                            sender.input(Msg::Updated(Err(error.to_string())));
-                            return;
+                    let manager = if let Some(manager) = stored_manager {
+                        manager
+                    } else {
+                        let settings = Settings::load(&paths);
+                        let token = TokenStore::new(settings).get();
+                        match update::resolve(
+                            &app.image_path,
+                            &config.update_manager(&app.image_path),
+                            token.as_deref(),
+                        ) {
+                            Ok(Some(manager)) => Arc::from(manager),
+                            Ok(None) => {
+                                sender.input(Msg::Updated(Err(t(
+                                    "No update method was found for this AppImage",
+                                ))));
+                                return;
+                            }
+                            Err(error) => {
+                                sender.input(Msg::Updated(Err(error.to_string())));
+                                return;
+                            }
                         }
                     };
 
@@ -890,7 +902,8 @@ impl Component for AppModel {
                 let config = self.config.clone();
                 let paths = self.paths.clone();
                 let options = self.update_options();
-                let download_dir = self.paths.temp_dir().join("downloads");
+                let stored_managers = self.managers.clone();
+                let download_dir = options.staging_dir();
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
                 widgets.multi_progress.set_visible(true);
@@ -898,59 +911,72 @@ impl Component for AppModel {
 
                 std::thread::spawn(move || {
                     let mut config = config;
-                    let settings = Settings::load(&paths);
-                    let token = TokenStore::new(settings).get();
-                    let total = queue.len();
-                    let mut cancelled = false;
+                    let mut jobs = Vec::with_capacity(queue.len());
+                    let mut token: Option<String> = None;
+                    let mut token_loaded = false;
 
-                    for (index, app) in queue.iter().enumerate() {
-                        if cancel.load(Ordering::Relaxed) {
-                            cancelled = true;
-                            break;
-                        }
+                    for app in queue {
+                        let manager = if let Some(manager) = stored_managers.get(&app.image_path) {
+                            Some(Arc::clone(manager))
+                        } else {
+                            if !token_loaded {
+                                let settings = Settings::load(&paths);
+                                token = TokenStore::new(settings).get();
+                                token_loaded = true;
+                            }
 
-                        let Some(manager) = update::resolve(
-                            &app.image_path,
-                            &config.update_manager(&app.image_path),
-                            token.as_deref(),
-                        )
-                        .ok()
-                        .flatten() else {
-                            continue;
+                            match update::resolve(
+                                &app.image_path,
+                                &config.update_manager(&app.image_path),
+                                token.as_deref(),
+                            ) {
+                                Ok(Some(manager)) => Some(Arc::from(manager)),
+                                Ok(None) => None,
+                                Err(error) => {
+                                    tracing::warn!(
+                                        app = %app.name,
+                                        %error,
+                                        "cannot resolve the update manager"
+                                    );
+                                    None
+                                }
+                            }
                         };
 
-                        let base = fraction(index, total);
-                        let total_pages = fraction(total, 1);
-                        let sender_progress = sender.clone();
-                        let name = app.name.clone();
-                        let mut progress = |progress: f64| {
-                            sender_progress.input(Msg::Progress(
-                                (base + progress / total_pages).min(1.0),
-                                tf("Updating {name}...", &[("name", &name)]),
-                            ));
-                        };
-
-                        match update::apply(
-                            app,
-                            manager.as_ref(),
-                            &options,
-                            &mut config,
-                            &download_dir,
-                            &mut progress,
-                            Arc::clone(&cancel),
-                        ) {
-                            Ok(_) => sender.input(Msg::MultiAppUpdated(app.image_path.clone())),
-                            Err(CoreError::Cancelled) => {
-                                cancelled = true;
-                                break;
-                            }
-                            Err(error) => {
-                                sender.input(Msg::Toast(format!("{}: {error}", app.name)));
-                            }
+                        if let Some(manager) = manager {
+                            jobs.push(update::UpdateJob::new(app, manager));
                         }
                     }
 
-                    sender.input(Msg::MultiUpdated(Ok(config), cancelled));
+                    if jobs.is_empty() {
+                        sender.input(Msg::MultiUpdated(Err(t("No updates available")), false));
+                        return;
+                    }
+
+                    let mut on_event = |event| match event {
+                        update::BatchEvent::Progress { overall, .. } => {
+                            sender.input(Msg::Progress(overall, String::new()));
+                        }
+                        update::BatchEvent::Installed { app, .. } => {
+                            sender.input(Msg::MultiAppUpdated(app.image_path));
+                        }
+                        update::BatchEvent::Failed { app, error, .. } => {
+                            sender.input(Msg::Toast(format!("{}: {error}", app.name)));
+                        }
+                        _ => {}
+                    };
+
+                    let report = update::apply_batch(
+                        &jobs,
+                        &options,
+                        &mut config,
+                        &download_dir,
+                        update::DEFAULT_PARALLEL_DOWNLOADS,
+                        &cancel,
+                        &mut on_event,
+                    );
+
+                    sender.input(Msg::MultiUpdated(Ok(config), report.cancelled));
                 });
             }
             Msg::Progress(fraction, text) => {
@@ -985,6 +1011,7 @@ impl Component for AppModel {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
                         self.updates.remove(&app.image_path);
+                        self.managers.remove(&app.image_path);
                         self.reloaded = None;
                         self.refresh_apps();
                         self.details = self
@@ -1003,6 +1030,7 @@ impl Component for AppModel {
             Msg::MultiAppUpdated(path) => {
                 self.multi_done.insert(path.clone());
                 self.updates.remove(&path);
+                self.managers.remove(&path);
                 if self.page == Page::MultiUpdate {
                     Self::rebuild_multi(self, widgets, &sender);
                 }
@@ -1015,12 +1043,13 @@ impl Component for AppModel {
                     Ok(config) => {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
-                        // Clear the badges before rebuilding the list; otherwise
-                        // the rows keep the update icon that was already applied.
-                        if !cancelled {
-                            self.updates.clear();
+                        // Remove only the badges that were actually installed;
+                        // failed updates must stay visible in the list.
+                        let done = std::mem::take(&mut self.multi_done);
+                        for path in &done {
+                            self.updates.remove(path);
+                            self.managers.remove(path);
                         }
-                        self.multi_done.clear();
                         self.update_queue.clear();
                         self.page = Page::List;
                         self.refresh_apps();
@@ -1032,7 +1061,14 @@ impl Component for AppModel {
                             Self::toast(widgets, &t("Updates installed"));
                         }
                     }
-                    Err(error) => Self::toast(widgets, &error),
+                    Err(error) => {
+                        self.multi_done.clear();
+                        self.update_queue.clear();
+                        self.page = Page::List;
+                        Self::show_page(self, widgets);
+                        Self::rebuild_list(self, widgets, &sender);
+                        Self::toast(widgets, &error);
+                    }
                 }
             }
             Msg::SaveExec {
@@ -1113,6 +1149,7 @@ impl Component for AppModel {
                         self.config = config;
 
                         if !enabled && self.updates.remove(&path) {
+                            self.managers.remove(&path);
                             Self::rebuild_details(self, widgets, &sender);
                             Self::rebuild_list(self, widgets, &sender);
                         }
@@ -1174,6 +1211,7 @@ impl Component for AppModel {
                 {
                     let path = app.image_path.clone();
                     self.config.delete_update_manager(&path);
+                    self.managers.remove(&path);
                     let _ = self.config.save(&self.paths.config_file());
                     self.details_source = None;
                     Self::rebuild_details(self, widgets, &sender);
@@ -1187,6 +1225,7 @@ impl Component for AppModel {
             Msg::ApplySource { path, kind, values } => {
                 let mut config = self.config.clone();
                 config.set_update_manager(&path, kind.name(), values);
+                self.managers.remove(&path);
                 match config.save(&self.paths.config_file()) {
                     Ok(()) => {
                         sender.input(Msg::ConfigSaved(Ok(config)));
@@ -1320,6 +1359,7 @@ impl AppModel {
             details_source: None,
             search: String::new(),
             updates: HashSet::new(),
+            managers: HashMap::new(),
             checking: false,
             check_total: 0,
             check_done: 0,
@@ -1378,10 +1418,6 @@ impl AppModel {
         }
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "the update check runs one worker pool and its retry pass"
-    )]
     fn start_update_check(
         &mut self,
         widgets: &Widgets,
@@ -1428,7 +1464,7 @@ impl AppModel {
             } else {
                 TokenState::None
             };
-            let mut checks = Vec::new();
+            let mut jobs = Vec::new();
 
             for app in apps {
                 if config.updates_disabled(&app.image_path) {
@@ -1440,7 +1476,9 @@ impl AppModel {
                     &config.update_manager(&app.image_path),
                     token.as_deref(),
                 ) {
-                    Ok(Some(manager)) => checks.push((app, manager)),
+                    Ok(Some(manager)) => {
+                        jobs.push(update::UpdateJob::new(app, Arc::from(manager)));
+                    }
                     Ok(None) => {}
                     Err(error) => {
                         tracing::warn!(
@@ -1452,152 +1490,37 @@ impl AppModel {
                 }
             }
 
-            sender.input(Msg::UpdateCheckStarted(checks.len()));
+            sender.input(Msg::UpdateCheckStarted(jobs.len()));
 
-            if !checks.is_empty() {
+            if !jobs.is_empty() {
                 let hashes = HashCache::new(hash_dir);
-                let next = AtomicUsize::new(0);
-                let failed = Mutex::new(Vec::<(usize, Duration)>::new());
-                let token_invalid = AtomicBool::new(false);
-                let rate_limited = AtomicBool::new(false);
-                let workers = checks.len().min(MAX_PARALLEL_CHECKS);
-
-                std::thread::scope(|scope| {
-                    for _ in 0..workers {
-                        let sender = sender.clone();
-                        let checks = &checks;
-                        let next = &next;
-                        let failed = &failed;
-                        let token_invalid = &token_invalid;
-                        let rate_limited = &rate_limited;
-                        let hashes = &hashes;
-                        scope.spawn(move || {
-                            loop {
-                                let index = next.fetch_add(1, Ordering::Relaxed);
-                                let Some((app, manager)) = checks.get(index) else {
-                                    break;
-                                };
-
-                                match manager.check(hashes) {
-                                    Ok(status) => sender.input(Msg::UpdateChecked(
-                                        app.image_path.clone(),
-                                        status == UpdateStatus::Available,
-                                    )),
-                                    Err(error @ CoreError::GithubTokenInvalid) => {
-                                        if !token_invalid.swap(true, Ordering::Relaxed) {
-                                            sender.input(Msg::GithubTokenInvalid);
-                                        }
-                                        tracing::warn!(
-                                            app = %app.name,
-                                            %error,
-                                            "update check failed"
-                                        );
-                                        sender.input(Msg::UpdateChecked(
-                                            app.image_path.clone(),
-                                            false,
-                                        ));
-                                    }
-                                    Err(error) => {
-                                        if let Some(delay) = error.retry_delay() {
-                                            tracing::debug!(
-                                                app = %app.name,
-                                                %error,
-                                                "update check failed, will retry"
-                                            );
-                                            failed
-                                                .lock()
-                                                .expect("update-check retry queue lock poisoned")
-                                                .push((index, delay));
-                                        } else {
-                                            if let Some(info) = error.rate_limit_info() {
-                                                if !rate_limited.swap(true, Ordering::Relaxed) {
-                                                    sender.input(Msg::GithubRateLimited {
-                                                        info,
-                                                        token_state,
-                                                    });
-                                                }
-                                                tracing::warn!(
-                                                    app = %app.name,
-                                                    %error,
-                                                    "GitHub API rate limit exhausted"
-                                                );
-                                            } else {
-                                                tracing::warn!(
-                                                    app = %app.name,
-                                                    %error,
-                                                    "update check failed"
-                                                );
-                                            }
-                                            sender.input(Msg::UpdateChecked(
-                                                app.image_path.clone(),
-                                                false,
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                        });
+                let jobs_ref = &jobs;
+                let mut on_event = |event| match event {
+                    update::CheckEvent::Checked { index, status } => {
+                        let job = &jobs_ref[index];
+                        let manager =
+                            (status == UpdateStatus::Available).then(|| Arc::clone(&job.manager));
+                        sender.input(Msg::UpdateChecked(
+                            job.app.image_path.clone(),
+                            status == UpdateStatus::Available,
+                            manager,
+                        ));
                     }
-                });
-
-                let mut failed = failed
-                    .into_inner()
-                    .expect("update-check retry queue lock poisoned");
-                failed.sort_unstable_by_key(|(index, _)| *index);
-
-                if !failed.is_empty() {
-                    sender.input(Msg::UpdateRetryStarted);
-                    let deadline = Instant::now() + RETRY_BUDGET;
-
-                    for (index, delay) in failed {
-                        let (app, manager) = &checks[index];
-
-                        if Instant::now() >= deadline {
-                            tracing::warn!(
-                                app = %app.name,
-                                "update check not retried: retry budget exhausted"
-                            );
-                            sender.input(Msg::UpdateChecked(app.image_path.clone(), false));
-                            continue;
-                        }
-
-                        if !delay.is_zero() {
-                            std::thread::sleep(delay);
-                        }
-
-                        match manager.check(&hashes) {
-                            Ok(status) => {
-                                tracing::info!(
-                                    app = %app.name,
-                                    "update check succeeded after retry"
-                                );
-                                sender.input(Msg::UpdateChecked(
-                                    app.image_path.clone(),
-                                    status == UpdateStatus::Available,
-                                ));
-                            }
-                            Err(error) => {
-                                if let Some(info) = error.rate_limit_info() {
-                                    if !rate_limited.swap(true, Ordering::Relaxed) {
-                                        sender.input(Msg::GithubRateLimited { info, token_state });
-                                    }
-                                    tracing::warn!(
-                                        app = %app.name,
-                                        %error,
-                                        "GitHub API rate limit exhausted after retry"
-                                    );
-                                } else {
-                                    tracing::warn!(
-                                        app = %app.name,
-                                        %error,
-                                        "update check failed after retry"
-                                    );
-                                }
-                                sender.input(Msg::UpdateChecked(app.image_path.clone(), false));
-                            }
-                        }
+                    update::CheckEvent::Retrying => sender.input(Msg::UpdateRetryStarted),
+                    update::CheckEvent::TokenInvalid => sender.input(Msg::GithubTokenInvalid),
+                    update::CheckEvent::RateLimited(info) => {
+                        sender.input(Msg::GithubRateLimited { info, token_state });
                     }
-                }
+                    _ => {}
+                };
+
+                let _ = update::check_batch(
+                    jobs_ref,
+                    &hashes,
+                    MAX_PARALLEL_CHECKS,
+                    RETRY_BUDGET,
+                    &mut on_event,
+                );
             }
 
             sender.input(Msg::CheckDone);

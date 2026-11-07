@@ -27,6 +27,7 @@ pub struct Github {
     embedded: Option<String>,
     http: HttpClient,
     token: Option<String>,
+    cache: super::TargetCache<Target>,
 }
 
 impl fmt::Debug for Github {
@@ -37,6 +38,7 @@ impl fmt::Debug for Github {
             .field("embedded", &self.embedded)
             .field("http", &self.http)
             .field("token", &self.token.as_ref().map(|_| "<redacted>"))
+            .field("cache", &self.cache)
             .finish()
     }
 }
@@ -149,6 +151,7 @@ struct ReleaseAsset {
     digest: Option<String>,
 }
 
+#[derive(Debug, Clone)]
 struct Target {
     asset: Asset,
     zsync_url: Option<String>,
@@ -185,6 +188,7 @@ impl Github {
             embedded,
             http,
             token: token.map(str::to_owned),
+            cache: super::TargetCache::new(),
         }
     }
 
@@ -237,7 +241,20 @@ impl Github {
         }
     }
 
-    fn fetch_target(&self) -> Result<Option<Target>> {
+    fn target(&self) -> Result<Option<Target>> {
+        if let Some(target) = self.cache.get() {
+            return Ok(Some(target));
+        }
+
+        let target = self.resolve_target()?;
+        if let Some(target) = &target {
+            self.cache.set(target.clone());
+        }
+
+        Ok(target)
+    }
+
+    fn resolve_target(&self) -> Result<Option<Target>> {
         let (repo, pattern, allow_prereleases) =
             if let Some((repo, release, pattern)) = self.embedded_data() {
                 (repo, pattern, self.allow_prereleases(Some(&release)))
@@ -311,7 +328,7 @@ impl UpdateManager for Github {
     }
 
     fn check(&self, hashes: &HashCache) -> Result<UpdateStatus> {
-        let Some(target) = self.fetch_target()? else {
+        let Some(target) = self.target()? else {
             return Ok(if value(&self.config, "repo_filename").is_some() {
                 UpdateStatus::Unknown
             } else {
@@ -355,7 +372,7 @@ impl UpdateManager for Github {
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
-        let Some(target) = self.fetch_target()? else {
+        let Some(target) = self.target()? else {
             return Err(Error::NoMatchingAsset(
                 "no matching GitHub release".to_owned(),
             ));
