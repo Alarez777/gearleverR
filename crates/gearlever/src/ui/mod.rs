@@ -1495,6 +1495,9 @@ impl AppModel {
             if !jobs.is_empty() {
                 let hashes = HashCache::new(hash_dir);
                 let jobs_ref = &jobs;
+                // One notice per check pass; the next user-initiated check
+                // resets it and shows the limit again.
+                let rate_limit_notified = Cell::new(false);
                 let mut on_event = |event| match event {
                     update::CheckEvent::Checked { index, status } => {
                         let job = &jobs_ref[index];
@@ -1509,18 +1512,25 @@ impl AppModel {
                     update::CheckEvent::Retrying => sender.input(Msg::UpdateRetryStarted),
                     update::CheckEvent::TokenInvalid => sender.input(Msg::GithubTokenInvalid),
                     update::CheckEvent::RateLimited(info) => {
+                        rate_limit_notified.set(true);
                         sender.input(Msg::GithubRateLimited { info, token_state });
                     }
                     _ => {}
                 };
 
-                let _ = update::check_batch(
+                let report = update::check_batch(
                     jobs_ref,
                     &hashes,
                     MAX_PARALLEL_CHECKS,
                     RETRY_BUDGET,
                     &mut on_event,
                 );
+
+                if !rate_limit_notified.get()
+                    && let Some(info) = report.rate_limit
+                {
+                    sender.input(Msg::GithubRateLimited { info, token_state });
+                }
             }
 
             sender.input(Msg::CheckDone);
