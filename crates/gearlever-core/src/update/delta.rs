@@ -180,6 +180,12 @@ fn run(
 
     let (known_bytes, _) = assembly.progress();
     let downloaded_bytes = known_bytes.saturating_sub(seed_bytes);
+    let saved_bytes = total_bytes.saturating_sub(downloaded_bytes);
+    let saved_percent = if total_bytes == 0 {
+        0.0
+    } else {
+        fraction(saved_bytes, total_bytes) * 100.0
+    };
 
     if cancel.load(Ordering::Relaxed) {
         return Err(Error::Cancelled);
@@ -191,13 +197,16 @@ fn run(
 
     tracing::info!(
         downloaded_bytes,
+        saved_bytes,
         total_bytes,
         downloaded_blocks,
         seed_blocks = known,
         total_blocks = total,
-        "zsync delta downloaded {} of {}",
+        "zsync delta downloaded {} of {} ({} saved, {:.1}%)",
         crate::format::size(downloaded_bytes),
         crate::format::size(total_bytes),
+        crate::format::size(saved_bytes),
+        saved_percent,
     );
     Ok(())
 }
