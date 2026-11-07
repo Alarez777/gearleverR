@@ -15,19 +15,67 @@ pub mod zsync;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::appimage::{AppImage, MetadataOptions};
+use crate::appimage::{AppImage, AppMetadata, MetadataOptions};
 use crate::config::Config;
-use crate::error::{Error, Result};
+use crate::error::{Error, RateLimitInfo, Result};
 use crate::hash::HashCache;
 use crate::install::{Conflict, IntegrateOptions, PreviousInstall, integrate};
 use crate::scan::InstalledApp;
 
 pub use http::HttpClient;
 pub use zsync::ZsyncInfo;
+
+/// Maximum update checks in flight at once.
+pub const DEFAULT_PARALLEL_CHECKS: usize = 5;
+
+/// Maximum time spent retrying failed update checks.
+pub const DEFAULT_RETRY_BUDGET: Duration = Duration::from_secs(20);
+
+/// Maximum updates prepared at once during a batch.
+pub const DEFAULT_PARALLEL_DOWNLOADS: usize = 3;
+
+/// A lazily resolved update target shared by an [`UpdateManager`].
+///
+/// The cache is cleared when the manager is cloned, because a clone is a new
+/// attempt and must not reuse a target resolved by another manager.
+#[derive(Debug)]
+struct TargetCache<T> {
+    value: Mutex<Option<T>>,
+}
+
+impl<T> TargetCache<T> {
+    const fn new() -> Self {
+        Self {
+            value: Mutex::new(None),
+        }
+    }
+
+    fn set(&self, value: T) {
+        *self
+            .value
+            .lock()
+            .expect("update target cache lock poisoned") = Some(value);
+    }
+}
+
+impl<T: Clone> TargetCache<T> {
+    fn get(&self) -> Option<T> {
+        self.value
+            .lock()
+            .expect("update target cache lock poisoned")
+            .clone()
+    }
+}
+
+impl<T> Clone for TargetCache<T> {
+    fn clone(&self) -> Self {
+        Self::new()
+    }
+}
 
 /// Result of asking an update source whether a newer release exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -402,6 +450,99 @@ pub fn by_name(
     kind.create(image.to_path_buf(), config, None, github_token)
 }
 
+/// An installed AppImage paired with the source that updates it.
+#[derive(Debug, Clone)]
+pub struct UpdateJob {
+    /// Application to update.
+    pub app: InstalledApp,
+    /// Source that resolves and downloads the new release.
+    pub manager: Arc<dyn UpdateManager>,
+}
+
+impl UpdateJob {
+    /// Pairs an application with its update source.
+    #[must_use]
+    pub fn new(app: InstalledApp, manager: Arc<dyn UpdateManager>) -> Self {
+        Self { app, manager }
+    }
+}
+
+/// Event emitted while checking a batch of update sources.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CheckEvent {
+    /// One check finished.
+    Checked {
+        /// Position of the job in the input slice.
+        index: usize,
+        /// Result reported by the source.
+        status: UpdateStatus,
+    },
+    /// The first pass finished with transient failures and retries are starting.
+    Retrying,
+    /// The configured GitHub token was rejected.
+    TokenInvalid,
+    /// GitHub exhausted the API rate limit.
+    RateLimited(RateLimitInfo),
+}
+
+/// Result of checking a batch of update sources.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckReport {
+    /// Final status of every job, in the same order as the input slice.
+    pub outcomes: Vec<UpdateStatus>,
+    /// Whether GitHub rejected the configured token.
+    pub token_invalid: bool,
+    /// Rate-limit details when GitHub exhausted the API limit.
+    pub rate_limit: Option<RateLimitInfo>,
+}
+
+/// Event emitted while installing a batch of updates.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum BatchEvent {
+    /// Overall progress between 0.0 and 1.0.
+    Progress {
+        /// Position of the job in the input slice.
+        index: usize,
+        /// Fraction of the whole batch that has finished preparing or installing.
+        overall: f64,
+    },
+    /// One update was installed successfully.
+    Installed {
+        /// Position of the job in the input slice.
+        index: usize,
+        /// Updated application.
+        app: InstalledApp,
+    },
+    /// One update failed.
+    Failed {
+        /// Position of the job in the input slice.
+        index: usize,
+        /// Application that could not be updated.
+        app: InstalledApp,
+        /// Failure reported by the download or integration step.
+        error: Error,
+    },
+    /// One update was cancelled before it could be installed.
+    Cancelled {
+        /// Position of the job in the input slice.
+        index: usize,
+    },
+}
+
+/// Summary of a batch update.
+#[derive(Debug, Clone, Default)]
+#[must_use]
+pub struct BatchReport {
+    /// Applications that were updated successfully.
+    pub installed: Vec<InstalledApp>,
+    /// AppImages that could not be updated.
+    pub failed: Vec<PathBuf>,
+    /// Whether the caller cancelled the batch.
+    pub cancelled: bool,
+}
+
 /// Options used when installing a downloaded update.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateOptions {
@@ -415,6 +556,105 @@ pub struct UpdateOptions {
     pub update_desktop_database: bool,
     /// Whether an external `--appimage-extract` fallback is allowed.
     pub allow_unsafe_extractor: bool,
+}
+
+impl UpdateOptions {
+    /// Returns the staging directory used for downloads inside the AppImages
+    /// folder, so the final install is an atomic rename on the same filesystem.
+    #[must_use]
+    pub fn staging_dir(&self) -> PathBuf {
+        self.appimages_dir.join(".staging")
+    }
+}
+
+/// A downloaded and validated update waiting to be integrated.
+struct PreparedUpdate {
+    app: InstalledApp,
+    metadata: AppMetadata,
+    downloaded: PathBuf,
+}
+
+/// Downloads an update and reads its metadata without touching the installed app.
+fn prepare(
+    app: &InstalledApp,
+    manager: &dyn UpdateManager,
+    options: &UpdateOptions,
+    download_dir: &Path,
+    progress: &mut dyn FnMut(f64),
+    cancel: Arc<AtomicBool>,
+) -> Result<PreparedUpdate> {
+    std::fs::create_dir_all(download_dir)?;
+    let mut context = DownloadContext::with_cancel(download_dir.to_path_buf(), progress, cancel);
+    let downloaded = manager.download(&mut context)?;
+
+    if context.is_cancelled() {
+        let _ = std::fs::remove_file(&downloaded);
+        return Err(Error::Cancelled);
+    }
+
+    let metadata_options = MetadataOptions {
+        allow_unsafe_extractor: options.allow_unsafe_extractor,
+        work_dir: download_dir.join("metadata"),
+    };
+    let metadata = match AppImage::open(&downloaded)
+        .and_then(|image| image.metadata_with(&metadata_options))
+    {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            let _ = std::fs::remove_file(&downloaded);
+            return Err(error);
+        }
+    };
+
+    Ok(PreparedUpdate {
+        app: app.clone(),
+        metadata,
+        downloaded,
+    })
+}
+
+/// Integrates a prepared update, replacing the installed AppImage.
+fn commit(
+    prepared: &PreparedUpdate,
+    options: &UpdateOptions,
+    config: &mut Config,
+) -> Result<InstalledApp> {
+    let previous = PreviousInstall {
+        image_path: prepared.app.image_path.clone(),
+        desktop_path: prepared.app.desktop_path.clone(),
+        exec_arguments: prepared.app.exec_arguments.clone(),
+        env_variables: prepared.app.env_variables.clone(),
+    };
+    let destination = crate::install::replacement_destination(&previous, &options.appimages_dir)?;
+
+    if let Err(error) = crate::install::stage_download(&prepared.downloaded, &destination) {
+        let _ = std::fs::remove_file(&prepared.downloaded);
+        return Err(error);
+    }
+
+    let temporary = crate::install::temporary_path(&destination);
+    let integrate_options = IntegrateOptions {
+        appimages_dir: options.appimages_dir.clone(),
+        applications_dir: options.applications_dir.clone(),
+        conflict: Conflict::Replace,
+        move_source: true,
+        exec_name_for_terminal_apps: options.exec_name_for_terminal_apps,
+        name_suffix: None,
+        update_desktop_database: options.update_desktop_database,
+    };
+
+    let result = integrate(
+        &temporary,
+        &prepared.metadata,
+        Some(&previous),
+        &integrate_options,
+        config,
+    );
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+
+    result
 }
 
 /// Downloads an update, validates it and replaces the installed AppImage.
@@ -432,48 +672,433 @@ pub fn apply(
     progress: &mut dyn FnMut(f64),
     cancel: Arc<AtomicBool>,
 ) -> Result<InstalledApp> {
-    let mut context = DownloadContext::with_cancel(download_dir.to_path_buf(), progress, cancel);
-    let downloaded = manager.download(&mut context)?;
+    let prepared = prepare(app, manager, options, download_dir, progress, cancel)?;
+    commit(&prepared, options, config)
+}
 
-    if context.is_cancelled() {
-        let _ = std::fs::remove_file(&downloaded);
-        return Err(Error::Cancelled);
+/// Checks a batch of update sources with a bounded worker pool.
+///
+/// Transient failures are retried once after the first pass, with a shared
+/// deadline. Events are emitted on the calling thread, so callers can update
+/// their interface without synchronising their own state.
+///
+/// # Panics
+///
+/// Panics if an internal worker panics or a lock is poisoned.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the parallel check and retry policy share one worker pool"
+)]
+pub fn check_batch(
+    jobs: &[UpdateJob],
+    hashes: &HashCache,
+    workers: usize,
+    retry_budget: Duration,
+    on_event: &mut dyn FnMut(CheckEvent),
+) -> CheckReport {
+    let total = jobs.len();
+    let mut statuses: Vec<Option<UpdateStatus>> = vec![None; total];
+    let token_invalid = AtomicBool::new(false);
+    let rate_limited = AtomicBool::new(false);
+    let rate_limit = Mutex::new(None);
+    let failures = Mutex::new(Vec::<(usize, Duration)>::new());
+
+    if total > 0 {
+        let worker_count = workers.max(1).min(total);
+        let next = AtomicUsize::new(0);
+
+        std::thread::scope(|scope| {
+            let (sender, receiver) = mpsc::channel::<CheckWorker>();
+
+            for _ in 0..worker_count {
+                let sender = sender.clone();
+                let next = &next;
+                let token_invalid = &token_invalid;
+                let rate_limited = &rate_limited;
+                let rate_limit = &rate_limit;
+                let failures = &failures;
+
+                scope.spawn(move || {
+                    loop {
+                        let index = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(job) = jobs.get(index) else {
+                            break;
+                        };
+
+                        match job.manager.check(hashes) {
+                            Ok(status) => {
+                                let _ = sender.send(CheckWorker::Checked { index, status });
+                            }
+                            Err(error @ Error::GithubTokenInvalid) => {
+                                if !token_invalid.swap(true, Ordering::Relaxed) {
+                                    let _ = sender.send(CheckWorker::TokenInvalid);
+                                }
+                                tracing::warn!(
+                                    app = %job.app.name,
+                                    %error,
+                                    "update check failed"
+                                );
+                                let _ = sender.send(CheckWorker::Checked {
+                                    index,
+                                    status: UpdateStatus::Unknown,
+                                });
+                            }
+                            Err(error) => {
+                                if let Some(delay) = error.retry_delay() {
+                                    tracing::debug!(
+                                        app = %job.app.name,
+                                        %error,
+                                        "update check failed, will retry"
+                                    );
+                                    failures
+                                        .lock()
+                                        .expect("update-check retry queue lock poisoned")
+                                        .push((index, delay));
+                                } else {
+                                    if let Some(info) = error.rate_limit_info() {
+                                        let mut slot = rate_limit
+                                            .lock()
+                                            .expect("update-check rate limit lock poisoned");
+                                        if slot.is_none() {
+                                            *slot = Some(info);
+                                        }
+                                        drop(slot);
+
+                                        if !rate_limited.swap(true, Ordering::Relaxed) {
+                                            let _ = sender.send(CheckWorker::RateLimited(info));
+                                        }
+                                        tracing::warn!(
+                                            app = %job.app.name,
+                                            %error,
+                                            "GitHub API rate limit exhausted"
+                                        );
+                                    } else {
+                                        tracing::warn!(
+                                            app = %job.app.name,
+                                            %error,
+                                            "update check failed"
+                                        );
+                                    }
+                                    let _ = sender.send(CheckWorker::Checked {
+                                        index,
+                                        status: UpdateStatus::Unknown,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            drop(sender);
+
+            for message in receiver {
+                match message {
+                    CheckWorker::Checked { index, status } => {
+                        statuses[index] = Some(status);
+                        on_event(CheckEvent::Checked { index, status });
+                    }
+                    CheckWorker::TokenInvalid => on_event(CheckEvent::TokenInvalid),
+                    CheckWorker::RateLimited(info) => on_event(CheckEvent::RateLimited(info)),
+                }
+            }
+        });
     }
-    let metadata = AppImage::open(&downloaded)?.metadata_with(&MetadataOptions {
-        allow_unsafe_extractor: options.allow_unsafe_extractor,
-        work_dir: download_dir.join("metadata"),
-    })?;
 
-    let previous = PreviousInstall {
-        image_path: app.image_path.clone(),
-        desktop_path: app.desktop_path.clone(),
-        exec_arguments: app.exec_arguments.clone(),
-        env_variables: app.env_variables.clone(),
-    };
+    let mut failures = failures
+        .into_inner()
+        .expect("update-check retry queue lock poisoned");
+    failures.sort_unstable_by_key(|(index, _)| *index);
 
-    let integrate_options = IntegrateOptions {
-        appimages_dir: options.appimages_dir.clone(),
-        applications_dir: options.applications_dir.clone(),
-        conflict: Conflict::Replace,
-        move_source: true,
-        exec_name_for_terminal_apps: options.exec_name_for_terminal_apps,
-        name_suffix: None,
-        update_desktop_database: options.update_desktop_database,
-    };
+    if !failures.is_empty() {
+        on_event(CheckEvent::Retrying);
+        let deadline = Instant::now() + retry_budget;
 
-    let installed = integrate(
-        &downloaded,
-        &metadata,
-        Some(&previous),
-        &integrate_options,
-        config,
-    )?;
+        for (index, delay) in failures {
+            let job = &jobs[index];
+            let now = Instant::now();
+            if now >= deadline || delay > deadline.saturating_duration_since(now) {
+                tracing::warn!(
+                    app = %job.app.name,
+                    "update check not retried: retry budget exhausted"
+                );
+                statuses[index] = Some(UpdateStatus::Unknown);
+                on_event(CheckEvent::Checked {
+                    index,
+                    status: UpdateStatus::Unknown,
+                });
+                continue;
+            }
 
-    if downloaded.exists() {
-        let _ = std::fs::remove_file(&downloaded);
+            if !delay.is_zero() {
+                std::thread::sleep(delay);
+            }
+
+            match job.manager.check(hashes) {
+                Ok(status) => {
+                    tracing::info!(
+                        app = %job.app.name,
+                        "update check succeeded after retry"
+                    );
+                    statuses[index] = Some(status);
+                    on_event(CheckEvent::Checked { index, status });
+                }
+                Err(error @ Error::GithubTokenInvalid) => {
+                    if !token_invalid.swap(true, Ordering::Relaxed) {
+                        on_event(CheckEvent::TokenInvalid);
+                    }
+                    tracing::warn!(
+                        app = %job.app.name,
+                        %error,
+                        "update check failed after retry"
+                    );
+                    statuses[index] = Some(UpdateStatus::Unknown);
+                    on_event(CheckEvent::Checked {
+                        index,
+                        status: UpdateStatus::Unknown,
+                    });
+                }
+                Err(error) => {
+                    if let Some(info) = error.rate_limit_info() {
+                        let mut slot = rate_limit
+                            .lock()
+                            .expect("update-check rate limit lock poisoned");
+                        if slot.is_none() {
+                            *slot = Some(info);
+                        }
+                        drop(slot);
+
+                        if !rate_limited.swap(true, Ordering::Relaxed) {
+                            on_event(CheckEvent::RateLimited(info));
+                        }
+                        tracing::warn!(
+                            app = %job.app.name,
+                            %error,
+                            "GitHub API rate limit exhausted after retry"
+                        );
+                    } else {
+                        tracing::warn!(
+                            app = %job.app.name,
+                            %error,
+                            "update check failed after retry"
+                        );
+                    }
+                    statuses[index] = Some(UpdateStatus::Unknown);
+                    on_event(CheckEvent::Checked {
+                        index,
+                        status: UpdateStatus::Unknown,
+                    });
+                }
+            }
+        }
     }
 
-    Ok(installed)
+    CheckReport {
+        outcomes: statuses
+            .into_iter()
+            .map(|status| status.unwrap_or(UpdateStatus::Unknown))
+            .collect(),
+        token_invalid: token_invalid.load(Ordering::Relaxed),
+        rate_limit: rate_limit
+            .into_inner()
+            .expect("update-check rate limit lock poisoned"),
+    }
+}
+
+/// Message sent by a check worker to the coordinator.
+enum CheckWorker {
+    Checked { index: usize, status: UpdateStatus },
+    TokenInvalid,
+    RateLimited(RateLimitInfo),
+}
+
+/// Message sent by a download worker to the coordinator.
+enum WorkerUpdate {
+    Progress {
+        index: usize,
+        fraction: f64,
+    },
+    Prepared {
+        index: usize,
+        update: PreparedUpdate,
+    },
+    Failed {
+        index: usize,
+        app: InstalledApp,
+        error: Error,
+    },
+    Cancelled {
+        index: usize,
+    },
+}
+
+/// Returns the average progress of every job in a batch.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "update progress does not need exact precision"
+)]
+fn batch_progress(fractions: &[f64]) -> f64 {
+    fractions.iter().sum::<f64>() / fractions.len() as f64
+}
+
+/// Emits the aggregate progress of a batch.
+fn emit_batch_progress(fractions: &[f64], index: usize, on_event: &mut dyn FnMut(BatchEvent)) {
+    on_event(BatchEvent::Progress {
+        index,
+        overall: batch_progress(fractions),
+    });
+}
+
+/// Downloads and installs a batch of updates.
+///
+/// Downloads and metadata extraction run in parallel, while integration stays
+/// serial so `Config`, desktop entries and icons are never written concurrently.
+/// `update-desktop-database` runs once at the end when the option is enabled.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the worker pool, coordinator and progress bookkeeping share one pipeline"
+)]
+pub fn apply_batch(
+    jobs: &[UpdateJob],
+    options: &UpdateOptions,
+    config: &mut Config,
+    download_dir: &Path,
+    parallel: usize,
+    cancel: &Arc<AtomicBool>,
+    on_event: &mut dyn FnMut(BatchEvent),
+) -> BatchReport {
+    let total = jobs.len();
+    if total == 0 {
+        return BatchReport::default();
+    }
+
+    let worker_count = parallel.max(1).min(total);
+    let mut fractions = vec![0.0_f64; total];
+    let mut installed = Vec::new();
+    let mut failed = Vec::new();
+    let mut cancelled = false;
+
+    let mut batch_options = options.clone();
+    batch_options.update_desktop_database = false;
+
+    let next = AtomicUsize::new(0);
+
+    std::thread::scope(|scope| {
+        let (sender, receiver) = mpsc::channel::<WorkerUpdate>();
+
+        for _ in 0..worker_count {
+            let sender = sender.clone();
+            let options = &batch_options;
+            let next = &next;
+
+            scope.spawn(move || {
+                loop {
+                    if cancel.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(job) = jobs.get(index) else {
+                        break;
+                    };
+
+                    let progress_sender = sender.clone();
+                    let mut progress = |fraction: f64| {
+                        let _ = progress_sender.send(WorkerUpdate::Progress { index, fraction });
+                    };
+
+                    match prepare(
+                        &job.app,
+                        job.manager.as_ref(),
+                        options,
+                        download_dir,
+                        &mut progress,
+                        Arc::clone(cancel),
+                    ) {
+                        Ok(update) => {
+                            let _ = sender.send(WorkerUpdate::Prepared { index, update });
+                        }
+                        Err(Error::Cancelled) => {
+                            let _ = sender.send(WorkerUpdate::Cancelled { index });
+                        }
+                        Err(error) => {
+                            let _ = sender.send(WorkerUpdate::Failed {
+                                index,
+                                app: job.app.clone(),
+                                error,
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        drop(sender);
+
+        for message in receiver {
+            match message {
+                WorkerUpdate::Progress { index, fraction } => {
+                    fractions[index] = fraction.clamp(0.0, 1.0);
+                    emit_batch_progress(&fractions, index, on_event);
+                }
+                WorkerUpdate::Prepared { index, update } => {
+                    if cancel.load(Ordering::Relaxed) {
+                        let _ = std::fs::remove_file(&update.downloaded);
+                        fractions[index] = 1.0;
+                        cancelled = true;
+                        on_event(BatchEvent::Cancelled { index });
+                        emit_batch_progress(&fractions, index, on_event);
+                        continue;
+                    }
+
+                    let app = update.app.clone();
+                    match commit(&update, &batch_options, config) {
+                        Ok(installed_app) => {
+                            fractions[index] = 1.0;
+                            installed.push(installed_app.clone());
+                            on_event(BatchEvent::Installed {
+                                index,
+                                app: installed_app,
+                            });
+                        }
+                        Err(error) => {
+                            fractions[index] = 1.0;
+                            failed.push(app.image_path.clone());
+                            on_event(BatchEvent::Failed { index, app, error });
+                        }
+                    }
+                    emit_batch_progress(&fractions, index, on_event);
+                }
+                WorkerUpdate::Failed { index, app, error } => {
+                    fractions[index] = 1.0;
+                    failed.push(app.image_path.clone());
+                    on_event(BatchEvent::Failed { index, app, error });
+                    emit_batch_progress(&fractions, index, on_event);
+                }
+                WorkerUpdate::Cancelled { index } => {
+                    fractions[index] = 1.0;
+                    cancelled = true;
+                    on_event(BatchEvent::Cancelled { index });
+                    emit_batch_progress(&fractions, index, on_event);
+                }
+            }
+        }
+    });
+
+    if cancelled {
+        tracing::debug!("update batch cancelled");
+    }
+
+    if options.update_desktop_database && !installed.is_empty() {
+        crate::install::refresh_desktop_database(&options.applications_dir);
+    }
+
+    BatchReport {
+        installed,
+        failed,
+        cancelled: cancelled || cancel.load(Ordering::Relaxed),
+    }
 }
 
 /// A release asset offered by a forge.
@@ -541,6 +1166,9 @@ pub(crate) fn boolean(config: &std::collections::BTreeMap<String, String>, key: 
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, VecDeque};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use super::*;
 
     fn asset(name: &str) -> Asset {
@@ -586,5 +1214,240 @@ mod tests {
         assert_eq!(ManagerKind::Github.name(), "GithubUpdater");
         assert_eq!(ManagerKind::from_name("FTPUpdater"), Some(ManagerKind::Ftp));
         assert_eq!(ManagerKind::from_name("nope"), None);
+    }
+
+    #[test]
+    fn target_cache_keeps_the_resolved_value() {
+        let cache = TargetCache::new();
+        assert_eq!(cache.get(), None);
+
+        cache.set(7_u32);
+        assert_eq!(cache.get(), Some(7));
+    }
+
+    #[derive(Debug)]
+    struct FakeManager {
+        config: BTreeMap<String, String>,
+        statuses: Mutex<VecDeque<Result<UpdateStatus>>>,
+        delay: Duration,
+        in_flight: Arc<AtomicUsize>,
+        max_in_flight: Arc<AtomicUsize>,
+    }
+
+    impl FakeManager {
+        fn new(statuses: impl IntoIterator<Item = Result<UpdateStatus>>) -> Self {
+            Self {
+                config: BTreeMap::new(),
+                statuses: Mutex::new(statuses.into_iter().collect()),
+                delay: Duration::ZERO,
+                in_flight: Arc::new(AtomicUsize::new(0)),
+                max_in_flight: Arc::new(AtomicUsize::new(0)),
+            }
+        }
+
+        fn with_delay(mut self, delay: Duration) -> Self {
+            self.delay = delay;
+            self
+        }
+    }
+
+    impl UpdateManager for FakeManager {
+        fn kind(&self) -> ManagerKind {
+            ManagerKind::StaticFile
+        }
+
+        fn embedded(&self) -> Option<&str> {
+            None
+        }
+
+        fn config(&self) -> &BTreeMap<String, String> {
+            &self.config
+        }
+
+        fn check(&self, _hashes: &HashCache) -> Result<UpdateStatus> {
+            let current = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+            self.max_in_flight.fetch_max(current, Ordering::SeqCst);
+            std::thread::sleep(self.delay);
+            self.in_flight.fetch_sub(1, Ordering::SeqCst);
+
+            self.statuses
+                .lock()
+                .expect("fake update status lock poisoned")
+                .pop_front()
+                .unwrap_or(Ok(UpdateStatus::Unknown))
+        }
+
+        fn download(&self, _context: &mut DownloadContext<'_>) -> Result<PathBuf> {
+            Err(Error::Http("download failed".to_owned()))
+        }
+    }
+
+    fn app(name: &str, directory: &Path) -> InstalledApp {
+        let image_path = directory.join(format!("{name}.AppImage"));
+
+        InstalledApp {
+            name: name.to_owned(),
+            description: String::new(),
+            version: None,
+            image_path,
+            desktop_path: directory.join(format!("{name}.desktop")),
+            desktop_id: format!("{name}.desktop"),
+            icon: None,
+            icon_path: None,
+            exec_arguments: String::new(),
+            env_variables: Vec::new(),
+            terminal: false,
+            size: 1,
+            external: false,
+            self_entry: false,
+        }
+    }
+
+    fn update_options(directory: &Path) -> UpdateOptions {
+        UpdateOptions {
+            appimages_dir: directory.join("AppImages"),
+            applications_dir: directory.join("applications"),
+            exec_name_for_terminal_apps: false,
+            update_desktop_database: false,
+            allow_unsafe_extractor: false,
+        }
+    }
+
+    #[test]
+    fn check_batch_runs_checks_concurrently_and_preserves_order() {
+        let directory = tempfile::tempdir().unwrap();
+        let in_flight = Arc::new(AtomicUsize::new(0));
+        let max_in_flight = Arc::new(AtomicUsize::new(0));
+        let statuses = [
+            UpdateStatus::Available,
+            UpdateStatus::UpToDate,
+            UpdateStatus::Unknown,
+        ];
+        let jobs: Vec<UpdateJob> = statuses
+            .iter()
+            .enumerate()
+            .map(|(index, status)| {
+                let manager = FakeManager::new([Ok(*status)]).with_delay(Duration::from_millis(40));
+                let manager = FakeManager {
+                    in_flight: Arc::clone(&in_flight),
+                    max_in_flight: Arc::clone(&max_in_flight),
+                    ..manager
+                };
+                UpdateJob::new(
+                    app(&format!("app-{index}"), directory.path()),
+                    Arc::new(manager),
+                )
+            })
+            .collect();
+
+        let report = check_batch(
+            &jobs,
+            &HashCache::new(directory.path().join("hashes")),
+            3,
+            Duration::ZERO,
+            &mut |_| {},
+        );
+
+        assert_eq!(report.outcomes, statuses);
+        assert!(
+            max_in_flight.load(Ordering::SeqCst) >= 2,
+            "checks should overlap"
+        );
+    }
+
+    #[test]
+    fn check_batch_retries_transient_failures() {
+        let directory = tempfile::tempdir().unwrap();
+        let manager = FakeManager::new([
+            Err(Error::Http("transient".to_owned())),
+            Ok(UpdateStatus::Available),
+        ]);
+        let jobs = vec![UpdateJob::new(
+            app("retry", directory.path()),
+            Arc::new(manager),
+        )];
+        let mut events = Vec::new();
+
+        let report = check_batch(
+            &jobs,
+            &HashCache::new(directory.path().join("hashes")),
+            1,
+            Duration::from_secs(1),
+            &mut |event| events.push(event),
+        );
+
+        assert_eq!(report.outcomes, vec![UpdateStatus::Available]);
+        assert!(events.contains(&CheckEvent::Retrying));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            CheckEvent::Checked {
+                status: UpdateStatus::Available,
+                ..
+            }
+        )));
+    }
+
+    #[test]
+    fn check_batch_reports_an_invalid_token_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let jobs: Vec<UpdateJob> = (0..2)
+            .map(|index| {
+                UpdateJob::new(
+                    app(&format!("token-{index}"), directory.path()),
+                    Arc::new(FakeManager::new([Err(Error::GithubTokenInvalid)])),
+                )
+            })
+            .collect();
+        let mut invalid_events = 0;
+
+        let report = check_batch(
+            &jobs,
+            &HashCache::new(directory.path().join("hashes")),
+            2,
+            Duration::ZERO,
+            &mut |event| {
+                if event == CheckEvent::TokenInvalid {
+                    invalid_events += 1;
+                }
+            },
+        );
+
+        assert!(report.token_invalid);
+        assert_eq!(report.outcomes, vec![UpdateStatus::Unknown; 2]);
+        assert_eq!(invalid_events, 1);
+    }
+
+    #[test]
+    fn apply_batch_reports_failures_without_stopping_other_jobs() {
+        let directory = tempfile::tempdir().unwrap();
+        let jobs: Vec<UpdateJob> = (0..2)
+            .map(|index| {
+                UpdateJob::new(
+                    app(&format!("batch-{index}"), directory.path()),
+                    Arc::new(FakeManager::new([Ok(UpdateStatus::Available)])),
+                )
+            })
+            .collect();
+        let mut failed_events = 0;
+        let mut config = Config::default();
+
+        let report = apply_batch(
+            &jobs,
+            &update_options(directory.path()),
+            &mut config,
+            &directory.path().join("staging"),
+            2,
+            &Arc::new(AtomicBool::new(false)),
+            &mut |event| {
+                if matches!(event, BatchEvent::Failed { .. }) {
+                    failed_events += 1;
+                }
+            },
+        );
+
+        assert!(report.installed.is_empty());
+        assert_eq!(report.failed.len(), 2);
+        assert!(!report.cancelled);
+        assert_eq!(failed_events, 2);
     }
 }

@@ -24,6 +24,7 @@ pub struct Ftp {
     embedded: Option<String>,
     #[expect(dead_code, reason = "kept uniform with the other update sources")]
     http: HttpClient,
+    cache: super::TargetCache<(String, u64)>,
 }
 
 #[derive(Debug)]
@@ -54,6 +55,7 @@ impl Ftp {
             config,
             embedded,
             http,
+            cache: super::TargetCache::new(),
         }
     }
 
@@ -89,6 +91,23 @@ impl Ftp {
             .map_err(|error| Error::Http(format!("FTP login: {error}")))?;
 
         Ok(stream)
+    }
+
+    fn target(&self) -> Result<Option<(String, u64)>> {
+        if let Some(target) = self.cache.get() {
+            return Ok(Some(target));
+        }
+
+        let remote = self.remote()?;
+        let mut stream = Self::connect(&remote)?;
+        let target = self.find_file(&mut stream)?;
+        let _ = stream.quit();
+
+        if let Some(target) = &target {
+            self.cache.set(target.clone());
+        }
+
+        Ok(target)
     }
 
     fn find_file(&self, stream: &mut FtpStream) -> Result<Option<(String, u64)>> {
@@ -136,12 +155,9 @@ impl UpdateManager for Ftp {
     }
 
     fn check(&self, _hashes: &HashCache) -> Result<UpdateStatus> {
-        let remote = self.remote()?;
-        let mut stream = Self::connect(&remote)?;
-        let Some((_, remote_size)) = self.find_file(&mut stream)? else {
+        let Some((_, remote_size)) = self.target()? else {
             return Ok(UpdateStatus::Unknown);
         };
-        let _ = stream.quit();
 
         let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
 
@@ -154,11 +170,11 @@ impl UpdateManager for Ftp {
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
         let remote = self.remote()?;
-        let mut stream = Self::connect(&remote)?;
-        let Some((path, size)) = self.find_file(&mut stream)? else {
+        let Some((path, size)) = self.target()? else {
             return Err(Error::NoMatchingAsset(remote.pattern));
         };
 
+        let mut stream = Self::connect(&remote)?;
         fs::create_dir_all(&context.directory)?;
         let destination = context.output_path();
         let file = File::create(&destination)?;

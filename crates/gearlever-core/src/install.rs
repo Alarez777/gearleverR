@@ -212,7 +212,11 @@ pub fn integrate(
     config.set_app(&destination, app_config);
 
     if options.move_source && source != destination {
-        fs::remove_file(source)?;
+        match fs::remove_file(source) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
     }
 
     if options.update_desktop_database {
@@ -416,12 +420,72 @@ fn set_executable(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Returns the destination of an update that replaces `previous`.
+pub(crate) fn replacement_destination(
+    previous: &PreviousInstall,
+    appimages_dir: &Path,
+) -> Result<PathBuf> {
+    let file_name = previous
+        .image_path
+        .file_name()
+        .ok_or_else(|| Error::InvalidName(previous.image_path.clone()))?;
+
+    Ok(appimages_dir.join(file_name))
+}
+
+/// Moves a downloaded update to the temporary path used by [`integrate`].
+///
+/// When both paths live on the same filesystem the move is a rename; otherwise
+/// the file is copied once and the temporary download is removed.
+pub(crate) fn stage_download(source: &Path, destination: &Path) -> Result<()> {
+    let temporary = temporary_path(destination);
+    if source == temporary {
+        return Ok(());
+    }
+
+    if let Some(parent) = temporary.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    match fs::rename(source, &temporary) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::CrossesDevices => {
+            let result = (|| -> Result<()> {
+                fs::copy(source, &temporary)?;
+                set_executable(&temporary)?;
+                Ok(())
+            })();
+            if result.is_err() {
+                let _ = fs::remove_file(&temporary);
+                return result;
+            }
+
+            let _ = fs::remove_file(source);
+            Ok(())
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
 /// Copies an AppImage through a temporary file, then renames it into place.
 ///
 /// Renaming over the destination works even when the old file is still running,
-/// which happens when a manual update replaces the current version.
+/// which happens when a manual update replaces the current version. When the
+/// source is already the staging path used by updates, only the rename runs.
 fn copy_image(source: &Path, destination: &Path) -> Result<()> {
     let temporary = temporary_path(destination);
+
+    if source == temporary {
+        let result = (|| -> Result<()> {
+            set_executable(&temporary)?;
+            fs::rename(&temporary, destination)?;
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&temporary);
+        }
+        return result;
+    }
 
     let result = (|| -> Result<()> {
         fs::copy(source, &temporary)?;
@@ -437,7 +501,7 @@ fn copy_image(source: &Path, destination: &Path) -> Result<()> {
     result
 }
 
-fn temporary_path(path: &Path) -> PathBuf {
+pub(crate) fn temporary_path(path: &Path) -> PathBuf {
     path.file_name().map_or_else(
         || path.to_path_buf(),
         |name| path.with_file_name(format!("{}.tmp", name.to_string_lossy())),
@@ -884,5 +948,26 @@ Exec=AppRun --new-window %U
             !is_installed_copy(&opened, &installed, &managed),
             "content only counts when the installed copy is managed"
         );
+    }
+
+    #[test]
+    fn stages_a_download_and_renames_it_into_place() {
+        let directory = tempfile::tempdir().unwrap();
+        let appimages = directory.path().join("AppImages");
+        fs::create_dir_all(&appimages).unwrap();
+        let source = directory.path().join("download.AppImage");
+        let destination = appimages.join("App.AppImage");
+        fs::write(&source, b"new image").unwrap();
+
+        stage_download(&source, &destination).unwrap();
+
+        let temporary = temporary_path(&destination);
+        assert!(!source.exists(), "the download is moved out of staging");
+        assert!(temporary.exists(), "the image waits at the temporary path");
+
+        copy_image(&temporary, &destination).unwrap();
+
+        assert!(!temporary.exists(), "the temporary file is renamed");
+        assert_eq!(fs::read(&destination).unwrap(), b"new image");
     }
 }
