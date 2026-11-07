@@ -21,7 +21,6 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::{ArgGroup, Parser};
 use serde::Serialize;
 
-use gearlever_core::Error as CoreError;
 use gearlever_core::appimage::{AppImage, MetadataOptions, is_running};
 use gearlever_core::config::Config;
 use gearlever_core::error::RateLimitInfo;
@@ -32,7 +31,7 @@ use gearlever_core::install::{
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::uninstall::{Removal, uninstall};
-use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
+use gearlever_core::update::{self, ManagerKind, UpdateOptions};
 
 use crate::i18n::t;
 use crate::rate_limit::{self, TokenState};
@@ -69,9 +68,13 @@ pub struct Cli {
     #[arg(long, value_name = "FILE")]
     pub integrate: Option<PathBuf>,
 
-    /// Update an AppImage file
-    #[arg(long, value_name = "FILE")]
-    pub update: Option<PathBuf>,
+    /// Update an AppImage file, or all of them with --all
+    #[expect(
+        clippy::option_option,
+        reason = "clap needs to tell an omitted --update apart from --update without a file"
+    )]
+    #[arg(long, value_name = "FILE", num_args = 0..=1)]
+    pub update: Option<Option<PathBuf>>,
 
     /// Trashes an AppImage, its .desktop file and icons
     #[arg(long, value_name = "FILE")]
@@ -158,6 +161,7 @@ impl Cli {
             || self.update.is_some()
             || self.remove.is_some()
             || self.remove_all
+            || self.all
             || self.list_installed
             || self.list_updates
             || self.list_update_managers
@@ -180,8 +184,11 @@ impl Cli {
         if self.all {
             return self.update_command(&mut context, None);
         }
-        if let Some(file) = self.update.clone() {
+        if let Some(Some(file)) = self.update.clone() {
             return self.update_command(&mut context, Some(&file));
+        }
+        if matches!(self.update.as_ref(), Some(None)) {
+            bail!("Error: --update requires a file or --all");
         }
         if let Some(file) = self.remove.clone() {
             return self.remove_command(&mut context, &file);
@@ -446,16 +453,16 @@ impl Cli {
         if self.json {
             let entries: Vec<AppJson> = updates
                 .iter()
-                .map(|(app, manager)| AppJson {
-                    name: app.name.clone(),
-                    path: app.image_path.to_string_lossy().into_owned(),
-                    desktop_id: Some(app.desktop_id.clone()),
-                    current_version: app.version.clone(),
+                .map(|job| AppJson {
+                    name: job.app.name.clone(),
+                    path: job.app.image_path.to_string_lossy().into_owned(),
+                    desktop_id: Some(job.app.desktop_id.clone()),
+                    current_version: job.app.version.clone(),
                     available_version: None,
                     download_size: None,
-                    manager: Some(manager.kind().name().to_owned()),
-                    embedded_source: manager.embedded().is_some(),
-                    running: Some(is_running(&app.image_path)),
+                    manager: Some(job.manager.kind().name().to_owned()),
+                    embedded_source: job.manager.embedded().is_some(),
+                    running: Some(is_running(&job.app.image_path)),
                 })
                 .collect();
 
@@ -476,16 +483,19 @@ impl Cli {
 
         let rows: Vec<Vec<String>> = updates
             .iter()
-            .map(|(app, manager)| {
-                let embedded = if manager.embedded().is_some() {
+            .map(|job| {
+                let embedded = if job.manager.embedded().is_some() {
                     "|embedded"
                 } else {
                     ""
                 };
                 vec![
-                    app.name.clone(),
-                    format!("[Update available, {}{embedded}]", manager.kind().name()),
-                    app.image_path.to_string_lossy().into_owned(),
+                    job.app.name.clone(),
+                    format!(
+                        "[Update available, {}{embedded}]",
+                        job.manager.kind().name()
+                    ),
+                    job.app.image_path.to_string_lossy().into_owned(),
                 ]
             })
             .collect();
@@ -502,7 +512,7 @@ impl Cli {
                 .find(|app| same_file(&app.image_path, file))
                 .ok_or_else(|| anyhow!("Error: AppImage not integrated"))?;
             let manager = context.manager_for(&app.image_path)?;
-            vec![(app.clone(), manager)]
+            vec![update::UpdateJob::new(app.clone(), Arc::from(manager))]
         } else {
             let updates = context.collect_updates()?.updates;
             if updates.is_empty() {
@@ -515,24 +525,37 @@ impl Cli {
             updates
         };
 
-        for (app, manager) in updates {
-            if is_running(&app.image_path) && !self.force {
+        let mut runnable = Vec::with_capacity(updates.len());
+        for job in updates {
+            if is_running(&job.app.image_path) && !self.force {
                 println!(
                     "{} was skipped because the application is running; use --force to skip this check.",
-                    app.image_path.display()
+                    job.app.image_path.display()
                 );
                 continue;
             }
+            runnable.push(job);
+        }
 
-            if file.is_some()
-                && !self.yes
-                && !ask_yes_no("Do you really want to update this AppImage? (y/N)")
-            {
-                return Ok(());
-            }
+        if runnable.is_empty() {
+            return Ok(());
+        }
 
-            println!("Downloading update from: {}", manager.kind().label());
-            Self::install_update(context, &app, manager.as_ref())?;
+        if file.is_some()
+            && !self.yes
+            && !ask_yes_no("Do you really want to update this AppImage? (y/N)")
+        {
+            return Ok(());
+        }
+
+        if file.is_some() {
+            let job = runnable
+                .first()
+                .ok_or_else(|| anyhow!("Error: no update is available"))?;
+            println!("Downloading update from: {}", job.manager.kind().label());
+            Self::install_update(context, &job.app, job.manager.as_ref())?;
+        } else {
+            Self::install_updates_batch(context, &runnable)?;
         }
 
         Ok(())
@@ -544,7 +567,7 @@ impl Cli {
         manager: &dyn update::UpdateManager,
     ) -> Result<()> {
         let options = context.update_options();
-        let download_dir = context.paths.temp_dir().join("downloads");
+        let download_dir = options.staging_dir();
         let mut progress = |fraction: f64| {
             print!("\rStatus: {}%", percent(fraction));
             let _ = io::stdout().flush();
@@ -561,9 +584,53 @@ impl Cli {
         )?;
 
         context.save()?;
-        let _ = fs::remove_dir_all(context.paths.temp_dir());
+        let _ = fs::remove_dir(&download_dir);
 
         println!("\n{} updated successfully", updated.image_path.display());
+
+        Ok(())
+    }
+
+    fn install_updates_batch(
+        context: &mut CommandContext,
+        jobs: &[update::UpdateJob],
+    ) -> Result<()> {
+        let options = context.update_options();
+        let download_dir = options.staging_dir();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut progress = |event: update::BatchEvent| match event {
+            update::BatchEvent::Progress { overall, .. } => {
+                print!("\rStatus: {}%", percent(overall));
+                let _ = io::stdout().flush();
+            }
+            update::BatchEvent::Installed { app, .. } => {
+                println!("\n{} updated successfully", app.image_path.display());
+            }
+            update::BatchEvent::Failed { app, error, .. } => {
+                println!("\n{}: {error}", app.name);
+            }
+            _ => {}
+        };
+
+        let report = update::apply_batch(
+            jobs,
+            &options,
+            &mut context.config,
+            &download_dir,
+            update::DEFAULT_PARALLEL_DOWNLOADS,
+            &cancel,
+            &mut progress,
+        );
+
+        context.save()?;
+        let _ = fs::remove_dir(&download_dir);
+
+        if report.cancelled {
+            println!("\nUpdate cancelled");
+        }
+        if !report.failed.is_empty() {
+            bail!("{} update(s) failed", report.failed.len());
+        }
 
         Ok(())
     }
@@ -725,7 +792,7 @@ impl Cli {
 
 /// Updates found by a CLI check and the account/token conditions encountered.
 struct CollectedUpdates {
-    updates: Vec<(InstalledApp, Box<dyn update::UpdateManager>)>,
+    updates: Vec<update::UpdateJob>,
     token_invalid: bool,
     rate_limit: Option<RateLimitInfo>,
     token_state: TokenState,
@@ -788,10 +855,6 @@ impl CommandContext {
             .ok_or_else(|| anyhow!("No update method was found for this AppImage"))
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "token state, per-app checks and retries share one pass"
-    )]
     fn collect_updates(&self) -> Result<CollectedUpdates> {
         let hashes = HashCache::new(self.paths.cache_root().join("hashes"));
         let token_store = TokenStore::new(self.settings.clone());
@@ -803,9 +866,7 @@ impl CommandContext {
         } else {
             TokenState::None
         };
-        let mut notify_token_invalid = false;
-        let mut rate_limit = None;
-        let mut updates = Vec::new();
+        let mut jobs = Vec::new();
 
         for app in self.apps()? {
             if self.config.updates_disabled(&app.image_path) {
@@ -817,7 +878,7 @@ impl CommandContext {
                 &self.config.update_manager(&app.image_path),
                 token.as_deref(),
             ) {
-                Ok(Some(manager)) => manager,
+                Ok(Some(manager)) => Arc::from(manager),
                 Ok(None) => continue,
                 Err(error) => {
                     tracing::warn!(
@@ -829,75 +890,28 @@ impl CommandContext {
                 }
             };
 
-            match manager.check(&hashes) {
-                Ok(UpdateStatus::Available) => updates.push((app, manager)),
-                Ok(_) => {}
-                Err(error @ CoreError::GithubTokenInvalid) => {
-                    tracing::warn!(
-                        app = %app.name,
-                        %error,
-                        "update check failed"
-                    );
-                    if token_store.mark_invalid() {
-                        notify_token_invalid = true;
-                    }
-                }
-                Err(error) => {
-                    let Some(delay) = error.retry_delay() else {
-                        if let Some(info) = error.rate_limit_info() {
-                            tracing::warn!(
-                                app = %app.name,
-                                %error,
-                                "GitHub API rate limit exhausted"
-                            );
-                            rate_limit = Some(info);
-                        } else {
-                            tracing::warn!(
-                                app = %app.name,
-                                %error,
-                                "update check failed"
-                            );
-                        }
-                        continue;
-                    };
-
-                    tracing::debug!(
-                        app = %app.name,
-                        %error,
-                        "update check failed, retrying"
-                    );
-                    if !delay.is_zero() {
-                        std::thread::sleep(delay);
-                    }
-
-                    match manager.check(&hashes) {
-                        Ok(UpdateStatus::Available) => updates.push((app, manager)),
-                        Ok(_) => {}
-                        Err(error) => {
-                            if let Some(info) = error.rate_limit_info() {
-                                tracing::warn!(
-                                    app = %app.name,
-                                    %error,
-                                    "GitHub API rate limit exhausted after retry"
-                                );
-                                rate_limit = Some(info);
-                            } else {
-                                tracing::warn!(
-                                    app = %app.name,
-                                    %error,
-                                    "update check failed after retry"
-                                );
-                            }
-                        }
-                    }
-                }
-            }
+            jobs.push(update::UpdateJob::new(app, manager));
         }
+
+        let report = update::check_batch(
+            &jobs,
+            &hashes,
+            update::DEFAULT_PARALLEL_CHECKS,
+            update::DEFAULT_RETRY_BUDGET,
+            &mut |_| {},
+        );
+
+        let notify_token_invalid = report.token_invalid && token_store.mark_invalid();
+        let updates = jobs
+            .into_iter()
+            .zip(report.outcomes)
+            .filter_map(|(job, status)| status.is_available().then_some(job))
+            .collect();
 
         Ok(CollectedUpdates {
             updates,
             token_invalid: notify_token_invalid,
-            rate_limit,
+            rate_limit: report.rate_limit,
             token_state,
         })
     }
