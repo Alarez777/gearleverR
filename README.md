@@ -129,13 +129,15 @@ static `zsync|...` update source or a GitHub `.zsync`/`gh-releases-zsync`
 asset). A successful delta update logs a summary like:
 
 ```text
-INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704
+INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704 scan=83.1ms download=5.81s
 ```
 
 - `downloaded_bytes` and `saved_bytes` count verified blocks; range merging can
   make the real network traffic slightly higher than `downloaded_bytes`.
 - `downloaded_blocks`, `seed_blocks` and `total_blocks` are the same accounting
   in blocks.
+- `scan` and `download` are the times spent scanning the installed AppImage and
+  downloading the missing blocks.
 
 If the delta attempt fails, Gear LeverR falls back to a full download and, with
 debug logs enabled, the log shows `zsync delta failed, downloading the full

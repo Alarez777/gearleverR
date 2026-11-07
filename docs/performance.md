@@ -51,6 +51,9 @@ servidor HTTP local, en la máquina de desarrollo (32 núcleos, release):
 | 10 % de bloques, repartidos | 11,6 MB (10,04 %) | 5,95 s | 91 ms | 2.813 peticiones |
 | 50 % de bloques, repartidos | 115 MB (100 %) | 266 ms | 100 ms | rangos fusionados |
 
+El control `.zsync` se descarga una sola vez por comprobación y se reutiliza en
+la descarga delta, en lugar de pedirlo otra vez a `zsync-rs`.
+
 El escaneo del AppImage instalado cuesta unos 80-100 ms en esta máquina; en
 equipos modestos será bastante mayor, que es el motivo del aviso de Preferencias.
 El caso de un solo bloque es el que más se beneficia. Cuando los cambios están

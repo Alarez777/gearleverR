@@ -116,7 +116,7 @@ Las actualizaciones delta solo se intentan con fuentes que publican `.zsync`
 GitHub). Una actualización delta correcta deja un resumen como:
 
 ```text
-INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704
+INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704 scan=83.1ms download=5.81s
 ```
 
 - `downloaded_bytes` y `saved_bytes` cuentan bloques verificados; la fusión de
@@ -124,6 +124,8 @@ INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (
   `downloaded_bytes`.
 - `downloaded_blocks`, `seed_blocks` y `total_blocks` son la misma contabilidad
   en bloques.
+- `scan` y `download` son el tiempo dedicado a escanear el AppImage instalado y
+  a descargar los bloques que faltan.
 
 Si el delta falla, Gear LeverR continúa con la descarga completa y, con los
 logs de depuración activados, aparece `zsync delta failed, downloading the full
