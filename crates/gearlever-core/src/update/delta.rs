@@ -148,9 +148,11 @@ fn run(
     // receiving loop finish as soon as the assembly is gone.
     drop(progress);
 
-    let scan_started = Instant::now();
-    {
+    let wait_started = Instant::now();
+    let (scan_wait, scan_elapsed) = {
         let _guard = lock_for_scan(cancel)?;
+        let scan_wait = wait_started.elapsed();
+        let scan_started = Instant::now();
         let found = assembly
             .submit_source_file(seed)
             .map_err(|error| map_assembly_error(error, cancel))?;
@@ -158,8 +160,8 @@ fn run(
             .submit_self_referential()
             .map_err(|error| map_assembly_error(error, cancel))?;
         tracing::debug!(blocks = found, "zsync scan finished");
-    }
-    let scan_elapsed = scan_started.elapsed();
+        (scan_wait, scan_started.elapsed())
+    };
 
     let (known, total) = assembly.block_stats();
     if known == 0 {
@@ -216,6 +218,7 @@ fn run(
         downloaded_blocks,
         seed_blocks = known,
         total_blocks = total,
+        scan_wait = ?scan_wait,
         scan = ?scan_elapsed,
         download = ?download_elapsed,
         "zsync delta downloaded {} of {} ({} saved, {:.1}%)",
