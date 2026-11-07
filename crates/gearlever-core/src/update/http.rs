@@ -21,6 +21,15 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// How an agent treats a 4xx or 5xx response.
+#[derive(Clone, Copy)]
+enum StatusPolicy {
+    /// Return the response so the caller can inspect the status and headers.
+    ResponseBody,
+    /// Turn the response into a transport error.
+    Error,
+}
+
 /// A blocking HTTP client shared by all update sources.
 #[derive(Clone)]
 pub struct HttpClient {
@@ -55,28 +64,41 @@ impl HttpClient {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            agent: Self::agent(),
+            agent: Self::build_agent(StatusPolicy::ResponseBody),
             cache: None,
         }
     }
 
-    fn agent() -> ureq::Agent {
+    fn build_agent(status: StatusPolicy) -> ureq::Agent {
         let config = ureq::Agent::config_builder()
             .user_agent(USER_AGENT)
             .timeout_connect(Some(CONNECT_TIMEOUT))
             .timeout_recv_response(Some(RESPONSE_TIMEOUT))
             .timeout_per_read(Some(READ_TIMEOUT))
-            .http_status_as_error(false)
+            .http_status_as_error(matches!(status, StatusPolicy::Error))
             .build();
 
         ureq::Agent::new_with_config(config)
+    }
+
+    /// Builds an agent that treats HTTP error statuses as transport errors.
+    ///
+    /// zsync-rs inspects the result of its control-file request before parsing
+    /// it, so it needs the status to surface as an error rather than as a
+    /// response body.
+    #[expect(
+        clippy::unused_self,
+        reason = "the zsync agent is derived from this client's transport policy"
+    )]
+    pub(crate) fn zsync_agent(&self) -> ureq::Agent {
+        Self::build_agent(StatusPolicy::Error)
     }
 
     /// Creates a client with a persistent HTTP cache.
     #[must_use]
     pub(crate) fn with_cache(cache: HttpCache) -> Self {
         Self {
-            agent: Self::agent(),
+            agent: Self::build_agent(StatusPolicy::ResponseBody),
             cache: Some(Arc::new(cache)),
         }
     }

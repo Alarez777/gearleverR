@@ -8,7 +8,7 @@ use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
 use super::http::HttpClient;
-use super::{DownloadContext, ManagerKind, UpdateManager, UpdateStatus, value, zsync};
+use super::{DownloadContext, ManagerKind, UpdateManager, UpdateStatus, delta, value, zsync};
 
 /// A direct URL or `zsync|` update source.
 #[derive(Debug, Clone)]
@@ -120,6 +120,22 @@ impl UpdateManager for StaticFile {
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
+        if context.use_zsync_delta
+            && let Some(zsync_url) = self.embedded_url()
+        {
+            match delta::download(&zsync_url, &self.image, context, &self.http) {
+                Ok(path) => return Ok(path),
+                Err(Error::Cancelled) => return Err(Error::Cancelled),
+                Err(error) => {
+                    tracing::debug!(
+                        image = %self.image.display(),
+                        %error,
+                        "zsync delta failed, downloading the full AppImage"
+                    );
+                }
+            }
+        }
+
         let Some((url, _)) = self.target()? else {
             return Err(Error::UpdateConfig(
                 "the update URL is not configured".to_owned(),
@@ -144,6 +160,10 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+    use crate::update::test_fixtures::{
+        BLOCK_SIZE, FILE_SIZE, changed_copy, control_bytes, delta_server, pattern,
+    };
+    use crate::update::test_server::Route;
 
     #[test]
     fn reuses_the_zsync_header_between_check_and_download() {
@@ -214,5 +234,185 @@ mod tests {
 
         stop.store(true, Ordering::SeqCst);
         server.join().unwrap();
+    }
+
+    #[test]
+    fn uses_a_delta_download_when_enabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(control, Route::new(new.clone()));
+        let manager = StaticFile::new(
+            image,
+            BTreeMap::new(),
+            Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+            HttpClient::new(),
+        );
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download(&mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert!(server.range_requests() > 0);
+    }
+
+    #[test]
+    fn skips_the_delta_download_when_disabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(control, Route::new(new.clone()));
+        let manager = StaticFile::new(
+            image,
+            BTreeMap::new(),
+            Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+            HttpClient::new(),
+        );
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+
+        let downloaded = manager.download(&mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert_eq!(server.range_requests(), 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    #[test]
+    fn falls_back_to_the_full_download_when_delta_fails() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(control, Route::new(new.clone()).ignore_range());
+        let manager = StaticFile::new(
+            image,
+            BTreeMap::new(),
+            Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+            HttpClient::new(),
+        );
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download(&mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert!(server.range_requests() > 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    #[test]
+    fn falls_back_when_the_control_file_is_malformed() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let server = delta_server(b"not a control file".to_vec(), Route::new(new.clone()));
+        let manager = StaticFile::new(
+            image,
+            BTreeMap::new(),
+            Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+            HttpClient::new(),
+        );
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download(&mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert_eq!(server.range_requests(), 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    #[test]
+    fn propagates_cancellation_without_a_full_download() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(control, Route::new(new));
+        let manager = StaticFile::new(
+            image,
+            BTreeMap::new(),
+            Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+            HttpClient::new(),
+        );
+        let mut progress = |_fraction: f64| {};
+        let cancel = Arc::new(AtomicBool::new(true));
+        let mut context =
+            DownloadContext::with_cancel(directory.path().join("downloads"), &mut progress, cancel);
+        context.use_zsync_delta = true;
+
+        let error = manager.download(&mut context).unwrap_err();
+
+        assert!(matches!(error, Error::Cancelled));
+        assert_eq!(server.full_requests("/new.AppImage"), 0);
+    }
+
+    #[test]
+    fn reconstructs_a_real_appimage_and_falls_back_without_ranges() {
+        let Some(source) = std::env::var_os("GEARLEVER_TEST_APPIMAGE").map(PathBuf::from) else {
+            return;
+        };
+        let old = fs::read(&source).unwrap();
+        if old.len() < 2 * BLOCK_SIZE {
+            return;
+        }
+        let mut new = old.clone();
+        let middle = new.len() / 2;
+        for byte in &mut new[middle..middle + BLOCK_SIZE] {
+            *byte = byte.wrapping_add(1);
+        }
+
+        for ignore_range in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let image = directory.path().join("App.AppImage");
+            fs::write(&image, &old).unwrap();
+
+            let control = control_bytes(&new, "new.AppImage");
+            let route = if ignore_range {
+                Route::new(new.clone()).ignore_range()
+            } else {
+                Route::new(new.clone())
+            };
+            let server = delta_server(control, route);
+            let manager = StaticFile::new(
+                image,
+                BTreeMap::new(),
+                Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+                HttpClient::new(),
+            );
+            let mut progress = |_fraction: f64| {};
+            let mut context =
+                DownloadContext::new(directory.path().join("downloads"), &mut progress);
+            context.use_zsync_delta = true;
+
+            let downloaded = manager.download(&mut context).unwrap();
+
+            assert_eq!(fs::read(downloaded).unwrap(), new);
+            if ignore_range {
+                assert!(server.full_requests("/new.AppImage") >= 1);
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@
 //! GitHub, GitLab, Codeberg, Forgejo and FTP, plus the `.upd_info` section that
 //! AppImage developers embed in their bundles.
 
+mod delta;
 pub mod embedded;
 pub mod ftp;
 pub mod gitea;
@@ -12,6 +13,10 @@ pub mod gitlab;
 pub mod http;
 mod http_cache;
 pub mod static_file;
+#[cfg(test)]
+mod test_fixtures;
+#[cfg(test)]
+pub(crate) mod test_server;
 pub mod zsync;
 
 use std::fmt;
@@ -296,6 +301,8 @@ pub struct DownloadContext<'a> {
     pub progress: &'a mut dyn FnMut(f64),
     /// Set by the interface when the user cancels the download.
     pub cancel: Arc<AtomicBool>,
+    /// Whether the manager may attempt a zsync delta download.
+    pub use_zsync_delta: bool,
 }
 
 impl fmt::Debug for DownloadContext<'_> {
@@ -313,6 +320,7 @@ impl<'a> DownloadContext<'a> {
             directory: directory.into(),
             progress,
             cancel: Arc::new(AtomicBool::new(false)),
+            use_zsync_delta: false,
         }
     }
 
@@ -327,6 +335,7 @@ impl<'a> DownloadContext<'a> {
             directory: directory.into(),
             progress,
             cancel,
+            use_zsync_delta: false,
         }
     }
 
@@ -545,6 +554,10 @@ pub struct BatchReport {
 }
 
 /// Options used when installing a downloaded update.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the update pipeline is configured by independent on/off switches"
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateOptions {
     /// Folder that holds AppImages.
@@ -557,6 +570,8 @@ pub struct UpdateOptions {
     pub update_desktop_database: bool,
     /// Whether an external `--appimage-extract` fallback is allowed.
     pub allow_unsafe_extractor: bool,
+    /// Whether sources that publish zsync data may use a delta download.
+    pub use_zsync_delta: bool,
 }
 
 impl UpdateOptions {
@@ -586,6 +601,7 @@ fn prepare(
 ) -> Result<PreparedUpdate> {
     std::fs::create_dir_all(download_dir)?;
     let mut context = DownloadContext::with_cancel(download_dir.to_path_buf(), progress, cancel);
+    context.use_zsync_delta = options.use_zsync_delta;
     let downloaded = manager.download(&mut context)?;
 
     if context.is_cancelled() {
@@ -1313,6 +1329,7 @@ mod tests {
             exec_name_for_terminal_apps: false,
             update_desktop_database: false,
             allow_unsafe_extractor: false,
+            use_zsync_delta: false,
         }
     }
 

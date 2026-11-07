@@ -12,7 +12,8 @@ use crate::hash::HashCache;
 
 use super::http::HttpClient;
 use super::{
-    Asset, DownloadContext, ManagerKind, UpdateManager, UpdateStatus, boolean, pick_asset, value,
+    Asset, DownloadContext, ManagerKind, UpdateManager, UpdateStatus, boolean, delta, pick_asset,
+    value,
 };
 
 const ACCEPT: &str = "application/vnd.github+json";
@@ -378,6 +379,33 @@ impl UpdateManager for Github {
             ));
         };
 
+        self.download_target(&target, context)
+    }
+}
+
+impl Github {
+    /// Downloads `target`, trying its zsync asset first when delta is enabled.
+    fn download_target(
+        &self,
+        target: &Target,
+        context: &mut DownloadContext<'_>,
+    ) -> Result<PathBuf> {
+        if context.use_zsync_delta
+            && let Some(zsync_url) = target.zsync_url.as_deref()
+        {
+            match delta::download(zsync_url, &self.image, context, &self.http) {
+                Ok(path) => return Ok(path),
+                Err(Error::Cancelled) => return Err(Error::Cancelled),
+                Err(error) => {
+                    tracing::debug!(
+                        image = %self.image.display(),
+                        %error,
+                        "zsync delta failed, downloading the full GitHub asset"
+                    );
+                }
+            }
+        }
+
         fs::create_dir_all(&context.directory)?;
         let path = context.output_path();
         self.http.download(
@@ -397,6 +425,10 @@ mod tests {
     use std::net::TcpListener;
 
     use super::*;
+    use crate::update::test_fixtures::{
+        FILE_SIZE, changed_copy, control_bytes, delta_server, pattern,
+    };
+    use crate::update::test_server::{Route, TestServer};
 
     fn serve(body: String) -> (String, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -497,5 +529,84 @@ mod tests {
     fn tolerates_an_empty_rate_limit_body() {
         let rate: RateLimit = serde_json::from_str("{}").unwrap();
         assert!(rate.resources.is_none());
+    }
+
+    #[test]
+    fn downloads_through_the_zsync_asset_when_enabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(control, Route::new(new.clone()));
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download_target(&target, &mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert!(server.range_requests() > 0);
+    }
+
+    #[test]
+    fn skips_the_zsync_asset_when_delta_is_disabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(control, Route::new(new.clone()));
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+
+        let downloaded = manager.download_target(&target, &mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert_eq!(server.range_requests(), 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    #[test]
+    fn falls_back_to_the_asset_when_delta_fails() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(control, Route::new(new.clone()).ignore_range());
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download_target(&target, &mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert!(server.range_requests() > 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    fn target(server: &TestServer) -> Target {
+        Target {
+            asset: Asset {
+                name: "App.AppImage".to_owned(),
+                url: server.url("/new.AppImage"),
+                size: Some(u64::try_from(FILE_SIZE).unwrap()),
+                digest: None,
+            },
+            zsync_url: Some(server.url("/new.AppImage.zsync")),
+        }
     }
 }

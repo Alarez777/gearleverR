@@ -205,6 +205,7 @@ fn updates_two_appimages_in_one_batch() {
         exec_name_for_terminal_apps: false,
         update_desktop_database: false,
         allow_unsafe_extractor: false,
+        use_zsync_delta: false,
     };
     let jobs: Vec<UpdateJob> = [first, second]
         .into_iter()
