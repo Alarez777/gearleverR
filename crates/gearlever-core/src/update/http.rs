@@ -7,11 +7,14 @@ use std::fmt;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use crate::error::{Error, HttpStatus, Result};
+use crate::paths::Paths;
+
+use super::http_cache::{CacheEntry, HttpCache};
 
 const USER_AGENT: &str = concat!("GearLeverR/", env!("CARGO_PKG_VERSION"));
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -22,6 +25,13 @@ const READ_TIMEOUT: Duration = Duration::from_secs(15);
 #[derive(Clone)]
 pub struct HttpClient {
     agent: ureq::Agent,
+    cache: Option<Arc<HttpCache>>,
+}
+
+struct TextResponse {
+    body: String,
+    headers: http::HeaderMap,
+    not_modified: bool,
 }
 
 impl fmt::Debug for HttpClient {
@@ -44,6 +54,13 @@ impl HttpClient {
     /// longer than a fixed budget, while a stalled read still fails.
     #[must_use]
     pub fn new() -> Self {
+        Self {
+            agent: Self::agent(),
+            cache: None,
+        }
+    }
+
+    fn agent() -> ureq::Agent {
         let config = ureq::Agent::config_builder()
             .user_agent(USER_AGENT)
             .timeout_connect(Some(CONNECT_TIMEOUT))
@@ -52,20 +69,32 @@ impl HttpClient {
             .http_status_as_error(false)
             .build();
 
+        ureq::Agent::new_with_config(config)
+    }
+
+    /// Creates a client with a persistent HTTP cache.
+    #[must_use]
+    pub(crate) fn with_cache(cache: HttpCache) -> Self {
         Self {
-            agent: ureq::Agent::new_with_config(config),
+            agent: Self::agent(),
+            cache: Some(Arc::new(cache)),
         }
     }
 
     /// Returns the shared client used by update checks and downloads.
     ///
-    /// Cloning it shares the connection pool, so checks against the same host
-    /// reuse the existing TLS connection.
+    /// Cloning it shares the connection pool and the HTTP cache, so checks
+    /// against the same URL reuse both the TLS connection and the response.
     #[must_use]
     pub fn shared() -> Self {
         static SHARED: OnceLock<HttpClient> = OnceLock::new();
 
-        SHARED.get_or_init(Self::new).clone()
+        SHARED
+            .get_or_init(|| match Paths::from_env() {
+                Ok(paths) => Self::with_cache(HttpCache::new(paths.cache_root().join("http"))),
+                Err(_) => Self::new(),
+            })
+            .clone()
     }
 
     /// Fetches a text document.
@@ -90,6 +119,9 @@ impl HttpClient {
     /// Fetches a text document with optional `Accept` and `Authorization`
     /// headers.
     ///
+    /// When the client has a cache, the request is conditional and concurrent
+    /// calls for the same URL are coalesced.
+    ///
     /// The token is only added when the caller passes one; update sources are
     /// responsible for using it exclusively against their own API host.
     fn get_text_with_auth(
@@ -98,8 +130,44 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<String> {
-        self.get_text_with_auth_response(url, accept, token)
-            .map(|(body, _)| body)
+        let Some(cache) = &self.cache else {
+            return self
+                .send_text(url, accept, token, None)
+                .map(|response| response.body);
+        };
+
+        let key = HttpCache::key(url, accept, token);
+        let lock = cache.lock(&key);
+        let _guard = lock.lock().expect("http cache lock poisoned");
+
+        if let Some(body) = cache.fresh(&key) {
+            return Ok(body);
+        }
+
+        let cached = cache.load(&key);
+        let response = self.send_text(url, accept, token, cached.as_ref())?;
+        let (etag, last_modified) = if response.not_modified {
+            (
+                header_value(&response.headers, "etag")
+                    .or_else(|| cached.as_ref().and_then(|entry| entry.etag.clone())),
+                header_value(&response.headers, "last-modified").or_else(|| {
+                    cached
+                        .as_ref()
+                        .and_then(|entry| entry.last_modified.clone())
+                }),
+            )
+        } else {
+            (
+                header_value(&response.headers, "etag"),
+                header_value(&response.headers, "last-modified"),
+            )
+        };
+        cache.store(
+            &key,
+            &CacheEntry::new(response.body.clone(), etag, last_modified),
+        );
+
+        Ok(response.body)
     }
 
     fn get_text_with_auth_response(
@@ -108,6 +176,17 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<(String, http::HeaderMap)> {
+        let response = self.send_text(url, accept, token, None)?;
+        Ok((response.body, response.headers))
+    }
+
+    fn send_text(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+        cached: Option<&CacheEntry>,
+    ) -> Result<TextResponse> {
         let mut request = self.agent.get(url);
         if let Some(accept) = accept {
             request = request.header("Accept", accept);
@@ -115,11 +194,32 @@ impl HttpClient {
         if let Some(token) = token {
             request = request.header("Authorization", format!("Bearer {token}"));
         }
+        if let Some(cached) = cached {
+            if let Some(etag) = &cached.etag {
+                request = request.header("If-None-Match", etag);
+            }
+            if let Some(last_modified) = &cached.last_modified {
+                request = request.header("If-Modified-Since", last_modified);
+            }
+        }
 
         let response = request
             .call()
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
         let status = response.status();
+
+        if status.as_u16() == 304 {
+            let Some(cached) = cached else {
+                return Err(Error::Http(format!(
+                    "{url}: 304 Not Modified without a cached response"
+                )));
+            };
+            return Ok(TextResponse {
+                body: cached.body.clone(),
+                headers: response.headers().clone(),
+                not_modified: true,
+            });
+        }
 
         if !status.is_success() {
             return Err(Error::HttpStatus(http_status(
@@ -136,7 +236,11 @@ impl HttpClient {
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
 
         // zsync control files carry binary checksums after a text header.
-        Ok((String::from_utf8_lossy(&bytes).into_owned(), headers))
+        Ok(TextResponse {
+            body: String::from_utf8_lossy(&bytes).into_owned(),
+            headers,
+            not_modified: false,
+        })
     }
 
     /// Fetches and decodes a JSON document.
@@ -329,6 +433,13 @@ fn fraction(written: u64, total: u64) -> f64 {
     written as f64 / total as f64
 }
 
+fn header_value(headers: &http::HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned)
+}
+
 fn content_length(headers: &http::HeaderMap) -> Option<u64> {
     headers
         .get("content-length")
@@ -366,9 +477,74 @@ fn token_expiration(headers: &http::HeaderMap) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Write as _;
     use std::net::TcpListener;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::time::Duration;
 
     use super::*;
+
+    type TestResponse = (u16, Vec<(&'static str, String)>, Vec<u8>);
+
+    fn serve<F>(
+        handler: F,
+    ) -> (
+        String,
+        Arc<AtomicBool>,
+        Arc<AtomicUsize>,
+        std::thread::JoinHandle<()>,
+    )
+    where
+        F: Fn(String) -> TestResponse + Send + 'static,
+    {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let requests = Arc::new(AtomicUsize::new(0));
+
+        let server = {
+            let stop = Arc::clone(&stop);
+            let requests = Arc::clone(&requests);
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::SeqCst) {
+                    match listener.accept() {
+                        Ok((mut stream, _)) => {
+                            let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+                            let mut buffer = [0_u8; 8192];
+                            let read = stream.read(&mut buffer).unwrap_or(0);
+                            let request = String::from_utf8_lossy(&buffer[..read]).into_owned();
+                            requests.fetch_add(1, Ordering::SeqCst);
+
+                            let (status, headers, body) = handler(request);
+                            let reason = match status {
+                                200 => "OK",
+                                304 => "Not Modified",
+                                _ => "Error",
+                            };
+                            let mut response = format!(
+                                "HTTP/1.1 {status} {reason}\r\ncontent-length: {}\r\nconnection: close\r\n",
+                                body.len()
+                            );
+                            for (name, value) in headers {
+                                let _ = write!(response, "{name}: {value}\r\n");
+                            }
+                            response.push_str("\r\n");
+                            let _ = stream.write_all(response.as_bytes());
+                            let _ = stream.write_all(&body);
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(_) => break,
+                    }
+                }
+            })
+        };
+
+        (format!("http://{address}/resource"), stop, requests, server)
+    }
 
     #[test]
     fn parses_content_length_header() {
@@ -455,6 +631,140 @@ mod tests {
 
         assert!(matches!(error, Error::InvalidResponse { .. }), "{error}");
         assert_eq!(error.retry_delay(), None);
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn revalidates_with_etag_and_reuses_the_cached_body() {
+        let (url, stop, requests, server) = serve(|request| {
+            if request
+                .to_ascii_lowercase()
+                .contains("if-none-match: \"v1\"")
+            {
+                (304, vec![("ETag", "\"v1\"".to_owned())], Vec::new())
+            } else {
+                (
+                    200,
+                    vec![("ETag", "\"v1\"".to_owned())],
+                    br#"{"value":1}"#.to_vec(),
+                )
+            }
+        });
+        let directory = tempfile::tempdir().unwrap();
+        let client = HttpClient::with_cache(HttpCache::with_window(
+            directory.path().join("http"),
+            Duration::ZERO,
+        ));
+
+        let first: serde_json::Value = client.get_json(&url, None).unwrap();
+        let second: serde_json::Value = client.get_json(&url, None).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(requests.load(Ordering::SeqCst), 2);
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn coalesces_concurrent_requests_for_the_same_url() {
+        let (url, stop, requests, server) = serve(|_| {
+            std::thread::sleep(Duration::from_millis(200));
+            (
+                200,
+                vec![("ETag", "\"v1\"".to_owned())],
+                br#"{"value":1}"#.to_vec(),
+            )
+        });
+        let directory = tempfile::tempdir().unwrap();
+        let client = HttpClient::with_cache(HttpCache::with_window(
+            directory.path().join("http"),
+            Duration::from_secs(30),
+        ));
+        let barrier = Arc::new(std::sync::Barrier::new(4));
+
+        std::thread::scope(|scope| {
+            for _ in 0..4 {
+                let client = client.clone();
+                let url = url.clone();
+                let barrier = Arc::clone(&barrier);
+                scope.spawn(move || {
+                    barrier.wait();
+                    let value: serde_json::Value = client.get_json(&url, None).unwrap();
+                    assert_eq!(value["value"], 1);
+                });
+            }
+        });
+
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn does_not_reuse_the_cache_across_tokens() {
+        let (url, stop, requests, server) = serve(|request| {
+            let is_a = request
+                .to_ascii_lowercase()
+                .contains("authorization: bearer token-a");
+            if is_a {
+                (
+                    200,
+                    vec![("ETag", "\"a\"".to_owned())],
+                    br#"{"token":"a"}"#.to_vec(),
+                )
+            } else {
+                (
+                    200,
+                    vec![("ETag", "\"b\"".to_owned())],
+                    br#"{"token":"b"}"#.to_vec(),
+                )
+            }
+        });
+        let directory = tempfile::tempdir().unwrap();
+        let client = HttpClient::with_cache(HttpCache::new(directory.path().join("http")));
+
+        let first: serde_json::Value = client
+            .get_json_with_token(&url, None, Some("token-a"))
+            .unwrap();
+        let second: serde_json::Value = client
+            .get_json_with_token(&url, None, Some("token-b"))
+            .unwrap();
+
+        assert_eq!(first["token"], "a");
+        assert_eq!(second["token"], "b");
+        assert_eq!(requests.load(Ordering::SeqCst), 2);
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn token_expiration_requests_bypass_the_cache() {
+        let (url, stop, requests, server) = serve(|_| {
+            (
+                200,
+                vec![
+                    ("ETag", "\"v1\"".to_owned()),
+                    (
+                        "github-authentication-token-expiration",
+                        "2026-11-10 12:00:00 +0000".to_owned(),
+                    ),
+                ],
+                br#"{"resources":{}}"#.to_vec(),
+            )
+        });
+        let directory = tempfile::tempdir().unwrap();
+        let client = HttpClient::with_cache(HttpCache::new(directory.path().join("http")));
+
+        for _ in 0..2 {
+            let (value, expires_at): (serde_json::Value, _) = client
+                .get_json_with_token_expiration(&url, None, Some("test-token"))
+                .unwrap();
+            assert!(value.get("resources").is_some());
+            assert_eq!(expires_at.as_deref(), Some("2026-11-10 12:00:00 +0000"));
+        }
+
+        assert_eq!(requests.load(Ordering::SeqCst), 2);
+        stop.store(true, Ordering::SeqCst);
         server.join().unwrap();
     }
 }
