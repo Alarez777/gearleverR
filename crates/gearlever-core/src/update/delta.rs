@@ -153,13 +153,18 @@ fn run(
     if known == 0 {
         return Err(Error::Http("zsync found no matching blocks".to_owned()));
     }
+    let (seed_bytes, total_bytes) = assembly.progress();
     tracing::debug!(known, total, "zsync blocks available before download");
 
+    let mut downloaded_blocks = 0_usize;
     let mut retries = 0_u32;
     loop {
         match assembly.download_missing_blocks() {
             Ok(0) => break,
-            Ok(_) => retries = 0,
+            Ok(blocks) => {
+                downloaded_blocks = downloaded_blocks.saturating_add(blocks);
+                retries = 0;
+            }
             Err(error) if error.is_transient() && retries < MAX_RETRIES => {
                 retries += 1;
                 tracing::debug!(
@@ -173,6 +178,9 @@ fn run(
         }
     }
 
+    let (known_bytes, _) = assembly.progress();
+    let downloaded_bytes = known_bytes.saturating_sub(seed_bytes);
+
     if cancel.load(Ordering::Relaxed) {
         return Err(Error::Cancelled);
     }
@@ -180,6 +188,17 @@ fn run(
     assembly
         .complete()
         .map_err(|error| map_assembly_error(error, cancel))?;
+
+    tracing::info!(
+        downloaded_bytes,
+        total_bytes,
+        downloaded_blocks,
+        seed_blocks = known,
+        total_blocks = total,
+        "zsync delta downloaded {} of {}",
+        crate::format::size(downloaded_bytes),
+        crate::format::size(total_bytes),
+    );
     Ok(())
 }
 
