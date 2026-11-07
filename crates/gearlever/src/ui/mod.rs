@@ -295,6 +295,7 @@ struct Widgets {
     progress: gtk::ProgressBar,
     cancel_button: gtk::Button,
     drop_revealer: gtk::Revealer,
+    minimal_preview: Rc<Cell<bool>>,
     welcome: Option<welcome::Welcome>,
 }
 
@@ -336,7 +337,7 @@ impl Component for AppModel {
         Self::rebuild_list(&model, &widgets, &sender);
         Self::show_page(&model, &widgets);
 
-        if model.settings.values().is_maximized {
+        if !model.minimal_preview() && model.settings.values().is_maximized {
             root.maximize();
         }
 
@@ -3418,10 +3419,12 @@ impl AppModel {
     }
 
     fn minimal_ui(widgets: &Widgets, preview: Preview) {
+        widgets.minimal_preview.set(true);
         widgets.left_button.set_visible(false);
         widgets.menu_button.set_visible(false);
         widgets.search_button.set_visible(false);
         widgets.title.set_visible(false);
+        widgets.window.unmaximize();
         widgets.window.set_resizable(false);
 
         let (width, height) = match preview {
@@ -3714,16 +3717,22 @@ impl AppModel {
         let paths = Paths::from_env().unwrap_or_else(|_| Paths::with_home(glib::home_dir()));
         let temp = paths.temp_dir();
         let settings = Settings::load(&paths);
+        let minimal_preview = Rc::new(Cell::new(false));
         let window_close = root.clone();
+        let preview_close = Rc::clone(&minimal_preview);
         root.connect_close_request(move |window| {
-            if !window.is_maximized() {
-                let width = window.default_width();
-                let height = window.default_height();
-                if width > 0 && height > 0 {
-                    settings.store_window_size(width, height);
+            // The minimal preview reuses the main window, so its size and
+            // maximized state must not replace the last normal window state.
+            if !preview_close.get() {
+                if !window.is_maximized() {
+                    let width = window.default_width();
+                    let height = window.default_height();
+                    if width > 0 && height > 0 {
+                        settings.store_window_size(width, height);
+                    }
                 }
+                settings.store_boolean(keys::IS_MAXIMIZED, window.is_maximized());
             }
-            settings.store_boolean(keys::IS_MAXIMIZED, window.is_maximized());
             let _ = fs::remove_dir_all(&temp);
             glib::Propagation::Proceed
         });
@@ -3754,6 +3763,7 @@ impl AppModel {
             progress,
             cancel_button,
             drop_revealer,
+            minimal_preview,
             welcome: None,
         }
     }
