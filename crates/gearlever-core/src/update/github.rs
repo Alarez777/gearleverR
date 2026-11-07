@@ -399,6 +399,10 @@ impl UpdateManager for Github {
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
+        if context.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+
         let Some(target) = self.target()? else {
             return Err(Error::NoMatchingAsset(
                 "no matching GitHub release".to_owned(),
@@ -416,6 +420,10 @@ impl Github {
         target: &Target,
         context: &mut DownloadContext<'_>,
     ) -> Result<PathBuf> {
+        if context.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+
         if context.use_zsync_delta
             && let Some(zsync_url) = target.zsync_url.as_deref()
         {
@@ -652,6 +660,30 @@ mod tests {
             zsync_url: Some(server.url("/new.AppImage.zsync")),
             zsync_control: None,
         }
+    }
+
+    #[test]
+    fn does_not_fetch_the_control_file_after_cancellation() {
+        let directory = tempfile::tempdir().unwrap();
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, pattern(FILE_SIZE)).unwrap();
+        let server = delta_server(
+            &control_bytes(&pattern(FILE_SIZE), "new.AppImage"),
+            Route::new(pattern(FILE_SIZE)),
+        );
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let mut context =
+            DownloadContext::with_cancel(directory.path().join("downloads"), &mut progress, cancel);
+        context.use_zsync_delta = true;
+
+        let error = manager.download_target(&target, &mut context).unwrap_err();
+
+        assert!(matches!(error, Error::Cancelled));
+        assert_eq!(server.request_count("/new.AppImage.zsync"), 0);
+        assert_eq!(server.full_requests("/new.AppImage"), 0);
     }
 
     #[test]

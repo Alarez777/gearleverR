@@ -155,6 +155,10 @@ impl UpdateManager for StaticFile {
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
+        if context.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+
         let Some(target) = self.target()? else {
             return Err(Error::UpdateConfig(
                 "the update URL is not configured".to_owned(),
@@ -409,6 +413,7 @@ mod tests {
         let error = manager.download(&mut context).unwrap_err();
 
         assert!(matches!(error, Error::Cancelled));
+        assert_eq!(server.request_count("/new.AppImage.zsync"), 0);
         assert_eq!(server.full_requests("/new.AppImage"), 0);
     }
 
