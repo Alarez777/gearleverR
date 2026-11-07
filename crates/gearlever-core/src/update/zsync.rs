@@ -7,6 +7,10 @@
 
 use url::Url;
 
+/// Keep a malformed control file from turning the header scan into a full pass
+/// over the block checksums. Real headers are a few hundred bytes.
+const MAX_HEADER_BYTES: usize = 1 << 20;
+
 /// The parts of a zsync header that Gear LeverR uses.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ZsyncInfo {
@@ -31,8 +35,14 @@ pub fn parse(contents: &str) -> ZsyncInfo {
 #[must_use]
 pub fn parse_bytes(contents: &[u8]) -> ZsyncInfo {
     let mut info = ZsyncInfo::default();
+    let mut consumed = 0_usize;
 
     for line in contents.split(|byte| *byte == b'\n') {
+        consumed = consumed.saturating_add(line.len().saturating_add(1));
+        if consumed > MAX_HEADER_BYTES {
+            break;
+        }
+
         let line = line.strip_suffix(b"\r").unwrap_or(line);
         if line.is_empty() {
             break;
@@ -131,6 +141,23 @@ Length: 123456
             Some("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")
         );
         assert_eq!(info.length, Some(8));
+    }
+
+    #[test]
+    fn stops_reading_after_the_header_limit() {
+        let mut contents = b"SHA-1: AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D\n".to_vec();
+        while contents.len() <= MAX_HEADER_BYTES {
+            contents.extend_from_slice(b"X-Filler: value\n");
+        }
+        contents.extend_from_slice(b"Length: 42\n\n");
+
+        let info = parse_bytes(&contents);
+
+        assert_eq!(
+            info.sha1.as_deref(),
+            Some("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")
+        );
+        assert_eq!(info.length, None, "fields after the cap are ignored");
     }
 
     #[test]
