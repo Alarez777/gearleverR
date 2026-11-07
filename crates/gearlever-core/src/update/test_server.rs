@@ -145,6 +145,13 @@ impl TestServer {
             .filter(|request| request.path == path && request.range.is_none())
             .count()
     }
+
+    pub(crate) fn request_count(&self, path: &str) -> usize {
+        self.requests()
+            .iter()
+            .filter(|request| request.path == path)
+            .count()
+    }
 }
 
 impl Drop for TestServer {

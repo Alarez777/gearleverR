@@ -21,15 +21,6 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// How an agent treats a 4xx or 5xx response.
-#[derive(Clone, Copy)]
-enum StatusPolicy {
-    /// Return the response so the caller can inspect the status and headers.
-    ResponseBody,
-    /// Turn the response into a transport error.
-    Error,
-}
-
 /// A blocking HTTP client shared by all update sources.
 #[derive(Clone)]
 pub struct HttpClient {
@@ -37,8 +28,8 @@ pub struct HttpClient {
     cache: Option<Arc<HttpCache>>,
 }
 
-struct TextResponse {
-    body: String,
+struct BytesResponse {
+    body: Vec<u8>,
     headers: http::HeaderMap,
     not_modified: bool,
 }
@@ -64,41 +55,33 @@ impl HttpClient {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            agent: Self::build_agent(StatusPolicy::ResponseBody),
+            agent: Self::build_agent(),
             cache: None,
         }
     }
 
-    fn build_agent(status: StatusPolicy) -> ureq::Agent {
+    fn build_agent() -> ureq::Agent {
         let config = ureq::Agent::config_builder()
             .user_agent(USER_AGENT)
             .timeout_connect(Some(CONNECT_TIMEOUT))
             .timeout_recv_response(Some(RESPONSE_TIMEOUT))
             .timeout_per_read(Some(READ_TIMEOUT))
-            .http_status_as_error(matches!(status, StatusPolicy::Error))
+            .http_status_as_error(false)
             .build();
 
         ureq::Agent::new_with_config(config)
     }
 
-    /// Builds an agent that treats HTTP error statuses as transport errors.
-    ///
-    /// zsync-rs inspects the result of its control-file request before parsing
-    /// it, so it needs the status to surface as an error rather than as a
-    /// response body.
-    #[expect(
-        clippy::unused_self,
-        reason = "the zsync agent is derived from this client's transport policy"
-    )]
-    pub(crate) fn zsync_agent(&self) -> ureq::Agent {
-        Self::build_agent(StatusPolicy::Error)
+    /// Returns a clone of the agent, sharing its connection pool.
+    pub(crate) fn agent(&self) -> ureq::Agent {
+        self.agent.clone()
     }
 
     /// Creates a client with a persistent HTTP cache.
     #[must_use]
     pub(crate) fn with_cache(cache: HttpCache) -> Self {
         Self {
-            agent: Self::build_agent(StatusPolicy::ResponseBody),
+            agent: Self::build_agent(),
             cache: Some(Arc::new(cache)),
         }
     }
@@ -138,11 +121,21 @@ impl HttpClient {
         self.get_text_with_auth(url, accept, None)
     }
 
+    /// Fetches a binary document.
+    ///
+    /// The body is cached when the client has a cache, so a later delta
+    /// download can reuse the `.zsync` control file fetched by the check.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Http`] for transport errors and
+    /// [`Error::HttpStatus`] for non-success statuses.
+    pub(crate) fn get_bytes(&self, url: &str) -> Result<Vec<u8>> {
+        self.get_bytes_with_auth(url, None, None)
+    }
+
     /// Fetches a text document with optional `Accept` and `Authorization`
     /// headers.
-    ///
-    /// When the client has a cache, the request is conditional and concurrent
-    /// calls for the same URL are coalesced.
     ///
     /// The token is only added when the caller passes one; update sources are
     /// responsible for using it exclusively against their own API host.
@@ -152,9 +145,27 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<String> {
+        let body = self.get_bytes_with_auth(url, accept, token)?;
+        Ok(String::from_utf8_lossy(&body).into_owned())
+    }
+
+    /// Fetches a binary document with optional `Accept` and `Authorization`
+    /// headers.
+    ///
+    /// When the client has a cache, the request is conditional and concurrent
+    /// calls for the same URL are coalesced.
+    ///
+    /// The token is only added when the caller passes one; update sources are
+    /// responsible for using it exclusively against their own API host.
+    fn get_bytes_with_auth(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<Vec<u8>> {
         let Some(cache) = &self.cache else {
             return self
-                .send_text(url, accept, token, None)
+                .send_bytes(url, accept, token, None)
                 .map(|response| response.body);
         };
 
@@ -167,7 +178,7 @@ impl HttpClient {
         }
 
         let cached = cache.load(&key);
-        let response = self.send_text(url, accept, token, cached.as_ref())?;
+        let response = self.send_bytes(url, accept, token, cached.as_ref())?;
         let (etag, last_modified) = if response.not_modified {
             (
                 header_value(&response.headers, "etag")
@@ -198,17 +209,20 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<(String, http::HeaderMap)> {
-        let response = self.send_text(url, accept, token, None)?;
-        Ok((response.body, response.headers))
+        let response = self.send_bytes(url, accept, token, None)?;
+        Ok((
+            String::from_utf8_lossy(&response.body).into_owned(),
+            response.headers,
+        ))
     }
 
-    fn send_text(
+    fn send_bytes(
         &self,
         url: &str,
         accept: Option<&str>,
         token: Option<&str>,
         cached: Option<&CacheEntry>,
-    ) -> Result<TextResponse> {
+    ) -> Result<BytesResponse> {
         let mut request = self.agent.get(url);
         if let Some(accept) = accept {
             request = request.header("Accept", accept);
@@ -236,7 +250,7 @@ impl HttpClient {
                     "{url}: 304 Not Modified without a cached response"
                 )));
             };
-            return Ok(TextResponse {
+            return Ok(BytesResponse {
                 body: cached.body.clone(),
                 headers: response.headers().clone(),
                 not_modified: true,
@@ -257,9 +271,8 @@ impl HttpClient {
             .read_to_vec()
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
 
-        // zsync control files carry binary checksums after a text header.
-        Ok(TextResponse {
-            body: String::from_utf8_lossy(&bytes).into_owned(),
+        Ok(BytesResponse {
+            body: bytes,
             headers,
             not_modified: false,
         })

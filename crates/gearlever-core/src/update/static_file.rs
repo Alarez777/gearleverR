@@ -1,14 +1,38 @@
 //! Direct HTTP(S) downloads and embedded `zsync|` update information.
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
 use super::http::HttpClient;
 use super::{DownloadContext, ManagerKind, UpdateManager, UpdateStatus, delta, value, zsync};
+
+#[derive(Clone)]
+struct Target {
+    url: String,
+    zsync: Option<zsync::ZsyncInfo>,
+    zsync_url: Option<String>,
+    control: Option<Arc<[u8]>>,
+}
+
+impl fmt::Debug for Target {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Target")
+            .field("url", &self.url)
+            .field("zsync", &self.zsync)
+            .field("zsync_url", &self.zsync_url)
+            .field(
+                "control_bytes",
+                &self.control.as_ref().map(|control| control.len()),
+            )
+            .finish()
+    }
+}
 
 /// A direct URL or `zsync|` update source.
 #[derive(Debug, Clone)]
@@ -17,7 +41,7 @@ pub struct StaticFile {
     config: BTreeMap<String, String>,
     embedded: Option<String>,
     http: HttpClient,
-    cache: super::TargetCache<(String, Option<zsync::ZsyncInfo>)>,
+    cache: super::TargetCache<Target>,
 }
 
 impl StaticFile {
@@ -49,7 +73,7 @@ impl StaticFile {
         value(&self.config, "url").map(ToOwned::to_owned)
     }
 
-    fn target(&self) -> Result<Option<(String, Option<zsync::ZsyncInfo>)>> {
+    fn target(&self) -> Result<Option<Target>> {
         if let Some(target) = self.cache.get() {
             return Ok(Some(target));
         }
@@ -62,15 +86,26 @@ impl StaticFile {
         Ok(target)
     }
 
-    /// Resolves the URL to download and, for embedded sources, the parsed
-    /// zsync header.
-    fn resolve_target(&self) -> Result<Option<(String, Option<zsync::ZsyncInfo>)>> {
+    /// Resolves the download URL and keeps the raw control file for a delta
+    /// download.
+    fn resolve_target(&self) -> Result<Option<Target>> {
         if let Some(zsync_url) = self.embedded_url() {
-            let info = zsync::parse(&self.http.get_text(&zsync_url)?);
-            return Ok(Some((zsync::download_url(&zsync_url, &info), Some(info))));
+            let control = self.http.get_bytes(&zsync_url)?;
+            let info = zsync::parse_bytes(&control);
+            return Ok(Some(Target {
+                url: zsync::download_url(&zsync_url, &info),
+                zsync: Some(info),
+                zsync_url: Some(zsync_url),
+                control: Some(control.into()),
+            }));
         }
 
-        Ok(self.configured_url().map(|url| (url, None)))
+        Ok(self.configured_url().map(|url| Target {
+            url,
+            zsync: None,
+            zsync_url: None,
+            control: None,
+        }))
     }
 }
 
@@ -88,17 +123,17 @@ impl UpdateManager for StaticFile {
     }
 
     fn check(&self, hashes: &HashCache) -> Result<UpdateStatus> {
-        let Some((url, zsync)) = self.target()? else {
+        let Some(target) = self.target()? else {
             return Ok(UpdateStatus::Unknown);
         };
         let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
 
-        if let Some(info) = zsync {
+        if let Some(info) = &target.zsync {
             if info.length.is_some_and(|length| length != local_size) {
                 return Ok(UpdateStatus::Available);
             }
 
-            if let Some(expected) = info.sha1 {
+            if let Some(expected) = info.sha1.as_deref() {
                 let actual = hashes.sha1(&self.image)?;
                 return Ok(if expected == actual {
                     UpdateStatus::UpToDate
@@ -108,7 +143,7 @@ impl UpdateManager for StaticFile {
             }
         }
 
-        let Some(remote_size) = self.http.content_length(&url)? else {
+        let Some(remote_size) = self.http.content_length(&target.url)? else {
             return Ok(UpdateStatus::Unknown);
         };
 
@@ -120,10 +155,17 @@ impl UpdateManager for StaticFile {
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
+        let Some(target) = self.target()? else {
+            return Err(Error::UpdateConfig(
+                "the update URL is not configured".to_owned(),
+            ));
+        };
+
         if context.use_zsync_delta
-            && let Some(zsync_url) = self.embedded_url()
+            && let (Some(zsync_url), Some(control)) =
+                (target.zsync_url.as_deref(), target.control.as_deref())
         {
-            match delta::download(&zsync_url, &self.image, context, &self.http) {
+            match delta::download(zsync_url, control, &self.image, context, &self.http) {
                 Ok(path) => return Ok(path),
                 Err(Error::Cancelled) => return Err(Error::Cancelled),
                 Err(error) => {
@@ -136,16 +178,10 @@ impl UpdateManager for StaticFile {
             }
         }
 
-        let Some((url, _)) = self.target()? else {
-            return Err(Error::UpdateConfig(
-                "the update URL is not configured".to_owned(),
-            ));
-        };
-
         fs::create_dir_all(&context.directory)?;
         let path = context.output_path();
         self.http
-            .download(&url, &path, &mut *context.progress, &context.cancel)?;
+            .download(&target.url, &path, &mut *context.progress, &context.cancel)?;
 
         Ok(path)
     }
@@ -245,13 +281,15 @@ mod tests {
         fs::write(&image, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new.clone()));
+        let server = delta_server(&control, Route::new(new.clone()));
         let manager = StaticFile::new(
             image,
             BTreeMap::new(),
             Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
             HttpClient::new(),
         );
+        let hashes = HashCache::new(directory.path().join("hashes"));
+        assert_eq!(manager.check(&hashes).unwrap(), UpdateStatus::Available);
         let mut progress = |_fraction: f64| {};
         let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
         context.use_zsync_delta = true;
@@ -259,6 +297,11 @@ mod tests {
         let downloaded = manager.download(&mut context).unwrap();
 
         assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert_eq!(
+            server.request_count("/new.AppImage.zsync"),
+            1,
+            "download must reuse the control file fetched by check"
+        );
         assert!(server.range_requests() > 0);
     }
 
@@ -271,7 +314,7 @@ mod tests {
         fs::write(&image, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new.clone()));
+        let server = delta_server(&control, Route::new(new.clone()));
         let manager = StaticFile::new(
             image,
             BTreeMap::new(),
@@ -297,7 +340,7 @@ mod tests {
         fs::write(&image, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new.clone()).ignore_range());
+        let server = delta_server(&control, Route::new(new.clone()).ignore_range());
         let manager = StaticFile::new(
             image,
             BTreeMap::new(),
@@ -323,7 +366,7 @@ mod tests {
         let image = directory.path().join("App.AppImage");
         fs::write(&image, &old).unwrap();
 
-        let server = delta_server(b"not a control file".to_vec(), Route::new(new.clone()));
+        let server = delta_server(b"not a control file", Route::new(new.clone()));
         let manager = StaticFile::new(
             image,
             BTreeMap::new(),
@@ -350,7 +393,7 @@ mod tests {
         fs::write(&image, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new));
+        let server = delta_server(&control, Route::new(new));
         let manager = StaticFile::new(
             image,
             BTreeMap::new(),
@@ -395,7 +438,7 @@ mod tests {
             } else {
                 Route::new(new.clone())
             };
-            let server = delta_server(control, route);
+            let server = delta_server(&control, route);
             let manager = StaticFile::new(
                 image,
                 BTreeMap::new(),

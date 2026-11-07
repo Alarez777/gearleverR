@@ -37,9 +37,9 @@ pub(crate) fn control_bytes(new: &[u8], url: &str) -> Vec<u8> {
 }
 
 /// Serves the control file and `target` on the paths the tests use.
-pub(crate) fn delta_server(control: Vec<u8>, target: Route) -> TestServer {
+pub(crate) fn delta_server(control: &[u8], target: Route) -> TestServer {
     TestServer::start(vec![
-        ("/new.AppImage.zsync", Route::new(control)),
+        ("/new.AppImage.zsync", Route::new(control.to_vec())),
         ("/new.AppImage", target),
     ])
 }

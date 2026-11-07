@@ -12,10 +12,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, TryLockError, mpsc};
 use std::time::{Duration, Instant};
 
-use zsync_rs::{AssemblyError, ZsyncAssembly};
+use zsync_rs::{AssemblyError, ControlFile, ZsyncAssembly};
 
 use super::DownloadContext;
 use super::http::HttpClient;
+use super::zsync;
 use crate::error::{Error, Result};
 
 /// Maximum retries after a transient range-request failure.
@@ -33,8 +34,11 @@ const RETRY_BASE_DELAY: Duration = Duration::from_secs(1);
 /// available core.
 static SCAN_LOCK: Mutex<()> = Mutex::new(());
 
-/// Downloads `zsync_url` into the staging directory, using `seed` as the
-/// installed AppImage.
+/// Downloads the release described by `control` into the staging directory,
+/// using `seed` as the installed AppImage.
+///
+/// `control` is the raw `.zsync` fetched by the update check, so this function
+/// never requests the control file again.
 ///
 /// Progress is reported on the calling thread. The transfer itself runs on a
 /// worker because the `zsync-rs` callbacks must be `'static`, while
@@ -47,6 +51,7 @@ static SCAN_LOCK: Mutex<()> = Mutex::new(());
 /// a full download for any error except [`Error::Cancelled`].
 pub(crate) fn download(
     zsync_url: &str,
+    control: &[u8],
     seed: &Path,
     context: &mut DownloadContext<'_>,
     http: &HttpClient,
@@ -64,6 +69,10 @@ pub(crate) fn download(
         )));
     }
 
+    let control = ControlFile::parse(control)
+        .map_err(|error| Error::Http(format!("zsync: invalid control file: {error}")))?;
+    let base_url = zsync::base_url(zsync_url);
+
     let output = context.output_path();
     if let Some(parent) = output.parent() {
         fs::create_dir_all(parent)?;
@@ -72,16 +81,16 @@ pub(crate) fn download(
     let (sender, receiver) = mpsc::sync_channel::<f64>(1);
     let progress = Arc::new(Mutex::new(sender));
     let cancel = Arc::clone(&context.cancel);
-    let zsync_url = zsync_url.to_owned();
     let seed = seed.to_path_buf();
     let output_for_worker = output.clone();
-    let agent = http.zsync_agent();
+    let agent = http.agent();
 
     let worker = std::thread::Builder::new()
         .name("zsync-delta".to_owned())
         .spawn(move || {
             run(
-                &zsync_url,
+                &base_url,
+                control,
                 &seed,
                 &output_for_worker,
                 agent,
@@ -112,7 +121,8 @@ pub(crate) fn download(
 }
 
 fn run(
-    zsync_url: &str,
+    base_url: &str,
+    control: ControlFile,
     seed: &Path,
     output: &Path,
     agent: ureq::Agent,
@@ -120,7 +130,7 @@ fn run(
     progress: Arc<Mutex<mpsc::SyncSender<f64>>>,
 ) -> Result<()> {
     let zsync_http = zsync_rs::HttpClient::with_agent(agent);
-    let mut assembly = ZsyncAssembly::from_url_with_client(zsync_url, output, zsync_http)
+    let mut assembly = ZsyncAssembly::with_client(control, output, Some(base_url), zsync_http)
         .map_err(|error| map_assembly_error(error, cancel))?;
     assembly.set_abort_flag(Arc::clone(cancel));
 
@@ -138,6 +148,7 @@ fn run(
     // receiving loop finish as soon as the assembly is gone.
     drop(progress);
 
+    let scan_started = Instant::now();
     {
         let _guard = lock_for_scan(cancel)?;
         let found = assembly
@@ -148,6 +159,7 @@ fn run(
             .map_err(|error| map_assembly_error(error, cancel))?;
         tracing::debug!(blocks = found, "zsync scan finished");
     }
+    let scan_elapsed = scan_started.elapsed();
 
     let (known, total) = assembly.block_stats();
     if known == 0 {
@@ -156,6 +168,7 @@ fn run(
     let (seed_bytes, total_bytes) = assembly.progress();
     tracing::debug!(known, total, "zsync blocks available before download");
 
+    let download_started = Instant::now();
     let mut downloaded_blocks = 0_usize;
     let mut retries = 0_u32;
     loop {
@@ -178,6 +191,7 @@ fn run(
         }
     }
 
+    let download_elapsed = download_started.elapsed();
     let (known_bytes, _) = assembly.progress();
     let downloaded_bytes = known_bytes.saturating_sub(seed_bytes);
     let saved_bytes = total_bytes.saturating_sub(downloaded_bytes);
@@ -202,6 +216,8 @@ fn run(
         downloaded_blocks,
         seed_blocks = known,
         total_blocks = total,
+        scan = ?scan_elapsed,
+        download = ?download_elapsed,
         "zsync delta downloaded {} of {} ({} saved, {:.1}%)",
         crate::format::size(downloaded_bytes),
         crate::format::size(total_bytes),
@@ -303,7 +319,7 @@ mod tests {
         fs::write(&seed, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new.clone()));
+        let server = delta_server(&control, Route::new(new.clone()));
         let mut progress = Vec::new();
         let cancel = Arc::new(AtomicBool::new(false));
 
@@ -312,6 +328,7 @@ mod tests {
             let mut context = context(directory.path(), &mut progress_callback, cancel);
             download(
                 &server.url("/new.AppImage.zsync"),
+                &control,
                 &seed,
                 &mut context,
                 &HttpClient::new(),
@@ -320,6 +337,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(fs::read(&result).unwrap(), new);
+        assert_eq!(
+            server.request_count("/new.AppImage.zsync"),
+            0,
+            "delta must use the control file fetched by the check"
+        );
         assert!(
             server.range_requests() > 0,
             "the delta path must use range requests"
@@ -348,13 +370,14 @@ mod tests {
         fs::write(&seed, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new).ignore_range());
+        let server = delta_server(&control, Route::new(new).ignore_range());
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let error = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             &seed,
             &mut context,
             &HttpClient::new(),
@@ -371,16 +394,15 @@ mod tests {
         let seed = directory.path().join("old.AppImage");
         fs::write(&seed, pattern(FILE_SIZE)).unwrap();
 
-        let server = delta_server(
-            b"not a control file".to_vec(),
-            Route::new(pattern(FILE_SIZE)),
-        );
+        let control: &[u8] = b"not a control file";
+        let server = delta_server(control, Route::new(pattern(FILE_SIZE)));
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let error = download(
             &server.url("/new.AppImage.zsync"),
+            control,
             &seed,
             &mut context,
             &HttpClient::new(),
@@ -388,6 +410,7 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(error, Error::Http(_)), "unexpected error: {error}");
+        assert!(server.requests().is_empty());
         assert!(!has_zsync_temp(directory.path()));
     }
 
@@ -410,13 +433,14 @@ mod tests {
         let mut control_file = Vec::new();
         control.write(&mut control_file).unwrap();
 
-        let server = delta_server(control_file, Route::new(new));
+        let server = delta_server(&control_file, Route::new(new));
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let error = download(
             &server.url("/new.AppImage.zsync"),
+            &control_file,
             &seed,
             &mut context,
             &HttpClient::new(),
@@ -432,13 +456,14 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let new = pattern(FILE_SIZE);
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new));
+        let server = delta_server(&control, Route::new(new));
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let error = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             &directory.path().join("missing.AppImage"),
             &mut context,
             &HttpClient::new(),
@@ -454,13 +479,14 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let new = pattern(FILE_SIZE);
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new));
+        let server = delta_server(&control, Route::new(new));
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let error = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             directory.path(),
             &mut context,
             &HttpClient::new(),
@@ -478,13 +504,14 @@ mod tests {
         fs::write(&seed, vec![0xFF; FILE_SIZE]).unwrap();
         let new = pattern(FILE_SIZE);
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new));
+        let server = delta_server(&control, Route::new(new));
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let error = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             &seed,
             &mut context,
             &HttpClient::new(),
@@ -505,13 +532,14 @@ mod tests {
         fs::write(&seed, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new.clone()).fail_first_range());
+        let server = delta_server(&control, Route::new(new.clone()).fail_first_range());
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let result = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             &seed,
             &mut context,
             &HttpClient::new(),
@@ -534,7 +562,7 @@ mod tests {
         fs::write(&seed, &old).unwrap();
 
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new).slow());
+        let server = delta_server(&control, Route::new(new).slow());
         let cancel = Arc::new(AtomicBool::new(false));
         let range_seen = server.range_seen();
         let canceller = {
@@ -554,6 +582,7 @@ mod tests {
 
         let result = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             &seed,
             &mut context,
             &HttpClient::new(),
@@ -573,13 +602,14 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let new = pattern(FILE_SIZE);
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new));
+        let server = delta_server(&control, Route::new(new));
         let cancel = Arc::new(AtomicBool::new(true));
         let mut progress = |_| {};
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let result = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             &directory.path().join("old.AppImage"),
             &mut context,
             &HttpClient::new(),
@@ -609,13 +639,14 @@ mod tests {
         let seed = directory.path().join("old.AppImage");
         fs::write(&seed, &old).unwrap();
         let control = control_bytes(&new, "new.AppImage");
-        let server = delta_server(control, Route::new(new.clone()));
+        let server = delta_server(&control, Route::new(new.clone()));
         let mut progress = |_| {};
         let cancel = Arc::new(AtomicBool::new(false));
         let mut context = context(directory.path(), &mut progress, cancel);
 
         let result = download(
             &server.url("/new.AppImage.zsync"),
+            &control,
             &seed,
             &mut context,
             &HttpClient::new(),
