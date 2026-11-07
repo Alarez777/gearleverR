@@ -61,8 +61,23 @@ ajuste queda activado por defecto y se puede desactivar sin cambiar de fuente.
 
 Prueba real con Neovide 0.16.2 → 0.17.2 (12,9 MB): solo se reutilizaron 198 de
 6.582 bloques y se descargaron 12,5 MB. El payload SquashFS se había recompreso
-casi por completo, así que el delta no ahorró bytes en ese caso. El resumen
-aparece en el log como `zsync delta downloaded 12.5 MB of 12.9 MB`.
+casi por completo, así que el delta apenas ahorró bytes en ese caso. El resumen
+aparece en el log como `zsync delta downloaded 12.5 MB of 12.9 MB (396.0 KB
+saved, 3.0%)`.
+
+En tres actualizaciones reales más, de entre 90 y 118 MB, el resumen fue:
+
+| Descargado | Tamaño final | Ahorro | Bloques reutilizados |
+| ---: | ---: | ---: | ---: |
+| 87,8 MB | 90,9 MB | 3,0 MB (3,3 %) | 1.557 / 46.526 |
+| 87,6 MB | 100,4 MB | 12,8 MB (12,8 %) | 3.284 / 25.704 |
+| 115,2 MB | 118,3 MB | 3,1 MB (2,6 %) | 800 / 30.294 |
+
+Dos de esos casos recompusieron casi todo el payload y ahorraron alrededor del
+3 %; el otro ahorró un 12,8 %. El delta se usó en los tres, pero el beneficio
+depende de cuánto se parezca la versión instalada a la nueva. El ahorro real de
+red puede ser algo menor que el del log, porque la fusión de rangos puede
+volver a descargar pequeños huecos entre bloques.
 
 ## De dónde sale la mejora
 

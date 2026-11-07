@@ -92,6 +92,43 @@ También puedes pasarle un AppImage directamente:
 Los documentos `--json` tienen `schema_version: 1` y las mismas claves que la
 versión original (`installed` / `updates`).
 
+## Registros
+
+Gear LeverR escribe en `~/.local/state/gearlever-r/gearlever-r.log` (o
+`$XDG_STATE_HOME/gearlever-r/gearlever-r.log`).
+
+Por defecto solo se registran avisos. Para ver el detalle de las actualizaciones,
+activa «Habilitar registros de depuración» en Preferencias → Depurando y
+reinicia, o lanza la aplicación desde una terminal con:
+
+```sh
+RUST_LOG=gearlever_core=info ./GearLeverR-0.1.0-x86_64.AppImage
+```
+
+Después sigue el registro mientras se ejecuta una actualización:
+
+```sh
+tail -f ~/.local/state/gearlever-r/gearlever-r.log
+```
+
+Las actualizaciones delta solo se intentan con fuentes que publican `.zsync`
+(una fuente estática `zsync|...` o un asset `.zsync`/`gh-releases-zsync` de
+GitHub). Una actualización delta correcta deja un resumen como:
+
+```text
+INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704
+```
+
+- `downloaded_bytes` y `saved_bytes` cuentan bloques verificados; la fusión de
+  rangos puede hacer que el tráfico real de red sea algo mayor que
+  `downloaded_bytes`.
+- `downloaded_blocks`, `seed_blocks` y `total_blocks` son la misma contabilidad
+  en bloques.
+
+Si el delta falla, Gear LeverR continúa con la descarga completa y, con los
+logs de depuración activados, aparece `zsync delta failed, downloading the full
+AppImage`.
+
 ## Compilar
 
 Desarrollo en Debian 13 (o cualquier distro con GTK 4.18/Adw 1.7):

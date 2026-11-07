@@ -105,6 +105,42 @@ You can also pass an AppImage directly:
 `--json` documents use `schema_version: 1` and the same keys as the original
 (`installed` / `updates`).
 
+## Logs
+
+Gear LeverR writes to `~/.local/state/gearlever-r/gearlever-r.log` (or
+`$XDG_STATE_HOME/gearlever-r/gearlever-r.log`).
+
+Normal runs log warnings only. To see update details, either enable
+"Enable debug logs" in Preferences → Debugging and restart, or launch from a
+terminal with:
+
+```sh
+RUST_LOG=gearlever_core=info ./GearLeverR-0.1.0-x86_64.AppImage
+```
+
+Then follow the log while an update runs:
+
+```sh
+tail -f ~/.local/state/gearlever-r/gearlever-r.log
+```
+
+Delta updates are only attempted for sources that publish `.zsync` data (a
+static `zsync|...` update source or a GitHub `.zsync`/`gh-releases-zsync`
+asset). A successful delta update logs a summary like:
+
+```text
+INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704
+```
+
+- `downloaded_bytes` and `saved_bytes` count verified blocks; range merging can
+  make the real network traffic slightly higher than `downloaded_bytes`.
+- `downloaded_blocks`, `seed_blocks` and `total_blocks` are the same accounting
+  in blocks.
+
+If the delta attempt fails, Gear LeverR falls back to a full download and, with
+debug logs enabled, the log shows `zsync delta failed, downloading the full
+AppImage`.
+
 ## Building
 
 Development on Debian 13 (or any distro with GTK 4.18/Adw 1.7):
