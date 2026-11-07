@@ -103,13 +103,6 @@ enum Page {
     MultiUpdate,
 }
 
-/// Which small window is used when an AppImage is opened from the file manager.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Preview {
-    Candidate,
-    Installed,
-}
-
 /// Where the files came from: the external open signal or an in-app chooser.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoadSource {
@@ -271,6 +264,7 @@ struct AppModel {
 
 struct Widgets {
     window: adw::ApplicationWindow,
+    header: adw::HeaderBar,
     title: gtk::Label,
     left_button: gtk::Button,
     search_button: gtk::Button,
@@ -449,10 +443,10 @@ impl Component for AppModel {
                 if already_installed > 0 && fresh.is_empty() {
                     self.page = Page::Details;
                     Self::show_page(self, widgets);
-                    if self.minimal_preview() {
-                        Self::minimal_ui(widgets, Preview::Installed);
-                    }
                     Self::rebuild_details(self, widgets, &sender);
+                    if self.minimal_preview() {
+                        Self::minimal_ui(widgets);
+                    }
                     return;
                 }
 
@@ -470,7 +464,7 @@ impl Component for AppModel {
                             Self::show_page(self, widgets);
                             Self::rebuild_details(self, widgets, &sender);
                             if self.minimal_preview() {
-                                Self::minimal_ui(widgets, Preview::Candidate);
+                                Self::minimal_ui(widgets);
                             }
                         }
                     }
@@ -3418,7 +3412,7 @@ impl AppModel {
         let _ = gio::AppInfo::launch_default_for_uri(uri, None::<&gio::AppLaunchContext>);
     }
 
-    fn minimal_ui(widgets: &Widgets, preview: Preview) {
+    fn minimal_ui(widgets: &Widgets) {
         widgets.minimal_preview.set(true);
         widgets.left_button.set_visible(false);
         widgets.menu_button.set_visible(false);
@@ -3427,10 +3421,13 @@ impl AppModel {
         widgets.window.unmaximize();
         widgets.window.set_resizable(false);
 
-        let (width, height) = match preview {
-            Preview::Candidate => (600, 420),
-            Preview::Installed => (600, 360),
-        };
+        // Measure at the width the window will actually get, so text wrapping
+        // on a narrow monitor is part of the height calculation.
+        let (width, _) = fit_window_size(PREVIEW_WINDOW_WIDTH, 0);
+        let header_height = widgets.header.measure(gtk::Orientation::Vertical, width).1;
+        let details_height = widgets.details.measure(gtk::Orientation::Vertical, width).1;
+        let content_height = header_height + details_height + PREVIEW_WINDOW_EXTRA_HEIGHT;
+        let (width, height) = fit_window_size(width, content_height);
         widgets.window.set_default_size(width, height);
     }
 
@@ -3739,6 +3736,7 @@ impl AppModel {
 
         Widgets {
             window: window_close,
+            header,
             title,
             left_button,
             search_button,
@@ -3935,6 +3933,13 @@ const ACTION_BUTTON_WIDTH: i32 = 200;
 /// Icon size used by the rows of the multi-update page.
 const MULTI_ROW_ICON: i32 = 45;
 
+/// Width of the small preview window.
+const PREVIEW_WINDOW_WIDTH: i32 = 600;
+/// Extra height that keeps the preview content out of the scroll range.
+///
+/// GTK reserves part of the window height for the decoration and the hidden
+/// rows, so asking only for the measured content leaves a small scrollbar.
+const PREVIEW_WINDOW_EXTRA_HEIGHT: i32 = 24;
 /// Width and height of the buttons in the small preview windows.
 const PREVIEW_BUTTON_WIDTH: i32 = 240;
 const PREVIEW_BUTTON_HEIGHT: i32 = 36;
