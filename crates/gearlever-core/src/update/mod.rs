@@ -1435,13 +1435,17 @@ mod tests {
         };
 
         for run in 0..2 {
-            let jobs = vec![UpdateJob::new(
-                app(&format!("rate-{run}"), directory.path()),
-                Arc::new(FakeManager::new([Err(error())])),
-            )];
+            let jobs: Vec<UpdateJob> = (0..2)
+                .map(|index| {
+                    UpdateJob::new(
+                        app(&format!("rate-{run}-{index}"), directory.path()),
+                        Arc::new(FakeManager::new([Err(error())])),
+                    )
+                })
+                .collect();
             let mut events = 0;
 
-            let report = check_batch(&jobs, &hashes, 1, Duration::ZERO, &mut |event| {
+            let report = check_batch(&jobs, &hashes, 2, Duration::ZERO, &mut |event| {
                 if matches!(event, CheckEvent::RateLimited(_)) {
                     events += 1;
                 }
