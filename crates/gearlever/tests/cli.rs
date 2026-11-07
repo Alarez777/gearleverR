@@ -7,8 +7,13 @@
 //! ```
 
 use std::fs;
+use std::io::{Read as _, Write as _};
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use tempfile::TempDir;
 
@@ -29,6 +34,44 @@ fn run(home: &Path, arguments: &[&str]) -> Output {
         .env("RUST_LOG", "error")
         .output()
         .expect("the binary must run")
+}
+
+/// Serves `body` over HTTP until the returned flag is set.
+fn serve(body: Vec<u8>) -> (String, Arc<AtomicBool>, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind the test server");
+    listener.set_nonblocking(true).expect("non-blocking server");
+    let address = listener.local_addr().expect("server address");
+    let stop = Arc::new(AtomicBool::new(false));
+
+    let server = {
+        let stop = Arc::clone(&stop);
+        std::thread::spawn(move || {
+            while !stop.load(Ordering::SeqCst) {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+                        let mut buffer = [0_u8; 4096];
+                        let read = stream.read(&mut buffer).unwrap_or(0);
+                        let request = String::from_utf8_lossy(&buffer[..read]);
+                        let headers = format!(
+                            "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                            body.len()
+                        );
+                        let _ = stream.write_all(headers.as_bytes());
+                        if request.starts_with("GET ") {
+                            let _ = stream.write_all(&body);
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(_) => break,
+                }
+            }
+        })
+    };
+
+    (format!("http://{address}/App.AppImage"), stop, server)
 }
 
 fn test_appimage() -> Option<PathBuf> {
@@ -65,6 +108,23 @@ fn empty_list_is_a_versioned_json_document() {
 
     assert_eq!(document["schema_version"], 1);
     assert_eq!(document["installed"].as_array().map(Vec::len), Some(0));
+}
+
+#[test]
+fn update_all_without_appimages_reports_no_updates() {
+    let directory = home();
+    let output = run(directory.path(), &["--update", "--all", "-y"]);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("No updates available"),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
 }
 
 #[test]
@@ -147,4 +207,80 @@ fn integrates_lists_and_removes_a_real_appimage() {
     let after = run(directory.path(), &["--list-installed", "--json"]);
     let document: serde_json::Value = serde_json::from_slice(&after.stdout).unwrap();
     assert_eq!(document["installed"].as_array().map(Vec::len), Some(0));
+}
+
+#[test]
+fn updates_all_appimages_from_a_static_url() {
+    let Some(source) = test_appimage() else {
+        return;
+    };
+
+    let bytes = fs::read(&source).expect("read the fixture");
+    let expected_size = u64::try_from(bytes.len()).expect("fixture size fits u64");
+    let directory = home();
+    let source_copy = directory.path().join("fixture.AppImage");
+    fs::copy(&source, &source_copy).expect("copy the fixture");
+    let source_arg = source_copy.to_string_lossy().into_owned();
+
+    let integrated = run(directory.path(), &["--integrate", &source_arg, "-y"]);
+    assert!(
+        integrated.status.success(),
+        "integrate failed: {}",
+        String::from_utf8_lossy(&integrated.stderr)
+    );
+
+    let appimages = directory.path().join("AppImages");
+    let image = fs::read_dir(&appimages)
+        .expect("AppImages exists")
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "appimage")
+        })
+        .expect("one integrated image");
+
+    // Make the installed file differ from the served one so the checker sees
+    // an update without needing a second fixture.
+    let mut installed_file = fs::OpenOptions::new()
+        .append(true)
+        .open(&image)
+        .expect("open the integrated image");
+    installed_file.write_all(b"x").expect("append one byte");
+    drop(installed_file);
+
+    let (url, stop, server) = serve(bytes);
+    let set_args = [
+        "--set-update-source".to_owned(),
+        image.to_string_lossy().into_owned(),
+        "--manager".to_owned(),
+        "StaticFileUpdater".to_owned(),
+        format!("url={url}"),
+    ];
+    let set_refs: Vec<&str> = set_args.iter().map(String::as_str).collect();
+    let set = run(directory.path(), &set_refs);
+    assert!(
+        set.status.success(),
+        "setting the source failed: {}",
+        String::from_utf8_lossy(&set.stderr)
+    );
+
+    let updated = run(directory.path(), &["--update", "--all", "-y"]);
+    assert!(
+        updated.status.success(),
+        "update failed: {}",
+        String::from_utf8_lossy(&updated.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&updated.stdout).contains("updated successfully"),
+        "stdout: {}",
+        String::from_utf8_lossy(&updated.stdout)
+    );
+    assert_eq!(
+        fs::metadata(&image).expect("updated image").len(),
+        expected_size
+    );
+
+    stop.store(true, Ordering::SeqCst);
+    server.join().expect("test server joins");
 }
