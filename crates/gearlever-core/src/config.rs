@@ -24,6 +24,15 @@ const SKIP_UPDATES_KEY: &str = "skip_updates";
 /// Prefix of the per-application keys that keep disabled environment variables.
 const DISABLED_ENV_PREFIX: &str = "disabled_env_";
 
+/// Global section that remembers environment variables used by any application.
+const ENVIRONMENT_HISTORY_SECTION: &str = "environment_history";
+
+/// Prefix of the keys inside [`ENVIRONMENT_HISTORY_SECTION`].
+const ENVIRONMENT_HISTORY_PREFIX: &str = "entry_";
+
+/// Maximum number of environment variables kept in the history.
+const ENVIRONMENT_HISTORY_LIMIT: usize = 100;
+
 /// An INI document with the same semantics as the original configuration.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Config {
@@ -284,6 +293,61 @@ impl Config {
         self.get(DEFAULT_SECTION, key)
     }
 
+    /// Returns the environment variables remembered across applications.
+    ///
+    /// Entries keep the `KEY=value` form and are ordered from most to least
+    /// recently used.
+    #[must_use]
+    pub fn environment_history(&self) -> Vec<String> {
+        let Some(values) = self.sections.get(ENVIRONMENT_HISTORY_SECTION) else {
+            return Vec::new();
+        };
+
+        let mut entries: Vec<(usize, &str)> = values
+            .iter()
+            .filter_map(|(key, value)| {
+                let index = key.strip_prefix(ENVIRONMENT_HISTORY_PREFIX)?.parse().ok()?;
+                Some((index, value.as_str()))
+            })
+            .collect();
+        entries.sort_by_key(|(index, _)| *index);
+
+        entries
+            .into_iter()
+            .map(|(_, value)| value.to_owned())
+            .collect()
+    }
+
+    /// Moves `variables` to the front of the environment history.
+    ///
+    /// Returns whether the stored history changed.
+    pub fn remember_environment(&mut self, variables: &[String]) -> bool {
+        let previous = self.environment_history();
+        let mut merged: Vec<String> = Vec::new();
+
+        for variable in variables.iter().chain(previous.iter()) {
+            if !variable.is_empty() && !merged.contains(variable) {
+                merged.push(variable.clone());
+            }
+        }
+        merged.truncate(ENVIRONMENT_HISTORY_LIMIT);
+
+        if merged == previous {
+            return false;
+        }
+
+        self.sections.remove(ENVIRONMENT_HISTORY_SECTION);
+        for (index, variable) in merged.iter().enumerate() {
+            self.set(
+                ENVIRONMENT_HISTORY_SECTION,
+                &format!("{ENVIRONMENT_HISTORY_PREFIX}{index:03}"),
+                variable.clone(),
+            );
+        }
+
+        true
+    }
+
     /// Imports the configuration written by the original Gear Lever.
     ///
     /// Returns `true` when a legacy file was found and copied. An existing
@@ -505,6 +569,46 @@ mod tests {
 
         assert_eq!(config.disabled_env(image), vec!["A=1", "B=2"]);
         assert_eq!(config.get(&section, "name"), Some("Example"));
+    }
+
+    #[test]
+    fn remembers_environment_variables_in_recent_order() {
+        let mut config = Config::default();
+        assert!(config.environment_history().is_empty());
+
+        let first = vec!["A=1".to_owned(), "B=2".to_owned()];
+        assert!(config.remember_environment(&first));
+        assert_eq!(config.environment_history(), first);
+        assert!(!config.remember_environment(&first));
+
+        let second = vec!["B=2".to_owned(), "C=3".to_owned()];
+        assert!(config.remember_environment(&second));
+        assert_eq!(config.environment_history(), vec!["B=2", "C=3", "A=1"]);
+        assert_eq!(
+            config.get(ENVIRONMENT_HISTORY_SECTION, "entry_000"),
+            Some("B=2")
+        );
+    }
+
+    #[test]
+    fn caps_the_environment_history() {
+        let mut config = Config::default();
+        let variables: Vec<String> = (0..105).map(|index| format!("KEY{index}=value")).collect();
+
+        config.remember_environment(&variables);
+
+        let history = config.environment_history();
+        assert_eq!(history.len(), ENVIRONMENT_HISTORY_LIMIT);
+        assert_eq!(history.first().map(String::as_str), Some("KEY0=value"));
+        assert_eq!(history.last().map(String::as_str), Some("KEY99=value"));
+    }
+
+    #[test]
+    fn parses_the_environment_history_by_index() {
+        let config =
+            Config::parse("[environment_history]\nentry_001 = B=2\nentry_000 = A=with = signs\n");
+
+        assert_eq!(config.environment_history(), vec!["A=with = signs", "B=2"]);
     }
 
     #[test]
