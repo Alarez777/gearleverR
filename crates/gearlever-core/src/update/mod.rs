@@ -983,21 +983,40 @@ enum WorkerUpdate {
     },
 }
 
-/// Returns the average progress of every job in a batch.
+/// Returns the weighted progress of every job in a batch.
+fn batch_progress(fractions: &[f64], weights: &[f64]) -> f64 {
+    let total_weight: f64 = weights.iter().sum();
+    if total_weight <= 0.0 {
+        return 0.0;
+    }
+
+    let completed: f64 = fractions
+        .iter()
+        .zip(weights)
+        .map(|(fraction, weight)| fraction * weight)
+        .sum();
+    completed / total_weight
+}
+
 #[expect(
     clippy::as_conversions,
     clippy::cast_precision_loss,
     reason = "update progress does not need exact precision"
 )]
-fn batch_progress(fractions: &[f64]) -> f64 {
-    fractions.iter().sum::<f64>() / fractions.len() as f64
+fn progress_weight(size: u64) -> f64 {
+    size.max(1) as f64
 }
 
 /// Emits the aggregate progress of a batch.
-fn emit_batch_progress(fractions: &[f64], index: usize, on_event: &mut dyn FnMut(BatchEvent)) {
+fn emit_batch_progress(
+    fractions: &[f64],
+    weights: &[f64],
+    index: usize,
+    on_event: &mut dyn FnMut(BatchEvent),
+) {
     on_event(BatchEvent::Progress {
         index,
-        overall: batch_progress(fractions),
+        overall: batch_progress(fractions, weights),
     });
 }
 
@@ -1026,6 +1045,10 @@ pub fn apply_batch(
 
     let worker_count = parallel.max(1).min(total);
     let mut fractions = vec![0.0_f64; total];
+    let weights: Vec<f64> = jobs
+        .iter()
+        .map(|job| progress_weight(job.app.size))
+        .collect();
     let mut installed = Vec::new();
     let mut failed = Vec::new();
     let mut cancelled = false;
@@ -1091,7 +1114,7 @@ pub fn apply_batch(
             match message {
                 WorkerUpdate::Progress { index, fraction } => {
                     fractions[index] = fraction.clamp(0.0, 1.0);
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
                 WorkerUpdate::Prepared { index, update } => {
                     if cancel.load(Ordering::Relaxed) {
@@ -1099,7 +1122,7 @@ pub fn apply_batch(
                         fractions[index] = 1.0;
                         cancelled = true;
                         on_event(BatchEvent::Cancelled { index });
-                        emit_batch_progress(&fractions, index, on_event);
+                        emit_batch_progress(&fractions, &weights, index, on_event);
                         continue;
                     }
 
@@ -1119,19 +1142,19 @@ pub fn apply_batch(
                             on_event(BatchEvent::Failed { index, app, error });
                         }
                     }
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
                 WorkerUpdate::Failed { index, app, error } => {
                     fractions[index] = 1.0;
                     failed.push(app.image_path.clone());
                     on_event(BatchEvent::Failed { index, app, error });
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
                 WorkerUpdate::Cancelled { index } => {
                     fractions[index] = 1.0;
                     cancelled = true;
                     on_event(BatchEvent::Cancelled { index });
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
             }
         }
@@ -1231,6 +1254,16 @@ mod tests {
             size: Some(10),
             digest: None,
         }
+    }
+
+    #[test]
+    fn batch_progress_weights_by_app_size() {
+        let overall = batch_progress(&[0.5, 1.0], &[3.0, 1.0]);
+
+        assert!((overall - 0.625).abs() < f64::EPSILON);
+        assert!(batch_progress(&[0.5], &[0.0]).abs() < f64::EPSILON);
+        assert!((progress_weight(0) - 1.0).abs() < f64::EPSILON);
+        assert!((progress_weight(1024) - 1024.0).abs() < f64::EPSILON);
     }
 
     #[test]
