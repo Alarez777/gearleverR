@@ -35,6 +35,11 @@
         <key name="fetch-updates-in-background" type="b">
             <default>false</default>
         </key>
+        <key name="use-zsync-delta" type="b">
+            <default>true</default>
+            <summary>Use zsync delta updates</summary>
+            <description>Download only changed blocks when the update source provides zsync information. Disable this on very low-resource computers to avoid scanning the installed AppImage and calculating block checksums; updates will download the full file.</description>
+        </key>
         <key name="preview-minimal-ui" type="b">
             <default>true</default>
         </key>

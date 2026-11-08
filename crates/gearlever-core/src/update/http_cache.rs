@@ -15,10 +15,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 /// On-disk format version. Bump it when [`CacheEntry`] changes.
-const CACHE_VERSION: u32 = 1;
+const CACHE_VERSION: u32 = 2;
 
-/// Largest response body kept in the cache.
-const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
+/// Largest response body kept in the cache. Matches the control-file limit so
+/// large AppImages can still reuse their `.zsync` between checks.
+const MAX_BODY_BYTES: usize = super::http::MAX_CONTROL_BYTES;
 
 /// Entries older than this are ignored and removed.
 const MAX_AGE_SECONDS: u64 = 30 * 24 * 60 * 60;
@@ -30,7 +31,8 @@ const COALESCE_WINDOW: Duration = Duration::from_secs(2);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct CacheEntry {
     version: u32,
-    pub(crate) body: String,
+    #[serde(with = "base64_bytes")]
+    pub(crate) body: Vec<u8>,
     pub(crate) etag: Option<String>,
     pub(crate) last_modified: Option<String>,
     fetched_at: u64,
@@ -38,7 +40,7 @@ pub(crate) struct CacheEntry {
 
 impl CacheEntry {
     /// Builds an entry stamped with the current time.
-    pub(crate) fn new(body: String, etag: Option<String>, last_modified: Option<String>) -> Self {
+    pub(crate) fn new(body: Vec<u8>, etag: Option<String>, last_modified: Option<String>) -> Self {
         Self {
             version: CACHE_VERSION,
             body,
@@ -87,6 +89,8 @@ impl HttpCache {
     /// Returns the cache key for a request.
     pub(crate) fn key(url: &str, accept: Option<&str>, token: Option<&str>) -> String {
         let mut hasher = blake3::Hasher::new();
+        // Keep the key namespace stable across entry-format changes: the
+        // version field in each entry invalidates old files when they load.
         hasher.update(b"gearlever-r-http-v1\0");
         hasher.update(url.as_bytes());
         hasher.update(b"\0");
@@ -109,7 +113,7 @@ impl HttpCache {
     }
 
     /// Returns the cached body when it was fetched within the freshness window.
-    pub(crate) fn fresh(&self, key: &str) -> Option<String> {
+    pub(crate) fn fresh(&self, key: &str) -> Option<Vec<u8>> {
         let entry = self.load(key)?;
         entry.is_fresh(self.window).then_some(entry.body)
     }
@@ -189,13 +193,34 @@ fn secure_file(path: &Path) -> std::io::Result<()> {
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
 }
 
+mod base64_bytes {
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub(super) fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&STANDARD.encode(bytes))
+    }
+
+    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let encoded = String::deserialize(deserializer)?;
+        STANDARD.decode(encoded).map_err(serde::de::Error::custom)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn entry(body: &str) -> CacheEntry {
+    fn entry(body: &[u8]) -> CacheEntry {
         CacheEntry::new(
-            body.to_owned(),
+            body.to_vec(),
             Some("\"v1\"".to_owned()),
             Some("Thu, 01 Jan 2026 00:00:00 GMT".to_owned()),
         )
@@ -211,11 +236,48 @@ mod tests {
             None,
         );
 
-        cache.store(&key, &entry("hello"));
+        cache.store(&key, &entry(b"hello"));
 
         let loaded = cache.load(&key).expect("entry is cached");
-        assert_eq!(loaded.body, "hello");
+        assert_eq!(loaded.body, b"hello");
         assert_eq!(loaded.etag.as_deref(), Some("\"v1\""));
+    }
+
+    #[test]
+    fn removes_entries_from_an_older_version() {
+        let directory = tempfile::tempdir().unwrap();
+        let cache = HttpCache::new(directory.path().join("http"));
+        let key = "old-entry";
+        let mut old = entry(b"hello");
+        old.version = 1;
+        let path = cache.path(key);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, serde_json::to_vec(&old).unwrap()).unwrap();
+
+        assert!(cache.load(key).is_none());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn round_trips_binary_bodies() {
+        let directory = tempfile::tempdir().unwrap();
+        let cache = HttpCache::new(directory.path().join("http"));
+        let body = [0x00, 0xFF, 0xFE, 0x80, b'h', b'i'];
+
+        cache.store("control", &entry(&body));
+
+        assert_eq!(cache.load("control").unwrap().body, body);
+    }
+
+    #[test]
+    fn caches_controls_larger_than_the_old_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let cache = HttpCache::new(directory.path().join("http"));
+        let body = vec![0xAB; 5 * 1024 * 1024];
+
+        cache.store("large-control", &entry(&body));
+
+        assert_eq!(cache.load("large-control").unwrap().body.len(), body.len());
     }
 
     #[test]
@@ -240,12 +302,12 @@ mod tests {
         let key = "entry";
 
         let cache = HttpCache::with_window(directory.path().join("http"), Duration::ZERO);
-        cache.store(key, &entry("hello"));
+        cache.store(key, &entry(b"hello"));
         assert_eq!(cache.fresh(key), None, "zero window always revalidates");
 
         let cache = HttpCache::with_window(directory.path().join("http"), Duration::MAX);
-        cache.store(key, &entry("hello"));
-        assert_eq!(cache.fresh(key).as_deref(), Some("hello"));
+        cache.store(key, &entry(b"hello"));
+        assert_eq!(cache.fresh(key).as_deref(), Some(b"hello".as_slice()));
     }
 
     #[test]
@@ -254,7 +316,7 @@ mod tests {
         let cache = HttpCache::new(directory.path().join("http"));
         let key = "large";
 
-        cache.store(key, &entry(&"x".repeat(MAX_BODY_BYTES + 1)));
+        cache.store(key, &entry(&vec![b'x'; MAX_BODY_BYTES + 1]));
 
         assert!(cache.load(key).is_none());
     }

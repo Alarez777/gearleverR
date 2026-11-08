@@ -4,15 +4,17 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::Deserialize;
 
 use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
-use super::http::HttpClient;
+use super::http::{HttpClient, MAX_CONTROL_BYTES};
 use super::{
-    Asset, DownloadContext, ManagerKind, UpdateManager, UpdateStatus, boolean, pick_asset, value,
+    Asset, DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus, boolean,
+    delta, pick_asset, value,
 };
 
 const ACCEPT: &str = "application/vnd.github+json";
@@ -151,10 +153,44 @@ struct ReleaseAsset {
     digest: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct Target {
     asset: Asset,
     zsync_url: Option<String>,
+    zsync_control: Option<Arc<[u8]>>,
+}
+
+impl fmt::Debug for Target {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Target")
+            .field("asset", &self.asset)
+            .field("zsync_url", &self.zsync_url)
+            .field(
+                "control_bytes",
+                &self.zsync_control.as_ref().map(|control| control.len()),
+            )
+            .finish()
+    }
+}
+
+#[expect(
+    clippy::fn_params_excessive_bools,
+    reason = "the helper mirrors the boolean state of an incomplete control fetch"
+)]
+fn status_for_size(
+    local_size: u64,
+    asset_size: Option<u64>,
+    control_unavailable: bool,
+) -> UpdateStatus {
+    if asset_size == Some(local_size) {
+        if control_unavailable {
+            UpdateStatus::Unknown
+        } else {
+            UpdateStatus::UpToDate
+        }
+    } else {
+        UpdateStatus::Available
+    }
 }
 
 /// Pairs the `.zsync` asset selected by `pattern` with the AppImage it describes.
@@ -169,6 +205,7 @@ fn pick_zsync_target(assets: &[Asset], pattern: &str) -> Option<Target> {
     Some(Target {
         asset,
         zsync_url: Some(zsync_asset.url),
+        zsync_control: None,
     })
 }
 
@@ -310,6 +347,7 @@ impl Github {
         Ok(pick_asset(&assets, &pattern).map(|asset| Target {
             asset,
             zsync_url: None,
+            zsync_control: None,
         }))
     }
 }
@@ -328,7 +366,7 @@ impl UpdateManager for Github {
     }
 
     fn check(&self, hashes: &HashCache) -> Result<UpdateStatus> {
-        let Some(target) = self.target()? else {
+        let Some(mut target) = self.target()? else {
             return Ok(if value(&self.config, "repo_filename").is_some() {
                 UpdateStatus::Unknown
             } else {
@@ -341,15 +379,33 @@ impl UpdateManager for Github {
             return Ok(UpdateStatus::Available);
         }
 
-        if let Some(zsync_url) = &target.zsync_url {
-            let info = super::zsync::parse(&self.http.get_text(zsync_url)?);
-            if let Some(expected) = info.sha1 {
-                let actual = hashes.sha1(&self.image)?;
-                return Ok(if expected == actual {
-                    UpdateStatus::UpToDate
-                } else {
-                    UpdateStatus::Available
-                });
+        let mut control_unavailable = false;
+        if let Some(zsync_url) = target.zsync_url.clone() {
+            let control = if let Some(control) = &target.zsync_control {
+                Some(Arc::clone(control))
+            } else if let Some(bytes) =
+                self.http.get_bytes_limited(&zsync_url, MAX_CONTROL_BYTES)?
+            {
+                let control: Arc<[u8]> = bytes.into();
+                target.zsync_control = Some(Arc::clone(&control));
+                self.cache.set(target.clone());
+                Some(control)
+            } else {
+                tracing::debug!("zsync control file is too large, skipping its checksum");
+                control_unavailable = true;
+                None
+            };
+
+            if let Some(control) = control {
+                let info = super::zsync::parse_bytes(&control);
+                if let Some(expected) = info.sha1 {
+                    let actual = hashes.sha1(&self.image)?;
+                    return Ok(if expected == actual {
+                        UpdateStatus::UpToDate
+                    } else {
+                        UpdateStatus::Available
+                    });
+                }
             }
         }
 
@@ -364,30 +420,106 @@ impl UpdateManager for Github {
             });
         }
 
-        Ok(if target.asset.size == Some(local_size) {
-            UpdateStatus::UpToDate
-        } else {
-            UpdateStatus::Available
-        })
+        Ok(status_for_size(
+            local_size,
+            target.asset.size,
+            control_unavailable,
+        ))
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
+        if context.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+
         let Some(target) = self.target()? else {
             return Err(Error::NoMatchingAsset(
                 "no matching GitHub release".to_owned(),
             ));
         };
 
-        fs::create_dir_all(&context.directory)?;
-        let path = context.output_path();
-        self.http.download(
-            &target.asset.url,
-            &path,
-            &mut *context.progress,
-            &context.cancel,
-        )?;
+        self.download_target(&target, context)
+    }
+}
 
-        Ok(path)
+impl Github {
+    /// Downloads `target`, trying its zsync asset first when delta is enabled.
+    fn download_target(
+        &self,
+        target: &Target,
+        context: &mut DownloadContext<'_>,
+    ) -> Result<PathBuf> {
+        if context.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+
+        let output = context.output_path();
+        let use_zsync_delta = context.use_zsync_delta;
+        let directory = context.directory.clone();
+        let cancel = Arc::clone(&context.cancel);
+        let mut tracker = ProgressTracker::new(context.progress);
+
+        if use_zsync_delta && let Some(zsync_url) = target.zsync_url.as_deref() {
+            let control = match &target.zsync_control {
+                Some(control) => Some(Arc::clone(control)),
+                None => match self.http.get_bytes_limited(zsync_url, MAX_CONTROL_BYTES) {
+                    Ok(Some(bytes)) => Some(bytes.into()),
+                    Ok(None) => {
+                        tracing::debug!(
+                            image = %self.image.display(),
+                            "zsync control file is too large, downloading the full GitHub asset"
+                        );
+                        None
+                    }
+                    Err(error) => {
+                        tracing::debug!(
+                            image = %self.image.display(),
+                            %error,
+                            "cannot fetch the zsync control file, downloading the full GitHub asset"
+                        );
+                        None
+                    }
+                },
+            };
+
+            if let Some(control) = control {
+                let delta_result = {
+                    let mut progress = |fraction| tracker.report(fraction);
+                    let mut delta_context = DownloadContext {
+                        directory: directory.clone(),
+                        progress: &mut progress,
+                        cancel: Arc::clone(&cancel),
+                        use_zsync_delta: true,
+                    };
+                    delta::download(
+                        zsync_url,
+                        &control,
+                        &self.image,
+                        &mut delta_context,
+                        &self.http,
+                    )
+                };
+
+                match delta_result {
+                    Ok(path) => return Ok(path),
+                    Err(Error::Cancelled) => return Err(Error::Cancelled),
+                    Err(error) => {
+                        tracing::debug!(
+                            image = %self.image.display(),
+                            %error,
+                            "zsync delta failed, downloading the full GitHub asset"
+                        );
+                    }
+                }
+            }
+        }
+
+        fs::create_dir_all(&directory)?;
+        let mut progress = |fraction| tracker.report(fraction);
+        self.http
+            .download(&target.asset.url, &output, &mut progress, &cancel)?;
+
+        Ok(output)
     }
 }
 
@@ -397,6 +529,10 @@ mod tests {
     use std::net::TcpListener;
 
     use super::*;
+    use crate::update::test_fixtures::{
+        FILE_SIZE, changed_copy, control_bytes, delta_server, pattern,
+    };
+    use crate::update::test_server::{Route, TestServer};
 
     fn serve(body: String) -> (String, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -432,6 +568,13 @@ mod tests {
             size: Some(1),
             digest: None,
         }
+    }
+
+    #[test]
+    fn reports_unknown_when_the_control_was_too_large_and_sizes_match() {
+        assert_eq!(status_for_size(10, Some(10), true), UpdateStatus::Unknown);
+        assert_eq!(status_for_size(10, Some(10), false), UpdateStatus::UpToDate);
+        assert_eq!(status_for_size(10, Some(11), true), UpdateStatus::Available);
     }
 
     #[test]
@@ -497,5 +640,133 @@ mod tests {
     fn tolerates_an_empty_rate_limit_body() {
         let rate: RateLimit = serde_json::from_str("{}").unwrap();
         assert!(rate.resources.is_none());
+    }
+
+    #[test]
+    fn downloads_through_the_zsync_asset_when_enabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(&control, Route::new(new.clone()));
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download_target(&target, &mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert!(server.range_requests() > 0);
+    }
+
+    #[test]
+    fn skips_the_zsync_asset_when_delta_is_disabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(&control, Route::new(new.clone()));
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+
+        let downloaded = manager.download_target(&target, &mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert_eq!(server.range_requests(), 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    #[test]
+    fn falls_back_to_the_asset_when_delta_fails() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(&control, Route::new(new.clone()).ignore_range());
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download_target(&target, &mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert!(server.range_requests() > 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    fn target(server: &TestServer) -> Target {
+        Target {
+            asset: Asset {
+                name: "App.AppImage".to_owned(),
+                url: server.url("/new.AppImage"),
+                size: Some(u64::try_from(FILE_SIZE).unwrap()),
+                digest: None,
+            },
+            zsync_url: Some(server.url("/new.AppImage.zsync")),
+            zsync_control: None,
+        }
+    }
+
+    #[test]
+    fn does_not_fetch_the_control_file_after_cancellation() {
+        let directory = tempfile::tempdir().unwrap();
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, pattern(FILE_SIZE)).unwrap();
+        let server = delta_server(
+            &control_bytes(&pattern(FILE_SIZE), "new.AppImage"),
+            Route::new(pattern(FILE_SIZE)),
+        );
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let target = target(&server);
+        let mut progress = |_fraction: f64| {};
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let mut context =
+            DownloadContext::with_cancel(directory.path().join("downloads"), &mut progress, cancel);
+        context.use_zsync_delta = true;
+
+        let error = manager.download_target(&target, &mut context).unwrap_err();
+
+        assert!(matches!(error, Error::Cancelled));
+        assert_eq!(server.request_count("/new.AppImage.zsync"), 0);
+        assert_eq!(server.full_requests("/new.AppImage"), 0);
+    }
+
+    #[test]
+    fn uses_the_control_file_cached_by_check() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = control_bytes(&new, "new.AppImage");
+        let server = delta_server(&control, Route::new(new.clone()));
+        let manager = Github::new(image, BTreeMap::new(), None, HttpClient::new(), None);
+        let mut target = target(&server);
+        target.zsync_control = Some(control.into());
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download_target(&target, &mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert_eq!(server.request_count("/new.AppImage.zsync"), 0);
+        assert!(server.range_requests() > 0);
     }
 }

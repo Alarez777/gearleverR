@@ -1679,6 +1679,7 @@ impl AppModel {
             exec_name_for_terminal_apps: self.settings.values().exec_name_terminal,
             update_desktop_database: true,
             allow_unsafe_extractor: !self.settings.values().block_unsafe_extractor,
+            use_zsync_delta: self.settings.values().use_zsync_delta,
         }
     }
 
@@ -2779,6 +2780,15 @@ impl AppModel {
             self.settings.values().fetch_in_background,
             sender,
         ));
+        updates.add(&self.switch_row(
+            &t("Use zsync delta updates"),
+            Some(&t(
+                "Download only changed blocks when the source provides zsync data.\nOn very low-resource computers you may prefer to disable it: updates then download the full AppImage and skip block checksum scanning.",
+            )),
+            keys::USE_ZSYNC_DELTA,
+            self.settings.values().use_zsync_delta,
+            sender,
+        ));
 
         let github = adw::PreferencesGroup::new();
         github.set_title(&t("GitHub"));
@@ -3079,7 +3089,7 @@ impl AppModel {
             .developer_name(t("AppImage manager written in Rust"))
             .website(env!("CARGO_PKG_REPOSITORY"))
             .issue_url(concat!(env!("CARGO_PKG_REPOSITORY"), "/issues"))
-            .comments(t("<b>About</b>\nAn AppImage manager inspired by Gear Lever, but an independent project: it shares neither its code, its name nor its icon.\n\n<b>Built with</b>\nRust, GTK 4, libadwaita, Relm4, backhand and ureq."))
+            .comments(t("<b>About</b>\nAn AppImage manager inspired by Gear Lever, but an independent project: it shares neither its code, its name nor its icon.\n\n<b>Built with</b>\nRust, GTK 4, libadwaita, Relm4, backhand, ureq and zsync-rs (MIT)."))
             .license(t("<b>GPL-3.0-or-later</b>\nFree software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."))
             .build();
         arrange_about_rows(&about);

@@ -35,6 +35,8 @@ pub mod keys {
     pub const BLOCK_UNSAFE_EXTRACTOR: &str = "block-unsafe-extractor";
     /// Whether updates are checked at login.
     pub const FETCH_IN_BACKGROUND: &str = "fetch-updates-in-background";
+    /// Whether update sources that publish zsync data use delta downloads.
+    pub const USE_ZSYNC_DELTA: &str = "use-zsync-delta";
     /// Verbose logging.
     pub const DEBUG_LOGS: &str = "debug-logs";
     /// Whether the window was maximized.
@@ -76,6 +78,8 @@ pub struct Values {
     pub block_unsafe_extractor: bool,
     /// Whether updates are checked at login.
     pub fetch_in_background: bool,
+    /// Whether update sources that publish zsync data use delta downloads.
+    pub use_zsync_delta: bool,
     /// Verbose logging.
     pub debug_logs: bool,
     /// Whether the window was maximized.
@@ -100,6 +104,7 @@ impl Values {
             preview_minimal_ui: true,
             block_unsafe_extractor: true,
             fetch_in_background: false,
+            use_zsync_delta: true,
             debug_logs: false,
             is_maximized: false,
             window_width: 720,
@@ -133,6 +138,17 @@ impl Settings {
         };
 
         let settings = gio::Settings::new(APP_ID);
+        Self::from_settings(settings, paths)
+    }
+
+    fn from_settings(settings: gio::Settings, paths: &Paths) -> Self {
+        // A newer binary may run against an older installed schema. Reading a
+        // missing key emits a GLib critical, so fall back to the documented
+        // default instead.
+        let use_zsync_delta = settings
+            .settings_schema()
+            .is_none_or(|schema| !schema.has_key(keys::USE_ZSYNC_DELTA))
+            || settings.boolean(keys::USE_ZSYNC_DELTA);
         let values = Values {
             appimages_dir: expand(
                 settings.string(keys::APPIMAGES_FOLDER).as_str(),
@@ -144,6 +160,7 @@ impl Settings {
             preview_minimal_ui: settings.boolean(keys::PREVIEW_MINIMAL_UI),
             block_unsafe_extractor: settings.boolean(keys::BLOCK_UNSAFE_EXTRACTOR),
             fetch_in_background: settings.boolean(keys::FETCH_IN_BACKGROUND),
+            use_zsync_delta,
             debug_logs: settings.boolean(keys::DEBUG_LOGS),
             is_maximized: settings.boolean(keys::IS_MAXIMIZED),
             window_width: integer_value(&settings, keys::WINDOW_WIDTH, 720).clamp(320, 10_000),
@@ -187,6 +204,7 @@ impl Settings {
             keys::PREVIEW_MINIMAL_UI => self.values.preview_minimal_ui = value,
             keys::BLOCK_UNSAFE_EXTRACTOR => self.values.block_unsafe_extractor = value,
             keys::FETCH_IN_BACKGROUND => self.values.fetch_in_background = value,
+            keys::USE_ZSYNC_DELTA => self.values.use_zsync_delta = value,
             keys::DEBUG_LOGS => self.values.debug_logs = value,
             keys::IS_MAXIMIZED => self.values.is_maximized = value,
             keys::FIRST_RUN => self.values.first_run = value,
@@ -394,7 +412,44 @@ fn expand(value: &str, home: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::process::Command;
+
     use super::*;
+
+    #[test]
+    fn persists_the_zsync_delta_setting_in_gsettings() {
+        let directory = tempfile::tempdir().unwrap();
+        let schema_dir = directory.path().join("schemas");
+        fs::create_dir_all(&schema_dir).unwrap();
+        let schema = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../data/io.github.alarez777.GearLeverR.gschema.xml");
+        fs::copy(
+            &schema,
+            schema_dir.join("io.github.alarez777.GearLeverR.gschema.xml"),
+        )
+        .unwrap();
+
+        let status = Command::new("glib-compile-schemas")
+            .arg("--strict")
+            .arg(&schema_dir)
+            .status()
+            .expect("glib-compile-schemas is required for the settings test");
+        assert!(status.success(), "schema compilation failed");
+
+        let source = gio::SettingsSchemaSource::from_directory(&schema_dir, None, true).unwrap();
+        let schema = source.lookup(APP_ID, true).unwrap();
+        let backend = gio::memory_settings_backend_new();
+        let raw = gio::Settings::new_full(&schema, Some(&backend), None);
+        let paths = Paths::with_home(Path::new("/home/tester"));
+
+        let mut settings = Settings::from_settings(raw.clone(), &paths);
+        assert!(settings.values().use_zsync_delta);
+        settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
+
+        let reloaded = Settings::from_settings(raw, &paths);
+        assert!(!reloaded.values().use_zsync_delta);
+    }
 
     #[test]
     fn expands_tilde() {
@@ -418,6 +473,19 @@ mod tests {
 
         assert_eq!(settings.values().window_width, 720);
         assert_eq!(settings.values().window_height, 720);
+    }
+
+    #[test]
+    fn enables_zsync_delta_by_default_and_can_disable_it() {
+        let paths = Paths::with_home(Path::new("/home/tester"));
+        let mut settings = Settings {
+            settings: None,
+            values: Values::defaults(&paths),
+        };
+
+        assert!(settings.values().use_zsync_delta);
+        settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
+        assert!(!settings.values().use_zsync_delta);
     }
 
     #[test]

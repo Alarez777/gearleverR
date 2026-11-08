@@ -30,6 +30,9 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
   herramientas externas para SquashFS.
 - Gestionar actualizaciones desde URL estática, GitHub, GitLab, Codeberg, Forgejo y FTP,
   incluida la información `.upd_info` embebida (`zsync` y `gh-releases-zsync`).
+- Descargar solo los bloques que han cambiado cuando una fuente estática o de GitHub
+  publica datos `.zsync`, con descarga completa como respaldo. Este modo delta se puede
+  desactivar en Preferencias.
 - Actualizar todo a la vez, con progreso, cancelación y comprobación de apps en ejecución.
 - Editar argumentos, variables de entorno, sitio web y fuente de actualizaciones.
 - Recargar metadata, borrar a la papelera y abrir la carpeta de la app.
@@ -88,6 +91,46 @@ También puedes pasarle un AppImage directamente:
 
 Los documentos `--json` tienen `schema_version: 1` y las mismas claves que la
 versión original (`installed` / `updates`).
+
+## Registros
+
+Gear LeverR escribe en `~/.local/state/gearlever-r/gearlever-r.log` (o
+`$XDG_STATE_HOME/gearlever-r/gearlever-r.log`).
+
+Por defecto solo se registran avisos. Para ver el detalle de las actualizaciones,
+activa «Habilitar registros de depuración» en Preferencias → Depurando y
+reinicia, o lanza la aplicación desde una terminal con:
+
+```sh
+RUST_LOG=gearlever_core=info ./GearLeverR-0.1.0-x86_64.AppImage
+```
+
+Después sigue el registro mientras se ejecuta una actualización:
+
+```sh
+tail -f ~/.local/state/gearlever-r/gearlever-r.log
+```
+
+Las actualizaciones delta solo se intentan con fuentes que publican `.zsync`
+(una fuente estática `zsync|...` o un asset `.zsync`/`gh-releases-zsync` de
+GitHub). Una actualización delta correcta deja un resumen como:
+
+```text
+INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704 scan_wait=1.2ms scan=83.1ms download=5.81s
+```
+
+- `downloaded_bytes` y `saved_bytes` cuentan bloques verificados; la fusión de
+  rangos puede hacer que el tráfico real de red sea algo mayor que
+  `downloaded_bytes`.
+- `downloaded_blocks`, `seed_blocks` y `total_blocks` son la misma contabilidad
+  en bloques.
+- `scan_wait` es el tiempo esperando a que termine otro escaneo, `scan` es el
+  escaneo en sí y `download` es el tiempo descargando los bloques que faltan.
+
+Si el delta falla, Gear LeverR continúa con la descarga completa y, con los
+logs de depuración activados, aparece `zsync delta failed, downloading the full
+AppImage`. Usa `--no-zsync-delta` con un comando de actualización para saltar
+el delta en esa ejecución sin cambiar Preferencias.
 
 ## Compilar
 
@@ -192,7 +235,6 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 - El tutorial tiene tres páginas (el original tiene cuatro) y no incluye el
   AppImage de demostración.
 - Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.
-- No hay actualizaciones delta: se descarga el AppImage completo.
 - DwarFS e ISO9660 requieren `dwarfsextract` o `7zz` instalados.
 - No hay auto-actualización del propio AppImage.
 
@@ -201,3 +243,6 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 GPL-3.0-or-later. Es un trabajo derivado de Gear Lever, de Lorenzo Paderi
 (<https://github.com/mijorus/gearlever>). El nombre y el icono originales no se
 usan; este proyecto se distribuye como Gear LeverR.
+
+Las actualizaciones delta usan [zsync-rs](https://crates.io/crates/zsync-rs), con
+licencia MIT. Su aviso está en `LICENSES/zsync-rs-MIT.txt` y dentro del AppImage.
