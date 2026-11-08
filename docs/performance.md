@@ -82,6 +82,22 @@ depende de cuánto se parezca la versión instalada a la nueva. El ahorro real d
 red puede ser algo menor que el del log, porque la fusión de rangos puede
 volver a descargar pequeños huecos entre bloques.
 
+### Prueba con dos núcleos
+
+Misma actualización real de Neovide 0.16.2 → 0.17.2, limitando el proceso con
+`taskset -c 0,1` para simular una máquina modesta (el disco no se limitó):
+
+| Núcleos | Descargado | Escaneo | Descarga |
+| --- | ---: | ---: | ---: |
+| 32 | 12,5 de 12,9 MB | 80,6 ms | 559 ms |
+| 2 | 12,5 de 12,9 MB | 224,9 ms | 400 ms |
+
+El escaneo se multiplica por ~2,8 al pasar de 32 a 2 núcleos, como corresponde
+a un trabajo CPU-bound. La descarga varía por la red y no es una medida
+fiable de disco; para eso haría falta un benchmark con la caché de disco fría.
+El resultado respalda mantener el aviso de Preferencias para equipos de muy
+bajos recursos.
+
 ## De dónde sale la mejora
 
 - Sin intérprete Python ni PyGObject al arrancar.
