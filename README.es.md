@@ -129,7 +129,8 @@ INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (
 
 Si el delta falla, Gear LeverR continúa con la descarga completa y, con los
 logs de depuración activados, aparece `zsync delta failed, downloading the full
-AppImage`.
+AppImage`. Usa `--no-zsync-delta` con un comando de actualización para saltar
+el delta en esa ejecución sin cambiar Preferencias.
 
 ## Compilar
 
