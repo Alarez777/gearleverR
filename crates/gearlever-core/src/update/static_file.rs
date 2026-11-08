@@ -20,6 +20,7 @@ struct Target {
     zsync: Option<zsync::ZsyncInfo>,
     zsync_url: Option<String>,
     control: Option<Arc<[u8]>>,
+    control_unavailable: bool,
 }
 
 impl fmt::Debug for Target {
@@ -32,6 +33,7 @@ impl fmt::Debug for Target {
                 "control_bytes",
                 &self.control.as_ref().map(|control| control.len()),
             )
+            .field("control_unavailable", &self.control_unavailable)
             .finish()
     }
 }
@@ -103,6 +105,7 @@ impl StaticFile {
                     zsync: None,
                     zsync_url: None,
                     control: None,
+                    control_unavailable: true,
                 }));
             };
             let info = zsync::parse_bytes(&control);
@@ -111,6 +114,7 @@ impl StaticFile {
                 zsync: Some(info),
                 zsync_url: Some(zsync_url),
                 control: Some(control.into()),
+                control_unavailable: false,
             }));
         }
 
@@ -119,6 +123,7 @@ impl StaticFile {
             zsync: None,
             zsync_url: None,
             control: None,
+            control_unavailable: false,
         }))
     }
 }
@@ -141,6 +146,17 @@ impl UpdateManager for StaticFile {
             return Ok(UpdateStatus::Unknown);
         };
         let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
+
+        if target.control_unavailable {
+            let Some(remote_size) = self.http.content_length(&target.url)? else {
+                return Ok(UpdateStatus::Unknown);
+            };
+            return Ok(if remote_size == local_size {
+                UpdateStatus::Unknown
+            } else {
+                UpdateStatus::Available
+            });
+        }
 
         if let Some(info) = &target.zsync {
             if info.length.is_some_and(|length| length != local_size) {
@@ -423,6 +439,9 @@ mod tests {
             Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
             HttpClient::new(),
         );
+        let hashes = HashCache::new(directory.path().join("hashes"));
+        assert_eq!(manager.check(&hashes).unwrap(), UpdateStatus::Unknown);
+
         let mut progress = |_fraction: f64| {};
         let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
         context.use_zsync_delta = true;

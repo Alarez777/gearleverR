@@ -173,6 +173,26 @@ impl fmt::Debug for Target {
     }
 }
 
+#[expect(
+    clippy::fn_params_excessive_bools,
+    reason = "the helper mirrors the boolean state of an incomplete control fetch"
+)]
+fn status_for_size(
+    local_size: u64,
+    asset_size: Option<u64>,
+    control_unavailable: bool,
+) -> UpdateStatus {
+    if asset_size == Some(local_size) {
+        if control_unavailable {
+            UpdateStatus::Unknown
+        } else {
+            UpdateStatus::UpToDate
+        }
+    } else {
+        UpdateStatus::Available
+    }
+}
+
 /// Pairs the `.zsync` asset selected by `pattern` with the AppImage it describes.
 fn pick_zsync_target(assets: &[Asset], pattern: &str) -> Option<Target> {
     let zsync_asset = pick_asset(assets, pattern)?;
@@ -359,6 +379,7 @@ impl UpdateManager for Github {
             return Ok(UpdateStatus::Available);
         }
 
+        let mut control_unavailable = false;
         if let Some(zsync_url) = target.zsync_url.clone() {
             let control = if let Some(control) = &target.zsync_control {
                 Some(Arc::clone(control))
@@ -371,6 +392,7 @@ impl UpdateManager for Github {
                 Some(control)
             } else {
                 tracing::debug!("zsync control file is too large, skipping its checksum");
+                control_unavailable = true;
                 None
             };
 
@@ -398,11 +420,11 @@ impl UpdateManager for Github {
             });
         }
 
-        Ok(if target.asset.size == Some(local_size) {
-            UpdateStatus::UpToDate
-        } else {
-            UpdateStatus::Available
-        })
+        Ok(status_for_size(
+            local_size,
+            target.asset.size,
+            control_unavailable,
+        ))
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
@@ -546,6 +568,13 @@ mod tests {
             size: Some(1),
             digest: None,
         }
+    }
+
+    #[test]
+    fn reports_unknown_when_the_control_was_too_large_and_sizes_match() {
+        assert_eq!(status_for_size(10, Some(10), true), UpdateStatus::Unknown);
+        assert_eq!(status_for_size(10, Some(10), false), UpdateStatus::UpToDate);
+        assert_eq!(status_for_size(10, Some(11), true), UpdateStatus::Available);
     }
 
     #[test]
