@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gearlever\n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-08 06:19+0000\n"
+"POT-Creation-Date: 2026-11-08 23:14+0000\n"
 "PO-Revision-Date: 2026-02-21 03:59+0100\n"
 "Last-Translator: Ekaterine Papava <papava.e@gtu.ge>\n"
 "Language-Team: Georgian <(nothing)>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 3.8\n"
 
-#: crates/gearlever/src/ui/mod.rs:3265
+#: crates/gearlever/src/ui/mod.rs:3361
 msgid ""
 "<b>About</b>\n"
 "An AppImage manager inspired by Gear Lever, but an independent project: it "
@@ -27,133 +27,133 @@ msgid ""
 "Rust, GTK 4, libadwaita, Relm4, backhand, ureq and zsync-rs (MIT)."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3266
+#: crates/gearlever/src/ui/mod.rs:3362
 msgid ""
 "<b>GPL-3.0-or-later</b>\n"
 "Free software: you can redistribute it and/or modify it under the terms of "
 "the GNU General Public License, version 3 or later."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4302
+#: crates/gearlever/src/ui/mod.rs:4551
 msgid "Access forbidden — token lacks required permissions"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2328
+#: crates/gearlever/src/ui/mod.rs:2413
 msgid "Add a website"
 msgstr "ვებსაიტის დამატება"
 
-#: crates/gearlever/src/ui/mod.rs:2558
+#: crates/gearlever/src/ui/mod.rs:2646
 msgid "Add or customize environment for this application"
 msgstr "გარემოს დამატება, ან მორგება ამ აპლიკაციისთვის"
 
-#: crates/gearlever/src/ui/mod.rs:834 crates/gearlever/src/ui/mod.rs:908
+#: crates/gearlever/src/ui/mod.rs:835 crates/gearlever/src/ui/mod.rs:909
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1934
+#: crates/gearlever/src/ui/mod.rs:2019
 msgid "App details"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2752 crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/mod.rs:2848 crates/gearlever/src/ui/welcome.rs:134
 msgid "AppImage default location"
 msgstr "AppImage-ის ნაგულისხმევი მდებარეობა"
 
-#: crates/gearlever/src/ui/mod.rs:695
+#: crates/gearlever/src/ui/mod.rs:696
 msgid "AppImage integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3262
+#: crates/gearlever/src/ui/mod.rs:3358
 msgid "AppImage manager written in Rust"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:712
+#: crates/gearlever/src/ui/mod.rs:713
 msgid "AppImages integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:810
+#: crates/gearlever/src/ui/mod.rs:811
 msgid "AppImages removed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2821
+#: crates/gearlever/src/ui/mod.rs:2917
 msgid "Appearance"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2018
+#: crates/gearlever/src/ui/mod.rs:2103
 msgid "Applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2514
+#: crates/gearlever/src/ui/mod.rs:2601
 msgid "Apply changes"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3010
+#: crates/gearlever/src/ui/mod.rs:3106
 msgid "Apply token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2638
+#: crates/gearlever/src/ui/mod.rs:2734
 msgid "Apps to integrate"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2968
+#: crates/gearlever/src/ui/mod.rs:3064
 msgid ""
 "Authenticate with GitHub to raise the API rate limit from 60 to 5,000 "
 "requests per hour"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4301
+#: crates/gearlever/src/ui/mod.rs:4550
 msgid "Authentication failed — token is invalid or expired"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1964
+#: crates/gearlever/src/ui/mod.rs:2049
 msgid "Back"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1883 crates/gearlever/src/ui/mod.rs:1916
-#: crates/gearlever/src/ui/mod.rs:2773 crates/gearlever/src/ui/mod.rs:3279
-#: crates/gearlever/src/ui/mod.rs:3324 crates/gearlever/src/ui/mod.rs:3374
-#: crates/gearlever/src/ui/mod.rs:3412 crates/gearlever/src/ui/welcome.rs:157
+#: crates/gearlever/src/ui/mod.rs:1968 crates/gearlever/src/ui/mod.rs:2001
+#: crates/gearlever/src/ui/mod.rs:2869 crates/gearlever/src/ui/mod.rs:3375
+#: crates/gearlever/src/ui/mod.rs:3420 crates/gearlever/src/ui/mod.rs:3470
+#: crates/gearlever/src/ui/mod.rs:3508 crates/gearlever/src/ui/welcome.rs:157
 msgid "Cancel"
 msgstr "გაუქმება"
 
-#: crates/gearlever/src/ui/mod.rs:2664 crates/gearlever/src/ui/mod.rs:3554
-#: crates/gearlever/src/ui/mod.rs:3561 crates/gearlever/src/ui/mod.rs:3763
+#: crates/gearlever/src/ui/mod.rs:2760 crates/gearlever/src/ui/mod.rs:3650
+#: crates/gearlever/src/ui/mod.rs:3657 crates/gearlever/src/ui/mod.rs:3859
 msgid "Cancel update"
 msgstr "განახლების გაუქმება"
 
-#: crates/gearlever/src/ui/mod.rs:1025
+#: crates/gearlever/src/ui/mod.rs:1026
 msgid "Cancelling..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1318
+#: crates/gearlever/src/ui/mod.rs:1338
 msgid "Cannot determine the running AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:604 crates/gearlever/src/ui/mod.rs:1666
+#: crates/gearlever/src/ui/mod.rs:605 crates/gearlever/src/ui/mod.rs:1751
 msgid "Cannot read the AppImage metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3474 crates/gearlever/src/ui/mod.rs:3506
+#: crates/gearlever/src/ui/mod.rs:3570 crates/gearlever/src/ui/mod.rs:3602
 msgid "Cannot restart Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:567 crates/gearlever/src/ui/mod.rs:1596
-#: crates/gearlever/src/ui/mod.rs:3643
+#: crates/gearlever/src/ui/mod.rs:568 crates/gearlever/src/ui/mod.rs:1681
+#: crates/gearlever/src/ui/mod.rs:3739
 msgid "Check for updates"
 msgstr "განახლებების შემოწმება"
 
-#: crates/gearlever/src/ui/mod.rs:2948 crates/gearlever/src/ui/welcome.rs:201
+#: crates/gearlever/src/ui/mod.rs:3044 crates/gearlever/src/ui/welcome.rs:201
 msgid "Check updates on system startup"
 msgstr "განახლებების შემოწმება სისტემის გაშვებისას"
 
-#: crates/gearlever/src/ui/mod.rs:1472
+#: crates/gearlever/src/ui/mod.rs:1557
 msgid "Checking updates..."
 msgstr "განახლებების შემოწმება..."
 
-#: crates/gearlever/src/ui/mod.rs:3015
+#: crates/gearlever/src/ui/mod.rs:3111
 msgid "Clear token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3135
+#: crates/gearlever/src/ui/mod.rs:3231
 msgid "Clone AppImages into the destination folder"
 msgstr "Appimage-ის დაკლონვა სამიზნე საქაღალდეში"
 
@@ -161,90 +161,94 @@ msgstr "Appimage-ის დაკლონვა სამიზნე საქ
 msgid "Close"
 msgstr "დახურვა"
 
-#: crates/gearlever/src/ui/mod.rs:2283
+#: crates/gearlever/src/ui/mod.rs:2368
 msgid "Command line arguments"
 msgstr "ბრძანების სტრიქონის არგუმენტები"
 
-#: crates/gearlever/src/ui/mod.rs:3303
+#: crates/gearlever/src/ui/mod.rs:3399
 msgid "Conflict with \"{app_name}\""
 msgstr "კონფლიქტი აპთან \"{app_name}\""
 
-#: crates/gearlever/src/ui/mod.rs:4308
+#: crates/gearlever/src/ui/mod.rs:4557
 msgid "Connection error: {error}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4190
+#: crates/gearlever/src/ui/mod.rs:4439
 msgid "Could not clear the token: {error}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4172
+#: crates/gearlever/src/ui/mod.rs:4421
 msgid "Could not save the token: {error}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3085
+#: crates/gearlever/src/ui/mod.rs:3181
 msgid "Create a token on GitHub"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3153
+#: crates/gearlever/src/ui/mod.rs:3249
 msgid "Debugging"
 msgstr "გამართვა"
 
-#: crates/gearlever/src/ui/mod.rs:2444
+#: crates/gearlever/src/ui/mod.rs:2531
 msgid "Default"
 msgstr "ნაგულისხმევი"
 
-#: crates/gearlever/src/ui/mod.rs:3277
+#: crates/gearlever/src/ui/mod.rs:3373
 msgid "Do you really want to remove this app?"
 msgstr "მართლა გნებავთ ამ აპის წაშლა?"
 
-#: crates/gearlever/src/ui/mod.rs:2958
+#: crates/gearlever/src/ui/mod.rs:3054
 msgid ""
 "Download only changed blocks when the source provides zsync data.\n"
 "On very low-resource computers you may prefer to disable it: updates then "
 "download the full AppImage and skip block checksum scanning."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3698
+#: crates/gearlever/src/ui/mod.rs:3794
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "გადმოაგდეთ და დააგდეთ AppImage აქ, ან დააწკაპუნეთ ხატულაზე \"+\"."
 
-#: crates/gearlever/src/ui/mod.rs:3784
+#: crates/gearlever/src/ui/mod.rs:3880
 msgid "Drop your file here"
 msgstr "ჩააგდეთ თქვენი ფაილი აქ"
 
-#: crates/gearlever/src/ui/mod.rs:3155
+#: crates/gearlever/src/ui/mod.rs:3251
 msgid "Enable debug logs"
 msgstr "გამართვის ჟურნალის ჩართვა"
 
-#: crates/gearlever/src/ui/mod.rs:3934
+#: crates/gearlever/src/ui/mod.rs:4032
 msgid "Enable or disable this environment variable"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4156
+#: crates/gearlever/src/ui/mod.rs:4405
 msgid "Enter a token first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3057
+#: crates/gearlever/src/ui/mod.rs:3153
 msgid "Enter a valid token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2557
+#: crates/gearlever/src/ui/mod.rs:2656 crates/gearlever/src/ui/mod.rs:4234
+msgid "Environment variable history"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:2645
 msgid "Environment variables"
 msgstr "გარემოს ცვლადები"
 
-#: crates/gearlever/src/ui/mod.rs:3105 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:3201 crates/gearlever/src/ui/welcome.rs:177
 msgid "File management"
 msgstr "ფაილების მართვა"
 
-#: crates/gearlever/src/ui/mod.rs:3625
+#: crates/gearlever/src/ui/mod.rs:3721
 msgid "Filter installed applications"
 msgstr "დაყენებული აპლიკაციების გაფილტვრა"
 
-#: crates/gearlever/src/ui/mod.rs:3086
+#: crates/gearlever/src/ui/mod.rs:3182
 msgid "Fine-grained token with read-only public repo access is sufficient"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1353
+#: crates/gearlever/src/ui/mod.rs:1373
 msgid "Gear LeverR installed"
 msgstr ""
 
@@ -254,24 +258,24 @@ msgid ""
 "installed and where to keep your AppImages."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3401
+#: crates/gearlever/src/ui/mod.rs:3497
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3370
+#: crates/gearlever/src/ui/mod.rs:3466
 msgid ""
 "Gear LeverR will be removed together with its desktop entry and the "
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3697
+#: crates/gearlever/src/ui/mod.rs:3793
 msgid "Get started"
 msgstr "დაიწყეთ"
 
-#: crates/gearlever/src/ui/mod.rs:2967
+#: crates/gearlever/src/ui/mod.rs:3063
 msgid "GitHub"
 msgstr ""
 
@@ -280,19 +284,19 @@ msgid ""
 "GitHub authentication failed (401). Check your token in Preferences → GitHub."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4186
+#: crates/gearlever/src/ui/mod.rs:4435
 msgid "GitHub token cleared"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:591
+#: crates/gearlever/src/ui/mod.rs:592
 msgid "GitHub token expired or invalid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4167
+#: crates/gearlever/src/ui/mod.rs:4416
 msgid "GitHub token saved. Use Test to verify it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3144
+#: crates/gearlever/src/ui/mod.rs:3240
 msgid ""
 "If enabled, apps that run in the terminal are renamed as their executable.\n"
 "You would need to add the aforementioned folder to your $PATH manually.\n"
@@ -305,7 +309,7 @@ msgstr ""
 "\n"
 "მაგალითად, \"golang_x86_64.appimage\" შენახული იქნება, როგორც \"go\""
 
-#: crates/gearlever/src/ui/mod.rs:2812
+#: crates/gearlever/src/ui/mod.rs:2908
 msgid ""
 "If enabled, the app will try to load an Appimage without using the built-in "
 "appimage-extract command.\n"
@@ -317,11 +321,11 @@ msgstr ""
 "გამორთეთ, მხოლოდ, მაშინ, თუ ენდობით თქვენს წყაროს: მავნე აპებს "
 "მეტამონაცემების ჩატვირთვისას კოდის შესრულება შეუძლიათ."
 
-#: crates/gearlever/src/ui/mod.rs:2825
+#: crates/gearlever/src/ui/mod.rs:2921
 msgid "Increase the size of text and buttons"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3156
+#: crates/gearlever/src/ui/mod.rs:3252
 msgid ""
 "Increases log verbosity, occupying more disk space and potentially impacting "
 "performance.\n"
@@ -335,11 +339,11 @@ msgstr ""
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3684
+#: crates/gearlever/src/ui/mod.rs:3780
 msgid "Installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2020 crates/gearlever/src/ui/mod.rs:3637
+#: crates/gearlever/src/ui/mod.rs:2105 crates/gearlever/src/ui/mod.rs:3733
 msgid "Installed applications"
 msgstr "დაყენებული აპლიკაციები"
 
@@ -347,39 +351,39 @@ msgstr "დაყენებული აპლიკაციები"
 msgid "Installing..."
 msgstr "დაყენება..."
 
-#: crates/gearlever/src/ui/mod.rs:651
+#: crates/gearlever/src/ui/mod.rs:652
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1693
+#: crates/gearlever/src/ui/mod.rs:1778
 msgid "Integrating..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2824
+#: crates/gearlever/src/ui/mod.rs:2920
 msgid "Interface scale"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3321
+#: crates/gearlever/src/ui/mod.rs:3417
 msgid "Keep both"
 msgstr "ორივეს დატოვება"
 
-#: crates/gearlever/src/ui/mod.rs:3136
+#: crates/gearlever/src/ui/mod.rs:3232
 msgid "Keep the original file and create a copy in the destination folder"
 msgstr "ორიგინალი ფაილის შენარჩუნება და ასლის შექმნა სამიზნე საქაღალდეში"
 
-#: crates/gearlever/src/ui/mod.rs:3917
+#: crates/gearlever/src/ui/mod.rs:4015
 msgid "Key"
 msgstr "გასაღები"
 
-#: crates/gearlever/src/ui/mod.rs:2913
+#: crates/gearlever/src/ui/mod.rs:3009
 msgid "Later"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2209 crates/gearlever/src/ui/mod.rs:2396
+#: crates/gearlever/src/ui/mod.rs:2294 crates/gearlever/src/ui/mod.rs:2483
 msgid "Launch"
 msgstr "გაშვება"
 
-#: crates/gearlever/src/ui/mod.rs:2796
+#: crates/gearlever/src/ui/mod.rs:2892
 msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
@@ -387,47 +391,51 @@ msgstr ""
 "AppImage-ების სია, რომლებიც ინტეგრირებულია სისტემურ მენიუში, მაგრამ "
 "მოთავსებულია ნაგულისხმევი საქაღალდის გარეთ"
 
-#: crates/gearlever/src/ui/mod.rs:1597
+#: crates/gearlever/src/ui/mod.rs:1682
 msgid "Look for new versions of this application"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2440
+#: crates/gearlever/src/ui/mod.rs:2527
 msgid "Manage update details for this application"
 msgstr "განახლების დეტალების მართვა ამ აპლიკაციისთვის"
 
-#: crates/gearlever/src/ui/mod.rs:3590
+#: crates/gearlever/src/ui/mod.rs:3686
 msgid "Menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1240
+#: crates/gearlever/src/ui/mod.rs:1260
 msgid "Metadata reloaded"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3130 crates/gearlever/src/ui/welcome.rs:180
+#: crates/gearlever/src/ui/mod.rs:3226 crates/gearlever/src/ui/welcome.rs:180
 msgid "Move AppImages into the destination folder"
 msgstr "Appimage-ის გადატანა სამიზნე საქაღალდეში"
 
-#: crates/gearlever/src/ui/mod.rs:1937 crates/gearlever/src/ui/mod.rs:2657
+#: crates/gearlever/src/ui/mod.rs:2022 crates/gearlever/src/ui/mod.rs:2753
 msgid "Move all to the app menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2403
+#: crates/gearlever/src/ui/mod.rs:2490
 msgid "Move to the app menu"
 msgstr "აპის მენიუში გადატანა"
 
-#: crates/gearlever/src/ui/mod.rs:3141
+#: crates/gearlever/src/ui/mod.rs:3237
 msgid "Naming conventions"
 msgstr "შეთანხმება სახელებზე"
 
-#: crates/gearlever/src/ui/mod.rs:870
+#: crates/gearlever/src/ui/mod.rs:4239
+msgid "No environment variables yet"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:871
 msgid "No update method was found for this AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:920 crates/gearlever/src/ui/mod.rs:980
+#: crates/gearlever/src/ui/mod.rs:921 crates/gearlever/src/ui/mod.rs:981
 msgid "No updates available"
 msgstr "განახლებების ვერ ვიპოვე"
 
-#: crates/gearlever/src/ui/mod.rs:569
+#: crates/gearlever/src/ui/mod.rs:570
 msgid "No updates found"
 msgstr "განახლებები ვერ ვიპოვე"
 
@@ -435,58 +443,58 @@ msgstr "განახლებები ვერ ვიპოვე"
 msgid "Not now"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1884 crates/gearlever/src/ui/mod.rs:1917
-#: crates/gearlever/src/ui/mod.rs:2090
+#: crates/gearlever/src/ui/mod.rs:1969 crates/gearlever/src/ui/mod.rs:2002
+#: crates/gearlever/src/ui/mod.rs:2175
 msgid "Open"
 msgstr "გახსნა"
 
-#: crates/gearlever/src/ui/mod.rs:2273
+#: crates/gearlever/src/ui/mod.rs:2358
 msgid "Open Folder"
 msgstr "საქაღალდის გახსნა"
 
-#: crates/gearlever/src/ui/mod.rs:592 crates/gearlever/src/ui/mod.rs:598
-#: crates/gearlever/src/ui/mod.rs:3703
+#: crates/gearlever/src/ui/mod.rs:593 crates/gearlever/src/ui/mod.rs:599
+#: crates/gearlever/src/ui/mod.rs:3799
 msgid "Open Preferences"
 msgstr "მორგების ფანჯრის გახსნა"
 
-#: crates/gearlever/src/ui/mod.rs:2337
+#: crates/gearlever/src/ui/mod.rs:2422
 msgid "Open URL"
 msgstr "URL-ის გახსნა"
 
-#: crates/gearlever/src/ui/mod.rs:1962 crates/gearlever/src/ui/mod.rs:3579
+#: crates/gearlever/src/ui/mod.rs:2047 crates/gearlever/src/ui/mod.rs:3675
 msgid "Open a new AppImage"
 msgstr "ახალი AppImage-ის გახსნა"
 
-#: crates/gearlever/src/ui/mod.rs:1878
+#: crates/gearlever/src/ui/mod.rs:1963
 msgid "Open an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2267
+#: crates/gearlever/src/ui/mod.rs:2352
 msgid "Path"
 msgstr "ბილიკი"
 
-#: crates/gearlever/src/ui/mod.rs:2999 crates/gearlever/src/ui/mod.rs:4166
-#: crates/gearlever/src/ui/mod.rs:4185
+#: crates/gearlever/src/ui/mod.rs:3095 crates/gearlever/src/ui/mod.rs:4415
+#: crates/gearlever/src/ui/mod.rs:4434
 msgid "Personal access token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2997
+#: crates/gearlever/src/ui/mod.rs:3093
 msgid "Personal access token (configured)"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2742
+#: crates/gearlever/src/ui/mod.rs:2838
 msgid "Preferences"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2804
+#: crates/gearlever/src/ui/mod.rs:2900
 msgid "Preview new apps in a minimal UI"
 msgstr "ახალი აპების გადახედვა მინიმალურ ინტერფეისში"
 
-#: crates/gearlever/src/ui/mod.rs:3597
+#: crates/gearlever/src/ui/mod.rs:3693
 msgid "Quit"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4303
+#: crates/gearlever/src/ui/mod.rs:4552
 msgid "Rate limit exceeded — try again later"
 msgstr ""
 
@@ -514,7 +522,7 @@ msgstr ""
 msgid "Rate limit: unlock the keyring or retry in {wait}."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2949
+#: crates/gearlever/src/ui/mod.rs:3045
 msgid ""
 "Receive a notification when a new update is detected; updates will not be "
 "installed automatically"
@@ -522,85 +530,89 @@ msgstr ""
 "შეტყობინების მიღება, როცა აღმოჩენილია ახალი განახლება. განახლებების დაყენება "
 "ავტომატურად არ მოხდება"
 
-#: crates/gearlever/src/ui/mod.rs:3131
+#: crates/gearlever/src/ui/mod.rs:3227
 msgid "Reduce disk usage"
 msgstr "დისკის მოხმარების შემცირება"
 
-#: crates/gearlever/src/ui/mod.rs:3785
+#: crates/gearlever/src/ui/mod.rs:3881
 msgid "Release to open the AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2244
+#: crates/gearlever/src/ui/mod.rs:2329
 msgid "Reload metadata"
 msgstr "მეტამონაცემების თავიდან ჩატვირთვა"
 
-#: crates/gearlever/src/ui/mod.rs:2217 crates/gearlever/src/ui/mod.rs:3280
+#: crates/gearlever/src/ui/mod.rs:2302 crates/gearlever/src/ui/mod.rs:3376
 msgid "Remove"
 msgstr "წაშლა"
 
-#: crates/gearlever/src/ui/mod.rs:3376
+#: crates/gearlever/src/ui/mod.rs:3472
 msgid "Remove Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3369
+#: crates/gearlever/src/ui/mod.rs:3465
 msgid "Remove Gear LeverR?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3375 crates/gearlever/src/ui/mod.rs:3413
+#: crates/gearlever/src/ui/mod.rs:3471 crates/gearlever/src/ui/mod.rs:3509
 msgid "Remove all AppImages"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3411
+#: crates/gearlever/src/ui/mod.rs:3507
 msgid "Remove all AppImages?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3276
+#: crates/gearlever/src/ui/mod.rs:3372
 msgid "Remove application?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:768
+#: crates/gearlever/src/ui/mod.rs:4279
+msgid "Remove from history"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:769
 msgid "Removed {path}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3317
+#: crates/gearlever/src/ui/mod.rs:3413
 msgid "Replace"
 msgstr "ჩანაცვლება"
 
-#: crates/gearlever/src/ui/mod.rs:2914
+#: crates/gearlever/src/ui/mod.rs:3010
 msgid "Restart"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2911
+#: crates/gearlever/src/ui/mod.rs:3007
 msgid "Restart Gear LeverR to apply the new interface scale."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2910
+#: crates/gearlever/src/ui/mod.rs:3006
 msgid "Restart required"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:544
+#: crates/gearlever/src/ui/mod.rs:545
 msgid "Retrying failed checks..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2512 crates/gearlever/src/ui/mod.rs:2570
+#: crates/gearlever/src/ui/mod.rs:2599 crates/gearlever/src/ui/mod.rs:2663
 msgid "Save"
 msgstr "შენახვა"
 
-#: crates/gearlever/src/ui/mod.rs:3584
+#: crates/gearlever/src/ui/mod.rs:3680
 msgid "Search"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2774 crates/gearlever/src/ui/welcome.rs:158
+#: crates/gearlever/src/ui/mod.rs:2870 crates/gearlever/src/ui/welcome.rs:158
 msgid "Select"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2760 crates/gearlever/src/ui/mod.rs:2768
+#: crates/gearlever/src/ui/mod.rs:2856 crates/gearlever/src/ui/mod.rs:2864
 #: crates/gearlever/src/ui/welcome.rs:147
 #: crates/gearlever/src/ui/welcome.rs:152
 msgid "Select a folder"
 msgstr "აირჩიეთ საქაღალდე"
 
-#: crates/gearlever/src/ui/mod.rs:2451
+#: crates/gearlever/src/ui/mod.rs:2538
 msgid "Select the source type"
 msgstr "აირჩიეთ წყაროს ტიპი"
 
@@ -608,98 +620,98 @@ msgstr "აირჩიეთ წყაროს ტიპი"
 msgid "Set the AppImage location"
 msgstr "AppImage-ის მდებარეობის დაყენება"
 
-#: crates/gearlever/src/ui/mod.rs:2795
+#: crates/gearlever/src/ui/mod.rs:2891
 msgid "Show integrated AppImages outside the default folder"
 msgstr "ინტეგრირებული AppImage-ების ნაგულისხმევი საქაღალდის გარეთ ჩვენება"
 
-#: crates/gearlever/src/ui/mod.rs:2450
+#: crates/gearlever/src/ui/mod.rs:2537
 msgid "Source"
 msgstr "წყარო"
 
-#: crates/gearlever/src/ui/mod.rs:3023
+#: crates/gearlever/src/ui/mod.rs:3119
 msgid "Test"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3017
+#: crates/gearlever/src/ui/mod.rs:3113
 msgid "Test token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4244
+#: crates/gearlever/src/ui/mod.rs:4493
 msgid "Testing..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:843
+#: crates/gearlever/src/ui/mod.rs:844
 msgid "The application is running, close it first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4160
+#: crates/gearlever/src/ui/mod.rs:4409
 msgid "The token contains invalid characters"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3307
+#: crates/gearlever/src/ui/mod.rs:3403
 msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr "აპი ამ სახელით უკვე არსებობს. როგორ გნებავთ, მოვიქცე?"
 
-#: crates/gearlever/src/cli.rs:359 crates/gearlever/src/ui/mod.rs:1911
-#: crates/gearlever/src/ui/mod.rs:4485
+#: crates/gearlever/src/cli.rs:359 crates/gearlever/src/ui/mod.rs:1996
+#: crates/gearlever/src/ui/mod.rs:4734
 msgid "This app might not be compatible with your system architecture"
 msgstr "ეს აპი, შეიძლება, თქვენი სისტემის არქიტექტურასთან თავსებადი არ იყოს"
 
-#: crates/gearlever/src/ui/mod.rs:2436
+#: crates/gearlever/src/ui/mod.rs:2523
 msgid "This application includes update information provided by the developer"
 msgstr ""
 "ეს აპლიკაცია შეიცავს პროგრამისტის მიერ მოწოდებულ განახლების ინფორმაციას"
 
-#: crates/gearlever/src/ui/mod.rs:3405
+#: crates/gearlever/src/ui/mod.rs:3501
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4229
+#: crates/gearlever/src/ui/mod.rs:4478
 msgid "Token configured · invalid or expired"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4225
+#: crates/gearlever/src/ui/mod.rs:4474
 msgid "Token configured · invalid or expired · expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4222
+#: crates/gearlever/src/ui/mod.rs:4471
 msgid "Token configured · valid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4218
+#: crates/gearlever/src/ui/mod.rs:4467
 msgid "Token configured · valid · expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4209
+#: crates/gearlever/src/ui/mod.rs:4458
 msgid ""
 "Token configured, but it could not be loaded. Unlock the system keyring or "
 "enter a new token."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4201
+#: crates/gearlever/src/ui/mod.rs:4450
 msgid ""
 "Token configured, but the keyring is locked. Unlock it or enter a new token."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4231
+#: crates/gearlever/src/ui/mod.rs:4480
 msgid "Token configured. Use Test to verify it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4299
+#: crates/gearlever/src/ui/mod.rs:4548
 msgid "Token is valid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4295
+#: crates/gearlever/src/ui/mod.rs:4544
 msgid "Token is valid — expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4290
+#: crates/gearlever/src/ui/mod.rs:4539
 msgid "Token is valid — {remaining} / {limit} requests remaining"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4278
+#: crates/gearlever/src/ui/mod.rs:4527
 msgid ""
 "Token is valid — {remaining} / {limit} requests remaining · expires "
 "{expires_at}"
@@ -709,27 +721,27 @@ msgstr ""
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4309
+#: crates/gearlever/src/ui/mod.rs:4558
 msgid "Unexpected response"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4306
+#: crates/gearlever/src/ui/mod.rs:4555
 msgid "Unexpected response ({status})"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2090 crates/gearlever/src/ui/mod.rs:2228
+#: crates/gearlever/src/ui/mod.rs:2175 crates/gearlever/src/ui/mod.rs:2313
 msgid "Update"
 msgstr "განახლება"
 
-#: crates/gearlever/src/ui/mod.rs:3658
+#: crates/gearlever/src/ui/mod.rs:3754
 msgid "Update all"
 msgstr "ყველას განახლება"
 
-#: crates/gearlever/src/ui/mod.rs:1032
+#: crates/gearlever/src/ui/mod.rs:1033
 msgid "Update cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2245
+#: crates/gearlever/src/ui/mod.rs:2330
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -737,59 +749,59 @@ msgstr ""
 "ისეთი ინფორმაციის განახლება, როგორიცაა ხატულა, ვერსია და აღწერა.\n"
 "სასარგებლოა, თუ აპი თავის თავს ანახლებს."
 
-#: crates/gearlever/src/ui/mod.rs:2422
+#: crates/gearlever/src/ui/mod.rs:2509
 msgid "Update management"
 msgstr "განახლებების მართვა"
 
-#: crates/gearlever/src/ui/mod.rs:1209
+#: crates/gearlever/src/ui/mod.rs:1229
 msgid "Update source saved"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3680
+#: crates/gearlever/src/ui/mod.rs:3776
 msgid "Updates"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1087
+#: crates/gearlever/src/ui/mod.rs:1088
 msgid "Updates cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1089
+#: crates/gearlever/src/ui/mod.rs:1090
 msgid "Updates installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2946 crates/gearlever/src/ui/welcome.rs:198
+#: crates/gearlever/src/ui/mod.rs:3042 crates/gearlever/src/ui/welcome.rs:198
 msgid "Updates management"
 msgstr "განახლებების მართვა"
 
-#: crates/gearlever/src/ui/mod.rs:1940
+#: crates/gearlever/src/ui/mod.rs:2025
 msgid "Updating applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:885
+#: crates/gearlever/src/ui/mod.rs:886
 msgid "Updating {name}..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3143
+#: crates/gearlever/src/ui/mod.rs:3239
 msgid "Use executable name for integrated terminal apps"
 msgstr "გამშვები ფაილის სახელის გამოყენება ინტეგრირებული ტერმინალის აპებისთვის"
 
-#: crates/gearlever/src/ui/mod.rs:2811
+#: crates/gearlever/src/ui/mod.rs:2907
 msgid "Use safe mechanisms to load metadata"
 msgstr "უსაფრთხო მექანიზმების გამოყენება მეტამონაცემების ჩასატვირთად"
 
-#: crates/gearlever/src/ui/mod.rs:2957
+#: crates/gearlever/src/ui/mod.rs:3053
 msgid "Use zsync delta updates"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3922
+#: crates/gearlever/src/ui/mod.rs:4020
 msgid "Value"
 msgstr "მნიშვნელობა"
 
-#: crates/gearlever/src/ui/mod.rs:4206
+#: crates/gearlever/src/ui/mod.rs:4455
 msgid "Verify your token works and check rate limit status"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2330
+#: crates/gearlever/src/ui/mod.rs:2415
 msgid "Website"
 msgstr "ვებგვერდი"
 
@@ -797,15 +809,15 @@ msgstr "ვებგვერდი"
 msgid "Welcome to Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3596
+#: crates/gearlever/src/ui/mod.rs:3692
 msgid "_About Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3595
+#: crates/gearlever/src/ui/mod.rs:3691
 msgid "_Open Log File"
 msgstr "_ჟურნალის ფაილის გახსნა"
 
-#: crates/gearlever/src/ui/mod.rs:3594
+#: crates/gearlever/src/ui/mod.rs:3690
 msgid "_Preferences"
 msgstr "_მორგება"
 
@@ -813,7 +825,7 @@ msgstr "_მორგება"
 msgid "{minutes} min"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1053
+#: crates/gearlever/src/ui/mod.rs:1054
 msgid "{name} updated"
 msgstr ""
 

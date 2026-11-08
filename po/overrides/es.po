@@ -51,6 +51,12 @@ msgstr "Calcular hashes"
 msgid "Enable or disable this environment variable"
 msgstr "Activar o desactivar esta variable de entorno"
 
+msgid "Environment variable history"
+msgstr "Historial de variables de entorno"
+
+msgid "No environment variables yet"
+msgstr "Todavía no hay variables de entorno"
+
 msgid "<b>GPL-3.0-or-later</b>\nFree software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later."
 msgstr "<b>GPL-3.0-or-later</b>\nSoftware libre: puedes redistribuirlo y/o modificarlo bajo los términos de la GNU GPL, versión 3 o posterior."
 
@@ -86,6 +92,9 @@ msgstr "Salir"
 
 msgid "Release to open the AppImage"
 msgstr "Suelta para abrir la AppImage"
+
+msgid "Remove from history"
+msgstr "Quitar del historial"
 
 msgid "Remove application?"
 msgstr "¿Eliminar aplicación?"

@@ -224,6 +224,7 @@ enum Msg {
         disabled_env: Vec<String>,
         arguments: String,
     },
+    ForgetEnvironment(String),
     SaveArguments {
         path: PathBuf,
         env: Vec<String>,
@@ -1110,6 +1111,13 @@ impl Component for AppModel {
                         Ok(()) => {
                             let mut config = self.config.clone();
                             config.set_disabled_env(&path, &disabled_env);
+                            let history: Vec<String> = env
+                                .iter()
+                                .chain(disabled_env.iter())
+                                .filter(|entry| is_history_variable(entry.as_str()))
+                                .cloned()
+                                .collect();
+                            config.remember_environment(&history);
                             if let Err(error) = config.save(&self.paths.config_file()) {
                                 Self::toast(widgets, &error.to_string());
                             }
@@ -1129,6 +1137,15 @@ impl Component for AppModel {
                         }
                         Err(error) => Self::toast(widgets, &error.to_string()),
                     }
+                }
+            }
+            Msg::ForgetEnvironment(entry) => {
+                let mut config = self.config.clone();
+                if config.forget_environment(&entry) {
+                    if let Err(error) = config.save(&self.paths.config_file()) {
+                        Self::toast(widgets, &error.to_string());
+                    }
+                    self.config = config;
                 }
             }
             Msg::SaveArguments {
@@ -1456,6 +1473,71 @@ impl AppModel {
             Ok(apps) => self.apps = apps,
             Err(error) => tracing::error!(%error, "cannot list integrated AppImages"),
         }
+
+        self.remember_current_environment();
+    }
+
+    /// Keeps the global history in sync with the variables currently in use.
+    ///
+    /// Seeding from the installed apps means a variable already present in a
+    /// desktop entry stays in the history when it is later deleted, instead of
+    /// disappearing with the only app that used it.
+    fn remember_current_environment(&mut self) {
+        let mut entries = Vec::new();
+
+        for app in &self.apps {
+            entries.extend(
+                app.env_variables
+                    .iter()
+                    .filter(|entry| is_history_variable(entry.as_str()))
+                    .cloned(),
+            );
+            entries.extend(
+                self.config
+                    .disabled_env(&app.image_path)
+                    .into_iter()
+                    .filter(|entry| is_history_variable(entry)),
+            );
+        }
+
+        let pruned = self.config.prune_environment_removed(&entries);
+        let remembered = self.config.remember_missing_environment(&entries);
+        if (pruned || remembered)
+            && let Err(error) = self.config.save(&self.paths.config_file())
+        {
+            tracing::warn!(%error, "cannot persist the environment variable history");
+        }
+    }
+
+    /// Returns the environment variables used by any installed application.
+    ///
+    /// The persisted history comes first, followed by the variables currently
+    /// configured for each app, so integrations created before the history
+    /// existed show their variables without a migration.
+    fn environment_history(&self) -> Vec<String> {
+        let mut entries = self.config.environment_history();
+
+        for app in &self.apps {
+            entries.extend(
+                app.env_variables
+                    .iter()
+                    .filter(|entry| is_history_variable(entry.as_str()))
+                    .cloned(),
+            );
+            entries.extend(
+                self.config
+                    .disabled_env(&app.image_path)
+                    .into_iter()
+                    .filter(|entry| is_history_variable(entry)),
+            );
+        }
+
+        let mut seen = HashSet::new();
+        let removed = self.config.environment_removed();
+        entries.retain(|entry| {
+            !removed.contains(entry) && is_history_variable(entry) && seen.insert(entry.clone())
+        });
+        entries
     }
 
     fn start_update_check(
@@ -2373,9 +2455,11 @@ impl AppModel {
 
         content.append(&list);
         content.append(&self.update_group(&app.image_path, sender));
+        let history = self.environment_history();
         content.append(&Self::env_group(
             app,
             &self.config,
+            &history,
             sender,
             current_arguments,
         ));
@@ -2553,6 +2637,7 @@ impl AppModel {
     fn env_group(
         app: &InstalledApp,
         config: &Config,
+        history: &[String],
         sender: &ComponentSender<Self>,
         arguments: Rc<RefCell<String>>,
     ) -> adw::PreferencesGroup {
@@ -2564,6 +2649,11 @@ impl AppModel {
 
         let add = gtk::Button::from_icon_name("list-add-symbolic");
         add.set_valign(gtk::Align::Center);
+        let history_button = gtk::MenuButton::new();
+        history_button.set_icon_name("document-open-recent-symbolic");
+        history_button.set_direction(gtk::ArrowType::Up);
+        history_button.set_valign(gtk::Align::Center);
+        history_button.set_tooltip_text(Some(&t("Environment variable history")));
         let save = gtk::Button::new();
         save.add_css_class("suggested-action");
         save.set_valign(gtk::Align::Center);
@@ -2576,6 +2666,7 @@ impl AppModel {
         let header = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         header.set_valign(gtk::Align::Center);
         header.append(&add);
+        header.append(&history_button);
         header.append(&save);
         group.set_header_suffix(Some(&header));
 
@@ -2592,6 +2683,7 @@ impl AppModel {
             path: app.image_path.clone(),
             arguments,
             next_id: Rc::new(Cell::new(0)),
+            suspend_save: Rc::new(Cell::new(false)),
         };
 
         for entry in &app.env_variables {
@@ -2614,6 +2706,7 @@ impl AppModel {
             editor.add(key, value, EnvState::Disabled);
         }
         editor.refresh();
+        history_button.set_popover(Some(&environment_history_popover(&editor, history)));
 
         let editor_add = editor.clone();
         add.connect_clicked(move |_| {
@@ -3895,6 +3988,8 @@ struct EnvEditor {
     path: PathBuf,
     arguments: Rc<RefCell<String>>,
     next_id: Rc<Cell<u64>>,
+    /// Prevents the checkbox autosave while the editor applies history.
+    suspend_save: Rc<Cell<bool>>,
 }
 
 struct EnvRow {
@@ -3962,7 +4057,9 @@ impl EnvEditor {
         let editor = self.clone();
         check.connect_toggled(move |_| {
             editor.refresh();
-            editor.save();
+            if !editor.suspend_save.get() {
+                editor.save();
+            }
         });
         let editor = self.clone();
         let row_for_delete = row;
@@ -4044,6 +4141,39 @@ impl EnvEditor {
             arguments,
         });
     }
+
+    /// Applies a history entry to the editor without saving it.
+    ///
+    /// An existing key keeps its row and gets the remembered value; an unknown
+    /// key appends a new active row. The user still has to press Save.
+    fn apply_history(&self, key: &str, value: &str) {
+        if key.is_empty() {
+            return;
+        }
+
+        let existing = {
+            let rows = self.rows.borrow();
+            rows.iter()
+                .find(|row| row.key.text().trim() == key)
+                .map(|row| (row.value.clone(), row.enabled.clone()))
+        };
+
+        match existing {
+            Some((value_entry, check)) => {
+                let suspended = self.suspend_save.replace(true);
+                if value_entry.text().trim() != value {
+                    value_entry.set_text(value);
+                }
+                if !check.is_active() {
+                    check.set_active(true);
+                }
+                self.suspend_save.set(suspended);
+            }
+            None => self.add(key, value, EnvState::Enabled),
+        }
+
+        self.refresh();
+    }
 }
 
 /// Returns the key of a `KEY=value` environment entry.
@@ -4082,6 +4212,122 @@ fn partition_environment(rows: &[(String, String, EnvState)]) -> (Vec<String>, V
     }
 
     (active, disabled)
+}
+
+/// Returns whether an environment entry has the `KEY=value` shape.
+fn is_history_variable(entry: &str) -> bool {
+    entry
+        .split_once('=')
+        .is_some_and(|(key, _)| !key.is_empty())
+}
+
+/// Builds the popover that lists environment variables used by any application.
+fn environment_history_popover(editor: &EnvEditor, history: &[String]) -> gtk::Popover {
+    let popover = gtk::Popover::new();
+
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    content.set_margin_top(10);
+    content.set_margin_bottom(10);
+    content.set_margin_start(10);
+    content.set_margin_end(10);
+
+    let title = gtk::Label::new(Some(&t("Environment variable history")));
+    title.add_css_class("heading");
+    title.set_halign(gtk::Align::Start);
+    content.append(&title);
+
+    let empty = gtk::Label::new(Some(&t("No environment variables yet")));
+    empty.add_css_class("dim-label");
+    empty.set_margin_top(12);
+    empty.set_margin_bottom(12);
+    empty.set_visible(history.is_empty());
+    content.append(&empty);
+
+    if !history.is_empty() {
+        let scrolled = gtk::ScrolledWindow::new();
+        scrolled.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+        scrolled.set_min_content_width(380);
+        scrolled.set_max_content_height(320);
+        scrolled.set_propagate_natural_height(true);
+
+        let list = gtk::ListBox::new();
+        list.set_selection_mode(gtk::SelectionMode::None);
+        let entries = Rc::new(RefCell::new(history.to_vec()));
+        let remaining = Rc::new(Cell::new(history.len()));
+
+        for entry in history {
+            let row = gtk::ListBoxRow::new();
+            row.set_activatable(true);
+            row.set_tooltip_text(Some(entry.as_str()));
+
+            let line = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            line.set_margin_top(4);
+            line.set_margin_bottom(4);
+            line.set_margin_start(12);
+            line.set_margin_end(6);
+
+            let label = gtk::Label::new(Some(entry.as_str()));
+            label.set_halign(gtk::Align::Start);
+            label.set_xalign(0.0);
+            label.set_hexpand(true);
+            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            line.append(&label);
+
+            let delete = gtk::Button::from_icon_name("user-trash-symbolic");
+            delete.add_css_class("destructive-action");
+            delete.set_valign(gtk::Align::Center);
+            delete.set_tooltip_text(Some(&t("Remove from history")));
+
+            let sender = editor.sender.clone();
+            let entry_for_delete = entry.clone();
+            let list_for_delete = list.clone();
+            let row_for_delete = row.clone();
+            let entries_for_delete = Rc::clone(&entries);
+            let remaining_for_delete = Rc::clone(&remaining);
+            let scrolled_for_delete = scrolled.clone();
+            let empty_for_delete = empty.clone();
+            delete.connect_clicked(move |_| {
+                sender.input(Msg::ForgetEnvironment(entry_for_delete.clone()));
+                entries_for_delete
+                    .borrow_mut()
+                    .retain(|candidate| candidate != &entry_for_delete);
+                list_for_delete.remove(&row_for_delete);
+
+                let remaining = remaining_for_delete.get().saturating_sub(1);
+                remaining_for_delete.set(remaining);
+                if remaining == 0 {
+                    scrolled_for_delete.set_visible(false);
+                    empty_for_delete.set_visible(true);
+                }
+            });
+
+            line.append(&delete);
+            row.set_child(Some(&line));
+            list.append(&row);
+        }
+
+        let editor = editor.clone();
+        let popover_for_activation = popover.clone();
+        let entries_for_activation = Rc::clone(&entries);
+        list.connect_row_activated(move |_, row| {
+            let Ok(index) = usize::try_from(row.index()) else {
+                return;
+            };
+            let entry = entries_for_activation.borrow().get(index).cloned();
+            let Some(entry) = entry else {
+                return;
+            };
+            let (key, value) = entry.split_once('=').unwrap_or((entry.as_str(), ""));
+            popover_for_activation.popdown();
+            editor.apply_history(key, value);
+        });
+
+        scrolled.set_child(Some(&list));
+        content.append(&scrolled);
+    }
+
+    popover.set_child(Some(&content));
+    popover
 }
 
 #[derive(Debug)]
@@ -4539,7 +4785,7 @@ fn details_header(
 
 #[cfg(test)]
 mod tests {
-    use super::{EnvState, Page, partition_environment};
+    use super::{EnvState, Page, is_history_variable, partition_environment};
 
     #[test]
     fn preview_windows_hide_the_back_button() {
@@ -4567,5 +4813,14 @@ mod tests {
 
         assert_eq!(active, vec!["A=1"]);
         assert_eq!(disabled, vec!["B=two words"]);
+    }
+
+    #[test]
+    fn accepts_valid_environment_entries_for_history() {
+        assert!(is_history_variable("GTK_THEME=Adwaita:dark"));
+        assert!(is_history_variable("EMPTY="));
+        assert!(is_history_variable("DESKTOPINTEGRATION=1"));
+        assert!(!is_history_variable("=missing-key"));
+        assert!(!is_history_variable(""));
     }
 }
