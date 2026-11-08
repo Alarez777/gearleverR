@@ -34,6 +34,9 @@ updates from six sources, a compatible CLI and the full interface. See
   without external tools for SquashFS.
 - Manage updates from a static URL, GitHub, GitLab, Codeberg, Forgejo and FTP,
   including embedded `.upd_info` data (`zsync` and `gh-releases-zsync`).
+- Download only the blocks that changed when a static or GitHub source publishes
+  `.zsync` data, with a full download as fallback. This delta path can be disabled in
+  Preferences.
 - Update everything at once, with progress, cancellation and a check for running apps.
 - Edit arguments, environment variables, the website and the update source.
 - Reload metadata, move an app to the trash and open its folder.
@@ -101,6 +104,45 @@ You can also pass an AppImage directly:
 
 `--json` documents use `schema_version: 1` and the same keys as the original
 (`installed` / `updates`).
+
+## Logs
+
+Gear LeverR writes to `~/.local/state/gearlever-r/gearlever-r.log` (or
+`$XDG_STATE_HOME/gearlever-r/gearlever-r.log`).
+
+Normal runs log warnings only. To see update details, either enable
+"Enable debug logs" in Preferences → Debugging and restart, or launch from a
+terminal with:
+
+```sh
+RUST_LOG=gearlever_core=info ./GearLeverR-0.1.0-x86_64.AppImage
+```
+
+Then follow the log while an update runs:
+
+```sh
+tail -f ~/.local/state/gearlever-r/gearlever-r.log
+```
+
+Delta updates are only attempted for sources that publish `.zsync` data (a
+static `zsync|...` update source or a GitHub `.zsync`/`gh-releases-zsync`
+asset). A successful delta update logs a summary like:
+
+```text
+INFO gearlever_core::update::delta: zsync delta downloaded 87.6 MB of 100.4 MB (12.8 MB saved, 12.8%) downloaded_bytes=91830792 saved_bytes=13451264 total_bytes=105282056 downloaded_blocks=22420 seed_blocks=3284 total_blocks=25704 scan_wait=1.2ms scan=83.1ms download=5.81s
+```
+
+- `downloaded_bytes` and `saved_bytes` count verified blocks; range merging can
+  make the real network traffic slightly higher than `downloaded_bytes`.
+- `downloaded_blocks`, `seed_blocks` and `total_blocks` are the same accounting
+  in blocks.
+- `scan_wait` is the time spent waiting for another AppImage scan, `scan` is the
+  scan itself, and `download` is the time spent fetching missing blocks.
+
+If the delta attempt fails, Gear LeverR falls back to a full download and, with
+debug logs enabled, the log shows `zsync delta failed, downloading the full
+AppImage`. Use `--no-zsync-delta` with an update command to skip delta for that
+run without changing Preferences.
 
 ## Building
 
@@ -203,7 +245,6 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
   in other languages, new Gear LeverR strings may appear in English until they are
   translated (see `po/`).
 - Environment variables are edited as `KEY=value` lines, not row by row.
-- There are no delta updates: the whole AppImage is downloaded.
 - DwarFS and ISO9660 require `dwarfsextract` or `7zz` to be installed.
 - There is no self-update for the AppImage itself.
 
@@ -212,3 +253,6 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
 GPL-3.0-or-later. This is a derivative work of Gear Lever by Lorenzo Paderi
 (<https://github.com/mijorus/gearlever>). The original name and icon are not used;
 this project is distributed as Gear LeverR.
+
+Delta updates use [zsync-rs](https://crates.io/crates/zsync-rs), MIT licensed. Its
+notice is included in `LICENSES/zsync-rs-MIT.txt` and in the AppImage.

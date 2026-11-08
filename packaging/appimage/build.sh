@@ -63,6 +63,9 @@ install_common() {
     install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.gschema.xml" \
         "$appdir/usr/share/glib-2.0/schemas/io.github.alarez777.GearLeverR.gschema.xml"
 
+    install -Dm644 "$ROOT/LICENSES/zsync-rs-MIT.txt" \
+        "$appdir/usr/share/doc/gearlever-r/zsync-rs-MIT.txt"
+
     if command -v glib-compile-schemas >/dev/null 2>&1; then
         glib-compile-schemas "$appdir/usr/share/glib-2.0/schemas"
     else

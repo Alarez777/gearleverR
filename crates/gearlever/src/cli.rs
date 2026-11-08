@@ -120,6 +120,10 @@ pub struct Cli {
     #[arg(long)]
     pub force: bool,
 
+    /// Disables zsync delta downloads for this run
+    #[arg(long)]
+    pub no_zsync_delta: bool,
+
     /// Updates all AppImages
     #[arg(long)]
     pub all: bool,
@@ -177,6 +181,7 @@ impl Cli {
     /// Returns an error with context for any failed operation.
     pub fn run(mut self) -> Result<()> {
         let mut context = CommandContext::load()?;
+        context.no_zsync_delta = self.no_zsync_delta;
 
         if let Some(file) = self.integrate.clone() {
             return self.integrate(&mut context, &file);
@@ -803,6 +808,7 @@ struct CommandContext {
     paths: Paths,
     settings: Settings,
     config: Config,
+    no_zsync_delta: bool,
 }
 
 impl CommandContext {
@@ -817,6 +823,7 @@ impl CommandContext {
             paths,
             settings,
             config,
+            no_zsync_delta: false,
         })
     }
 
@@ -923,6 +930,7 @@ impl CommandContext {
             exec_name_for_terminal_apps: self.settings.values().exec_name_terminal,
             update_desktop_database: true,
             allow_unsafe_extractor: !self.settings.values().block_unsafe_extractor,
+            use_zsync_delta: self.settings.values().use_zsync_delta && !self.no_zsync_delta,
         }
     }
 }
@@ -1062,4 +1070,16 @@ fn parse_pairs(options: &[String]) -> BTreeMap<String, String> {
 
 fn validate_source(kind: ManagerKind, values: &BTreeMap<String, String>) -> Result<()> {
     update::validate_config(kind, values).map_err(|error| anyhow!(error.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_the_no_zsync_delta_flag() {
+        let cli = Cli::parse_from(["gearlever-r", "--no-zsync-delta", "--list-installed"]);
+
+        assert!(cli.no_zsync_delta);
+    }
 }

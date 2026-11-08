@@ -21,6 +21,16 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// Largest zsync control file accepted from an update source.
+pub(crate) const MAX_CONTROL_BYTES: usize = 10 * 1024 * 1024;
+
+/// Body limit for text and JSON responses, matching ureq's default.
+const MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
+
+fn read_limit(max: usize) -> u64 {
+    u64::try_from(max.saturating_add(1)).unwrap_or(u64::MAX)
+}
+
 /// A blocking HTTP client shared by all update sources.
 #[derive(Clone)]
 pub struct HttpClient {
@@ -28,8 +38,8 @@ pub struct HttpClient {
     cache: Option<Arc<HttpCache>>,
 }
 
-struct TextResponse {
-    body: String,
+struct BytesResponse {
+    body: Vec<u8>,
     headers: http::HeaderMap,
     not_modified: bool,
 }
@@ -55,12 +65,12 @@ impl HttpClient {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            agent: Self::agent(),
+            agent: Self::build_agent(),
             cache: None,
         }
     }
 
-    fn agent() -> ureq::Agent {
+    fn build_agent() -> ureq::Agent {
         let config = ureq::Agent::config_builder()
             .user_agent(USER_AGENT)
             .timeout_connect(Some(CONNECT_TIMEOUT))
@@ -72,11 +82,16 @@ impl HttpClient {
         ureq::Agent::new_with_config(config)
     }
 
+    /// Returns a clone of the agent, sharing its connection pool.
+    pub(crate) fn agent(&self) -> ureq::Agent {
+        self.agent.clone()
+    }
+
     /// Creates a client with a persistent HTTP cache.
     #[must_use]
     pub(crate) fn with_cache(cache: HttpCache) -> Self {
         Self {
-            agent: Self::agent(),
+            agent: Self::build_agent(),
             cache: Some(Arc::new(cache)),
         }
     }
@@ -116,11 +131,22 @@ impl HttpClient {
         self.get_text_with_auth(url, accept, None)
     }
 
+    /// Fetches a binary document, returning `None` when it exceeds `max`.
+    ///
+    /// The body is cached when the client has a cache, so a later delta
+    /// download can reuse the `.zsync` control file fetched by the check.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Http`] for transport errors and
+    /// [`Error::HttpStatus`] for non-success statuses.
+    pub(crate) fn get_bytes_limited(&self, url: &str, max: usize) -> Result<Option<Vec<u8>>> {
+        let bytes = self.get_bytes_with_auth(url, None, None, read_limit(max))?;
+        Ok((bytes.len() <= max).then_some(bytes))
+    }
+
     /// Fetches a text document with optional `Accept` and `Authorization`
     /// headers.
-    ///
-    /// When the client has a cache, the request is conditional and concurrent
-    /// calls for the same URL are coalesced.
     ///
     /// The token is only added when the caller passes one; update sources are
     /// responsible for using it exclusively against their own API host.
@@ -130,9 +156,33 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<String> {
+        let body = self.get_bytes_with_auth(url, accept, token, read_limit(MAX_RESPONSE_BYTES))?;
+        if body.len() > MAX_RESPONSE_BYTES {
+            return Err(Error::Http(format!(
+                "{url}: response body exceeds {MAX_RESPONSE_BYTES} bytes"
+            )));
+        }
+        Ok(String::from_utf8_lossy(&body).into_owned())
+    }
+
+    /// Fetches a binary document with optional `Accept` and `Authorization`
+    /// headers.
+    ///
+    /// When the client has a cache, the request is conditional and concurrent
+    /// calls for the same URL are coalesced.
+    ///
+    /// The token is only added when the caller passes one; update sources are
+    /// responsible for using it exclusively against their own API host.
+    fn get_bytes_with_auth(
+        &self,
+        url: &str,
+        accept: Option<&str>,
+        token: Option<&str>,
+        limit: u64,
+    ) -> Result<Vec<u8>> {
         let Some(cache) = &self.cache else {
             return self
-                .send_text(url, accept, token, None)
+                .send_bytes(url, accept, token, None, limit)
                 .map(|response| response.body);
         };
 
@@ -145,7 +195,7 @@ impl HttpClient {
         }
 
         let cached = cache.load(&key);
-        let response = self.send_text(url, accept, token, cached.as_ref())?;
+        let response = self.send_bytes(url, accept, token, cached.as_ref(), limit)?;
         let (etag, last_modified) = if response.not_modified {
             (
                 header_value(&response.headers, "etag")
@@ -176,17 +226,26 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<(String, http::HeaderMap)> {
-        let response = self.send_text(url, accept, token, None)?;
-        Ok((response.body, response.headers))
+        let response = self.send_bytes(url, accept, token, None, read_limit(MAX_RESPONSE_BYTES))?;
+        if response.body.len() > MAX_RESPONSE_BYTES {
+            return Err(Error::Http(format!(
+                "{url}: response body exceeds {MAX_RESPONSE_BYTES} bytes"
+            )));
+        }
+        Ok((
+            String::from_utf8_lossy(&response.body).into_owned(),
+            response.headers,
+        ))
     }
 
-    fn send_text(
+    fn send_bytes(
         &self,
         url: &str,
         accept: Option<&str>,
         token: Option<&str>,
         cached: Option<&CacheEntry>,
-    ) -> Result<TextResponse> {
+        limit: u64,
+    ) -> Result<BytesResponse> {
         let mut request = self.agent.get(url);
         if let Some(accept) = accept {
             request = request.header("Accept", accept);
@@ -214,7 +273,7 @@ impl HttpClient {
                     "{url}: 304 Not Modified without a cached response"
                 )));
             };
-            return Ok(TextResponse {
+            return Ok(BytesResponse {
                 body: cached.body.clone(),
                 headers: response.headers().clone(),
                 not_modified: true,
@@ -230,14 +289,15 @@ impl HttpClient {
         }
 
         let headers = response.headers().clone();
-        let mut body = response.into_body();
-        let bytes = body
-            .read_to_vec()
+        let reader = response.into_body().into_reader();
+        let mut bytes = Vec::new();
+        reader
+            .take(limit)
+            .read_to_end(&mut bytes)
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
 
-        // zsync control files carry binary checksums after a text header.
-        Ok(TextResponse {
-            body: String::from_utf8_lossy(&bytes).into_owned(),
+        Ok(BytesResponse {
+            body: bytes,
             headers,
             not_modified: false,
         })

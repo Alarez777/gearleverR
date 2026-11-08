@@ -4,6 +4,7 @@
 //! GitHub, GitLab, Codeberg, Forgejo and FTP, plus the `.upd_info` section that
 //! AppImage developers embed in their bundles.
 
+mod delta;
 pub mod embedded;
 pub mod ftp;
 pub mod gitea;
@@ -12,6 +13,10 @@ pub mod gitlab;
 pub mod http;
 mod http_cache;
 pub mod static_file;
+#[cfg(test)]
+mod test_fixtures;
+#[cfg(test)]
+pub(crate) mod test_server;
 pub mod zsync;
 
 use std::fmt;
@@ -296,6 +301,8 @@ pub struct DownloadContext<'a> {
     pub progress: &'a mut dyn FnMut(f64),
     /// Set by the interface when the user cancels the download.
     pub cancel: Arc<AtomicBool>,
+    /// Whether the manager may attempt a zsync delta download.
+    pub use_zsync_delta: bool,
 }
 
 impl fmt::Debug for DownloadContext<'_> {
@@ -306,6 +313,40 @@ impl fmt::Debug for DownloadContext<'_> {
     }
 }
 
+/// Reports progress without ever moving backwards.
+///
+/// Managers use one tracker for both the delta attempt and a full-download
+/// fallback, so a failure after a partial delta does not reset the interface.
+pub(crate) struct ProgressTracker<'a> {
+    progress: &'a mut dyn FnMut(f64),
+    last: f64,
+}
+
+impl fmt::Debug for ProgressTracker<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ProgressTracker")
+            .field("last", &self.last)
+            .finish()
+    }
+}
+
+impl<'a> ProgressTracker<'a> {
+    pub(crate) fn new(progress: &'a mut dyn FnMut(f64)) -> Self {
+        Self {
+            progress,
+            last: 0.0,
+        }
+    }
+
+    pub(crate) fn report(&mut self, fraction: f64) {
+        let fraction = fraction.clamp(0.0, 1.0);
+        if fraction > self.last {
+            self.last = fraction;
+            (self.progress)(fraction);
+        }
+    }
+}
+
 impl<'a> DownloadContext<'a> {
     /// Builds a context for `directory`.
     pub fn new(directory: impl Into<PathBuf>, progress: &'a mut dyn FnMut(f64)) -> Self {
@@ -313,6 +354,7 @@ impl<'a> DownloadContext<'a> {
             directory: directory.into(),
             progress,
             cancel: Arc::new(AtomicBool::new(false)),
+            use_zsync_delta: false,
         }
     }
 
@@ -327,6 +369,7 @@ impl<'a> DownloadContext<'a> {
             directory: directory.into(),
             progress,
             cancel,
+            use_zsync_delta: false,
         }
     }
 
@@ -545,6 +588,10 @@ pub struct BatchReport {
 }
 
 /// Options used when installing a downloaded update.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the update pipeline is configured by independent on/off switches"
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateOptions {
     /// Folder that holds AppImages.
@@ -557,6 +604,8 @@ pub struct UpdateOptions {
     pub update_desktop_database: bool,
     /// Whether an external `--appimage-extract` fallback is allowed.
     pub allow_unsafe_extractor: bool,
+    /// Whether sources that publish zsync data may use a delta download.
+    pub use_zsync_delta: bool,
 }
 
 impl UpdateOptions {
@@ -586,6 +635,7 @@ fn prepare(
 ) -> Result<PreparedUpdate> {
     std::fs::create_dir_all(download_dir)?;
     let mut context = DownloadContext::with_cancel(download_dir.to_path_buf(), progress, cancel);
+    context.use_zsync_delta = options.use_zsync_delta;
     let downloaded = manager.download(&mut context)?;
 
     if context.is_cancelled() {
@@ -933,21 +983,40 @@ enum WorkerUpdate {
     },
 }
 
-/// Returns the average progress of every job in a batch.
+/// Returns the weighted progress of every job in a batch.
+fn batch_progress(fractions: &[f64], weights: &[f64]) -> f64 {
+    let total_weight: f64 = weights.iter().sum();
+    if total_weight <= 0.0 {
+        return 0.0;
+    }
+
+    let completed: f64 = fractions
+        .iter()
+        .zip(weights)
+        .map(|(fraction, weight)| fraction * weight)
+        .sum();
+    completed / total_weight
+}
+
 #[expect(
     clippy::as_conversions,
     clippy::cast_precision_loss,
     reason = "update progress does not need exact precision"
 )]
-fn batch_progress(fractions: &[f64]) -> f64 {
-    fractions.iter().sum::<f64>() / fractions.len() as f64
+fn progress_weight(size: u64) -> f64 {
+    size.max(1) as f64
 }
 
 /// Emits the aggregate progress of a batch.
-fn emit_batch_progress(fractions: &[f64], index: usize, on_event: &mut dyn FnMut(BatchEvent)) {
+fn emit_batch_progress(
+    fractions: &[f64],
+    weights: &[f64],
+    index: usize,
+    on_event: &mut dyn FnMut(BatchEvent),
+) {
     on_event(BatchEvent::Progress {
         index,
-        overall: batch_progress(fractions),
+        overall: batch_progress(fractions, weights),
     });
 }
 
@@ -976,6 +1045,10 @@ pub fn apply_batch(
 
     let worker_count = parallel.max(1).min(total);
     let mut fractions = vec![0.0_f64; total];
+    let weights: Vec<f64> = jobs
+        .iter()
+        .map(|job| progress_weight(job.app.size))
+        .collect();
     let mut installed = Vec::new();
     let mut failed = Vec::new();
     let mut cancelled = false;
@@ -1041,7 +1114,7 @@ pub fn apply_batch(
             match message {
                 WorkerUpdate::Progress { index, fraction } => {
                     fractions[index] = fraction.clamp(0.0, 1.0);
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
                 WorkerUpdate::Prepared { index, update } => {
                     if cancel.load(Ordering::Relaxed) {
@@ -1049,7 +1122,7 @@ pub fn apply_batch(
                         fractions[index] = 1.0;
                         cancelled = true;
                         on_event(BatchEvent::Cancelled { index });
-                        emit_batch_progress(&fractions, index, on_event);
+                        emit_batch_progress(&fractions, &weights, index, on_event);
                         continue;
                     }
 
@@ -1069,19 +1142,19 @@ pub fn apply_batch(
                             on_event(BatchEvent::Failed { index, app, error });
                         }
                     }
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
                 WorkerUpdate::Failed { index, app, error } => {
                     fractions[index] = 1.0;
                     failed.push(app.image_path.clone());
                     on_event(BatchEvent::Failed { index, app, error });
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
                 WorkerUpdate::Cancelled { index } => {
                     fractions[index] = 1.0;
                     cancelled = true;
                     on_event(BatchEvent::Cancelled { index });
-                    emit_batch_progress(&fractions, index, on_event);
+                    emit_batch_progress(&fractions, &weights, index, on_event);
                 }
             }
         }
@@ -1181,6 +1254,31 @@ mod tests {
             size: Some(10),
             digest: None,
         }
+    }
+
+    #[test]
+    fn batch_progress_weights_by_app_size() {
+        let overall = batch_progress(&[0.5, 1.0], &[3.0, 1.0]);
+
+        assert!((overall - 0.625).abs() < f64::EPSILON);
+        assert!(batch_progress(&[0.5], &[0.0]).abs() < f64::EPSILON);
+        assert!((progress_weight(0) - 1.0).abs() < f64::EPSILON);
+        assert!((progress_weight(1024) - 1024.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn progress_tracker_never_moves_backwards() {
+        let mut values = Vec::new();
+        {
+            let mut progress = |fraction| values.push(fraction);
+            let mut tracker = ProgressTracker::new(&mut progress);
+            tracker.report(0.5);
+            tracker.report(0.2);
+            tracker.report(0.7);
+            tracker.report(1.2);
+        }
+
+        assert_eq!(values, vec![0.5, 0.7, 1.0]);
     }
 
     #[test]
@@ -1313,6 +1411,7 @@ mod tests {
             exec_name_for_terminal_apps: false,
             update_desktop_database: false,
             allow_unsafe_extractor: false,
+            use_zsync_delta: false,
         }
     }
 
