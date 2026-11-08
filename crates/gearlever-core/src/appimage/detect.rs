@@ -73,6 +73,38 @@ impl ElfArch {
             Self::Other(_) => "unknown",
         }
     }
+
+    /// Returns the architecture of the running binary.
+    ///
+    /// Returns `None` for host architectures this build does not map yet, so
+    /// callers can avoid warning based on a guess.
+    #[must_use]
+    pub const fn host() -> Option<Self> {
+        if cfg!(target_arch = "x86_64") {
+            Some(Self::X86_64)
+        } else if cfg!(target_arch = "aarch64") {
+            Some(Self::Aarch64)
+        } else if cfg!(target_arch = "x86") {
+            Some(Self::Other(0x03))
+        } else if cfg!(target_arch = "arm") {
+            Some(Self::Other(0x28))
+        } else if cfg!(target_arch = "riscv64") {
+            Some(Self::Other(0xf3))
+        } else if cfg!(target_arch = "loongarch64") {
+            Some(Self::Other(0x102))
+        } else {
+            None
+        }
+    }
+
+    /// Returns whether an image built for this architecture can run on the host.
+    ///
+    /// Unknown host architectures are treated as compatible, so callers only
+    /// warn when this returns `false`.
+    #[must_use]
+    pub fn is_compatible_with_host(self) -> bool {
+        Self::host().is_none_or(|host| host == self)
+    }
 }
 
 impl fmt::Display for ElfArch {
@@ -220,5 +252,60 @@ mod tests {
     fn image_type_names_are_stable() {
         assert_eq!(ImageType::Type1.to_string(), "type 1");
         assert_eq!(ImageType::Type2.to_string(), "type 2");
+    }
+
+    #[test]
+    fn knows_the_host_architecture() {
+        let host = ElfArch::host();
+
+        if cfg!(any(
+            target_arch = "x86_64",
+            target_arch = "aarch64",
+            target_arch = "x86",
+            target_arch = "arm",
+            target_arch = "riscv64",
+            target_arch = "loongarch64"
+        )) {
+            assert!(host.is_some(), "the build target must map to an ELF arch");
+        }
+
+        if let Some(host) = host {
+            assert!(host.is_compatible_with_host());
+        }
+    }
+
+    #[test]
+    fn detects_a_foreign_architecture() {
+        let Some(host) = ElfArch::host() else {
+            return;
+        };
+
+        let foreign = if host == ElfArch::X86_64 {
+            ElfArch::Aarch64
+        } else {
+            ElfArch::X86_64
+        };
+
+        assert!(!foreign.is_compatible_with_host());
+        assert!(!ElfArch::Other(0xdead).is_compatible_with_host());
+    }
+
+    #[test]
+    fn reads_the_machine_from_an_elf_header() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("aarch64.AppImage");
+
+        let mut header = [0_u8; 20];
+        header[0..4].copy_from_slice(b"\x7fELF");
+        header[4] = 2; // 64-bit ELF
+        header[5] = 1; // little-endian
+        header[0x12..0x14].copy_from_slice(&0xb7_u16.to_le_bytes());
+
+        std::fs::write(&path, header).expect("write the ELF header");
+
+        assert_eq!(
+            elf_arch(&path).expect("read the architecture"),
+            ElfArch::Aarch64
+        );
     }
 }

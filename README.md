@@ -25,6 +25,7 @@ updates from six sources, a compatible CLI and the full interface. See
 ## Features
 
 - Integrate AppImages with one click, by drag and drop, or from the file chooser.
+- Warn before opening or integrating an AppImage built for another CPU architecture.
 - Detect an AppImage that is already integrated by comparing its contents, and offer
   Launch and Remove instead of integrating a second copy.
 - Ask whether to replace the installed version, keep both or cancel when a different

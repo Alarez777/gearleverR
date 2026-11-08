@@ -144,6 +144,11 @@ const STYLE: &str = r"
         border-radius: 9999px;
         padding: 4px 12px;
     }
+    .arch-warning {
+        background-color: alpha(@warning_color, 0.15);
+        border-radius: 12px;
+        padding: 12px;
+    }
     .multi-progress {
         margin: 0;
         padding: 0;

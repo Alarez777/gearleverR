@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use gearlever_core::appimage::ElfArch;
 use tempfile::TempDir;
 
 const BIN: &str = env!("CARGO_BIN_EXE_gearlever-r");
@@ -207,6 +208,42 @@ fn integrates_lists_and_removes_a_real_appimage() {
     let after = run(directory.path(), &["--list-installed", "--json"]);
     let document: serde_json::Value = serde_json::from_slice(&after.stdout).unwrap();
     assert_eq!(document["installed"].as_array().map(Vec::len), Some(0));
+}
+
+#[test]
+fn warns_when_integrating_a_foreign_appimage() {
+    let Some(source) = test_appimage() else {
+        return;
+    };
+    let Some(host) = ElfArch::host() else {
+        return;
+    };
+
+    let directory = home();
+    let source_copy = directory.path().join("foreign.AppImage");
+    let mut bytes = fs::read(&source).expect("read the fixture");
+    let (foreign_machine, foreign_name) = if host == ElfArch::X86_64 {
+        (0xb7_u16, "aarch64")
+    } else {
+        (0x3e_u16, "x86_64")
+    };
+    bytes[0x12..0x14].copy_from_slice(&foreign_machine.to_le_bytes());
+    fs::write(&source_copy, bytes).expect("write the patched fixture");
+
+    let source_arg = source_copy.to_string_lossy().into_owned();
+    let integrated = run(directory.path(), &["--integrate", &source_arg, "-y"]);
+
+    assert!(
+        integrated.status.success(),
+        "integrate failed: {}",
+        String::from_utf8_lossy(&integrated.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&integrated.stderr);
+    assert!(stderr.contains("Warning:"), "missing warning: {stderr}");
+    assert!(
+        stderr.contains(foreign_name),
+        "missing architecture in warning: {stderr}"
+    );
 }
 
 #[test]
