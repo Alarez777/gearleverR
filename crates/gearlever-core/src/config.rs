@@ -21,6 +21,9 @@ const DEFAULT_SECTION: &str = "DEFAULT";
 /// Per-application key that disables update checks.
 const SKIP_UPDATES_KEY: &str = "skip_updates";
 
+/// Prefix of the per-application keys that keep disabled environment variables.
+const DISABLED_ENV_PREFIX: &str = "disabled_env_";
+
 /// An INI document with the same semantics as the original configuration.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Config {
@@ -199,6 +202,50 @@ impl Config {
         let mut values = self.app(image);
         values.remove(SKIP_UPDATES_KEY);
         self.set_app(image, values);
+    }
+
+    /// Returns the environment variables disabled for `image`, in saved order.
+    ///
+    /// Each entry keeps the `KEY=value` form used by the editor, so re-enabling
+    /// one only has to quote the value again for the desktop entry.
+    #[must_use]
+    pub fn disabled_env(&self, image: &Path) -> Vec<String> {
+        let Some(values) = self.sections.get(&app_section(image)) else {
+            return Vec::new();
+        };
+
+        let mut entries: Vec<(usize, &str)> = values
+            .iter()
+            .filter_map(|(key, value)| {
+                let index = key.strip_prefix(DISABLED_ENV_PREFIX)?.parse().ok()?;
+                Some((index, value.as_str()))
+            })
+            .collect();
+        entries.sort_by_key(|(index, _)| *index);
+
+        entries
+            .into_iter()
+            .map(|(_, value)| value.to_owned())
+            .collect()
+    }
+
+    /// Replaces the environment variables disabled for `image`.
+    ///
+    /// Disabled variables stay in the configuration while they are absent from
+    /// the desktop entry, so the editor can offer them again.
+    pub fn set_disabled_env(&mut self, image: &Path, variables: &[String]) {
+        let mut values = self.app(image);
+        values.retain(|key, _| !key.starts_with(DISABLED_ENV_PREFIX));
+
+        for (index, variable) in variables.iter().enumerate() {
+            values.insert(format!("{DISABLED_ENV_PREFIX}{index}"), variable.clone());
+        }
+
+        if values.is_empty() {
+            self.sections.remove(&app_section(image));
+        } else {
+            self.set_app(image, values);
+        }
     }
 
     /// Returns the update manager configuration of an AppImage.
@@ -423,6 +470,41 @@ mod tests {
         let config = Config::parse(&format!("[{section}]\nskip_updates = yes\n"));
 
         assert!(config.updates_disabled(image));
+    }
+
+    #[test]
+    fn stores_disabled_environment_variables_in_order() {
+        let image = Path::new("/home/x/AppImages/example.appimage");
+        let mut config = Config::default();
+        config.set(&app_section(image), "name", "Example");
+        assert!(config.disabled_env(image).is_empty());
+
+        let variables = vec!["FIRST=1".to_owned(), "SECOND=with spaces".to_owned()];
+        config.set_disabled_env(image, &variables);
+
+        assert_eq!(config.disabled_env(image), variables);
+        assert_eq!(
+            config.get(&app_section(image), "disabled_env_0"),
+            Some("FIRST=1")
+        );
+        assert_eq!(config.get(&app_section(image), "name"), Some("Example"));
+
+        config.set_disabled_env(image, &[]);
+        assert!(config.disabled_env(image).is_empty());
+        assert!(!config.app(image).contains_key("disabled_env_0"));
+        assert_eq!(config.get(&app_section(image), "name"), Some("Example"));
+    }
+
+    #[test]
+    fn parses_disabled_environment_variables_by_index() {
+        let image = Path::new("/home/x/AppImages/example.appimage");
+        let section = app_section(image);
+        let config = Config::parse(&format!(
+            "[{section}]\ndisabled_env_1 = B=2\ndisabled_env_0 = A=1\nname = Example\n"
+        ));
+
+        assert_eq!(config.disabled_env(image), vec!["A=1", "B=2"]);
+        assert_eq!(config.get(&section, "name"), Some("Example"));
     }
 
     #[test]
