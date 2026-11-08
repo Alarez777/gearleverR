@@ -106,6 +106,24 @@ enum Page {
     MultiUpdate,
 }
 
+impl Page {
+    /// Returns whether the header shows the left button.
+    ///
+    /// The button opens a file on the list and goes back everywhere else, so an
+    /// externally opened AppImage hides it: that preview has no list to return to.
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "the page only needs the external-open flag to choose its button"
+    )]
+    fn shows_left_button(self, external_open: bool) -> bool {
+        match self {
+            Self::List => true,
+            Self::Details | Self::MultiInstall => !external_open,
+            Self::MultiUpdate => false,
+        }
+    }
+}
+
 /// Where the files came from: the external open signal or an in-app chooser.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoadSource {
@@ -668,6 +686,9 @@ impl Component for AppModel {
                         self.page = Page::Details;
                         Self::show_page(self, widgets);
                         Self::rebuild_details(self, widgets, &sender);
+                        if self.minimal_preview() {
+                            Self::minimal_ui(widgets);
+                        }
                         Self::toast(widgets, &t("AppImage integrated"));
                     }
                     Err(error) => Self::toast(widgets, &error),
@@ -1804,7 +1825,7 @@ impl AppModel {
         widgets.left_button.set_icon_name(icon);
         widgets
             .left_button
-            .set_visible(self.page != Page::MultiUpdate);
+            .set_visible(self.page.shows_left_button(self.external_open));
         widgets
             .search_button
             .set_visible(matches!(self.page, Page::List | Page::MultiUpdate));
@@ -4260,4 +4281,21 @@ fn details_header(
     header.append(&pills_box);
 
     header.upcast()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Page;
+
+    #[test]
+    fn external_previews_hide_the_back_button() {
+        assert!(!Page::Details.shows_left_button(true));
+        assert!(!Page::MultiInstall.shows_left_button(true));
+        assert!(!Page::MultiUpdate.shows_left_button(true));
+
+        assert!(Page::List.shows_left_button(true));
+        assert!(Page::List.shows_left_button(false));
+        assert!(Page::Details.shows_left_button(false));
+        assert!(Page::MultiInstall.shows_left_button(false));
+    }
 }
