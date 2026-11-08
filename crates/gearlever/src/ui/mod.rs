@@ -109,16 +109,17 @@ enum Page {
 impl Page {
     /// Returns whether the header shows the left button.
     ///
-    /// The button opens a file on the list and goes back everywhere else, so an
-    /// externally opened AppImage hides it: that preview has no list to return to.
+    /// The button opens a file on the list and goes back everywhere else. A
+    /// one-shot preview hides it because it has no list behind it; an external
+    /// open into a running window keeps it so the user can return to the list.
     #[expect(
         clippy::fn_params_excessive_bools,
-        reason = "the page only needs the external-open flag to choose its button"
+        reason = "the page only needs the preview-window flag to choose its button"
     )]
-    fn shows_left_button(self, external_open: bool) -> bool {
+    fn shows_left_button(self, preview_window: bool) -> bool {
         match self {
             Self::List => true,
-            Self::Details | Self::MultiInstall => !external_open,
+            Self::Details | Self::MultiInstall => !preview_window,
             Self::MultiUpdate => false,
         }
     }
@@ -278,6 +279,11 @@ struct AppModel {
     multi_done: HashSet<PathBuf>,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
+    /// Whether the window was created to preview an externally opened AppImage.
+    ///
+    /// This is a one-shot preview with no list behind it. An external open into
+    /// an already running window keeps the normal list and must not set it.
+    preview_window: bool,
     external_open: bool,
     reloaded: Option<(PathBuf, AppMetadata)>,
     cancel_token: Option<Arc<AtomicBool>>,
@@ -344,6 +350,7 @@ impl Component for AppModel {
         root.set_default_size(width, height);
         util::install_css(model.applied_ui_scale);
         model.opened_from_file = opened_from_file;
+        model.preview_window = opened_from_file;
 
         OPEN_SENDER.with(|slot| *slot.borrow_mut() = Some(sender.clone()));
         let pending =
@@ -388,6 +395,7 @@ impl Component for AppModel {
             }
             Msg::ShowList => {
                 self.external_open = false;
+                self.preview_window = false;
                 self.page = Page::List;
                 self.details = None;
                 self.reloaded = None;
@@ -396,6 +404,7 @@ impl Component for AppModel {
             }
             Msg::OpenPath(path) => {
                 self.external_open = false;
+                self.preview_window = false;
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == path) {
                     self.details = Some(DetailsItem::Installed(app.clone()));
                     self.details_source = None;
@@ -701,6 +710,7 @@ impl Component for AppModel {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
                         self.pending.clear();
+                        self.preview_window = false;
                         self.page = Page::List;
                         self.refresh_apps();
                         Self::show_page(self, widgets);
@@ -749,7 +759,7 @@ impl Component for AppModel {
                         return;
                     }
 
-                    if self.opened_from_file {
+                    if self.preview_window {
                         widgets.window.close();
                         return;
                     }
@@ -1391,6 +1401,7 @@ impl AppModel {
             multi_done: HashSet::new(),
             update_queue: Vec::new(),
             opened_from_file: false,
+            preview_window: false,
             external_open: false,
             reloaded: None,
             cancel_token: None,
@@ -1408,18 +1419,17 @@ impl AppModel {
             && !self_install::is_installed(&self.paths)
     }
 
-    /// Returns whether a file opened from the file manager uses the small preview.
+    /// Returns whether the window was created to preview an externally opened file.
     fn minimal_preview(&self) -> bool {
-        self.opened_from_file && self.settings.values().preview_minimal_ui
+        self.preview_window && self.settings.values().preview_minimal_ui
     }
 
     /// Returns whether launching an installed app should close the window.
     ///
-    /// Gear LeverR only closes when the file manager or the command line opened
-    /// it to handle an AppImage; launching from the in-app chooser or the list
-    /// keeps the main window open.
+    /// Gear LeverR only closes when the window was created to handle an AppImage;
+    /// launching from an already running window keeps it open.
     fn window_after_launch(&self) -> WindowAfterLaunch {
-        if self.external_open {
+        if self.preview_window {
             WindowAfterLaunch::Close
         } else {
             WindowAfterLaunch::StayOpen
@@ -1712,6 +1722,9 @@ impl AppModel {
         source: LoadSource,
     ) {
         self.external_open = source == LoadSource::External;
+        if source == LoadSource::Chosen {
+            self.preview_window = false;
+        }
         widgets.drop_revealer.set_reveal_child(false);
         widgets.drop_revealer.set_visible(false);
         let installed = self.apps.iter().map(|app| app.image_path.clone()).collect();
@@ -1825,7 +1838,7 @@ impl AppModel {
         widgets.left_button.set_icon_name(icon);
         widgets
             .left_button
-            .set_visible(self.page.shows_left_button(self.external_open));
+            .set_visible(self.page.shows_left_button(self.preview_window));
         widgets
             .search_button
             .set_visible(matches!(self.page, Page::List | Page::MultiUpdate));
@@ -4288,7 +4301,7 @@ mod tests {
     use super::Page;
 
     #[test]
-    fn external_previews_hide_the_back_button() {
+    fn preview_windows_hide_the_back_button() {
         assert!(!Page::Details.shows_left_button(true));
         assert!(!Page::MultiInstall.shows_left_button(true));
         assert!(!Page::MultiUpdate.shows_left_button(true));
