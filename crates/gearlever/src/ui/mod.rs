@@ -1463,6 +1463,38 @@ impl AppModel {
             Ok(apps) => self.apps = apps,
             Err(error) => tracing::error!(%error, "cannot list integrated AppImages"),
         }
+
+        self.remember_current_environment();
+    }
+
+    /// Keeps the global history in sync with the variables currently in use.
+    ///
+    /// Seeding from the installed apps means a variable already present in a
+    /// desktop entry stays in the history when it is later deleted, instead of
+    /// disappearing with the only app that used it.
+    fn remember_current_environment(&mut self) {
+        let mut entries = Vec::new();
+
+        for app in &self.apps {
+            entries.extend(
+                app.env_variables
+                    .iter()
+                    .filter(|entry| is_history_variable(entry.as_str()))
+                    .cloned(),
+            );
+            entries.extend(
+                self.config
+                    .disabled_env(&app.image_path)
+                    .into_iter()
+                    .filter(|entry| is_history_variable(entry)),
+            );
+        }
+
+        if self.config.remember_missing_environment(&entries)
+            && let Err(error) = self.config.save(&self.paths.config_file())
+        {
+            tracing::warn!(%error, "cannot persist the environment variable history");
+        }
     }
 
     /// Returns the environment variables used by any installed application.
@@ -2604,6 +2636,7 @@ impl AppModel {
         add.set_valign(gtk::Align::Center);
         let history_button = gtk::MenuButton::new();
         history_button.set_icon_name("document-open-recent-symbolic");
+        history_button.set_direction(gtk::ArrowType::Up);
         history_button.set_valign(gtk::Align::Center);
         history_button.set_tooltip_text(Some(&t("Environment variable history")));
         let save = gtk::Button::new();

@@ -336,16 +336,45 @@ impl Config {
             return false;
         }
 
+        self.write_environment_history(&merged);
+        true
+    }
+
+    /// Adds the variables that are not in the history yet.
+    ///
+    /// Existing entries keep their position, so scanning the installed apps
+    /// does not rewrite the history when there is nothing new. Returns whether
+    /// the stored history changed.
+    pub fn remember_missing_environment(&mut self, variables: &[String]) -> bool {
+        let previous = self.environment_history();
+        let mut missing: Vec<String> = Vec::new();
+
+        for variable in variables {
+            if !variable.is_empty() && !previous.contains(variable) && !missing.contains(variable) {
+                missing.push(variable.clone());
+            }
+        }
+
+        if missing.is_empty() {
+            return false;
+        }
+
+        missing.extend(previous);
+        missing.truncate(ENVIRONMENT_HISTORY_LIMIT);
+        self.write_environment_history(&missing);
+        true
+    }
+
+    /// Replaces the stored environment history.
+    fn write_environment_history(&mut self, entries: &[String]) {
         self.sections.remove(ENVIRONMENT_HISTORY_SECTION);
-        for (index, variable) in merged.iter().enumerate() {
+        for (index, variable) in entries.iter().enumerate() {
             self.set(
                 ENVIRONMENT_HISTORY_SECTION,
                 &format!("{ENVIRONMENT_HISTORY_PREFIX}{index:03}"),
                 variable.clone(),
             );
         }
-
-        true
     }
 
     /// Imports the configuration written by the original Gear Lever.
@@ -587,6 +616,25 @@ mod tests {
         assert_eq!(
             config.get(ENVIRONMENT_HISTORY_SECTION, "entry_000"),
             Some("B=2")
+        );
+    }
+
+    #[test]
+    fn adds_missing_environment_variables_without_reordering() {
+        let mut config = Config::default();
+        config.remember_environment(&["A=1".to_owned(), "B=2".to_owned()]);
+
+        assert!(!config.remember_missing_environment(&["B=2".to_owned()]));
+        assert!(config.remember_missing_environment(&[
+            "C=3".to_owned(),
+            "A=1".to_owned(),
+            "D=4".to_owned(),
+            "D=4".to_owned(),
+        ]));
+
+        assert_eq!(
+            config.environment_history(),
+            vec!["C=3", "D=4", "A=1", "B=2"]
         );
     }
 
