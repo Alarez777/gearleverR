@@ -21,6 +21,16 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// Largest zsync control file accepted from an update source.
+pub(crate) const MAX_CONTROL_BYTES: usize = 10 * 1024 * 1024;
+
+/// Body limit for text and JSON responses, matching ureq's default.
+const MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
+
+fn read_limit(max: usize) -> u64 {
+    u64::try_from(max.saturating_add(1)).unwrap_or(u64::MAX)
+}
+
 /// A blocking HTTP client shared by all update sources.
 #[derive(Clone)]
 pub struct HttpClient {
@@ -121,7 +131,7 @@ impl HttpClient {
         self.get_text_with_auth(url, accept, None)
     }
 
-    /// Fetches a binary document.
+    /// Fetches a binary document, returning `None` when it exceeds `max`.
     ///
     /// The body is cached when the client has a cache, so a later delta
     /// download can reuse the `.zsync` control file fetched by the check.
@@ -130,8 +140,9 @@ impl HttpClient {
     ///
     /// Returns [`Error::Http`] for transport errors and
     /// [`Error::HttpStatus`] for non-success statuses.
-    pub(crate) fn get_bytes(&self, url: &str) -> Result<Vec<u8>> {
-        self.get_bytes_with_auth(url, None, None)
+    pub(crate) fn get_bytes_limited(&self, url: &str, max: usize) -> Result<Option<Vec<u8>>> {
+        let bytes = self.get_bytes_with_auth(url, None, None, read_limit(max))?;
+        Ok((bytes.len() <= max).then_some(bytes))
     }
 
     /// Fetches a text document with optional `Accept` and `Authorization`
@@ -145,7 +156,12 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<String> {
-        let body = self.get_bytes_with_auth(url, accept, token)?;
+        let body = self.get_bytes_with_auth(url, accept, token, read_limit(MAX_RESPONSE_BYTES))?;
+        if body.len() > MAX_RESPONSE_BYTES {
+            return Err(Error::Http(format!(
+                "{url}: response body exceeds {MAX_RESPONSE_BYTES} bytes"
+            )));
+        }
         Ok(String::from_utf8_lossy(&body).into_owned())
     }
 
@@ -162,10 +178,11 @@ impl HttpClient {
         url: &str,
         accept: Option<&str>,
         token: Option<&str>,
+        limit: u64,
     ) -> Result<Vec<u8>> {
         let Some(cache) = &self.cache else {
             return self
-                .send_bytes(url, accept, token, None)
+                .send_bytes(url, accept, token, None, limit)
                 .map(|response| response.body);
         };
 
@@ -178,7 +195,7 @@ impl HttpClient {
         }
 
         let cached = cache.load(&key);
-        let response = self.send_bytes(url, accept, token, cached.as_ref())?;
+        let response = self.send_bytes(url, accept, token, cached.as_ref(), limit)?;
         let (etag, last_modified) = if response.not_modified {
             (
                 header_value(&response.headers, "etag")
@@ -209,7 +226,12 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
     ) -> Result<(String, http::HeaderMap)> {
-        let response = self.send_bytes(url, accept, token, None)?;
+        let response = self.send_bytes(url, accept, token, None, read_limit(MAX_RESPONSE_BYTES))?;
+        if response.body.len() > MAX_RESPONSE_BYTES {
+            return Err(Error::Http(format!(
+                "{url}: response body exceeds {MAX_RESPONSE_BYTES} bytes"
+            )));
+        }
         Ok((
             String::from_utf8_lossy(&response.body).into_owned(),
             response.headers,
@@ -222,6 +244,7 @@ impl HttpClient {
         accept: Option<&str>,
         token: Option<&str>,
         cached: Option<&CacheEntry>,
+        limit: u64,
     ) -> Result<BytesResponse> {
         let mut request = self.agent.get(url);
         if let Some(accept) = accept {
@@ -266,9 +289,11 @@ impl HttpClient {
         }
 
         let headers = response.headers().clone();
-        let mut body = response.into_body();
-        let bytes = body
-            .read_to_vec()
+        let reader = response.into_body().into_reader();
+        let mut bytes = Vec::new();
+        reader
+            .take(limit)
+            .read_to_end(&mut bytes)
             .map_err(|error| Error::Http(format!("{url}: {error}")))?;
 
         Ok(BytesResponse {

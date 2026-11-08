@@ -17,8 +17,9 @@ use serde::{Deserialize, Serialize};
 /// On-disk format version. Bump it when [`CacheEntry`] changes.
 const CACHE_VERSION: u32 = 2;
 
-/// Largest response body kept in the cache.
-const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
+/// Largest response body kept in the cache. Matches the control-file limit so
+/// large AppImages can still reuse their `.zsync` between checks.
+const MAX_BODY_BYTES: usize = super::http::MAX_CONTROL_BYTES;
 
 /// Entries older than this are ignored and removed.
 const MAX_AGE_SECONDS: u64 = 30 * 24 * 60 * 60;
@@ -266,6 +267,17 @@ mod tests {
         cache.store("control", &entry(&body));
 
         assert_eq!(cache.load("control").unwrap().body, body);
+    }
+
+    #[test]
+    fn caches_controls_larger_than_the_old_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let cache = HttpCache::new(directory.path().join("http"));
+        let body = vec![0xAB; 5 * 1024 * 1024];
+
+        cache.store("large-control", &entry(&body));
+
+        assert_eq!(cache.load("large-control").unwrap().body.len(), body.len());
     }
 
     #[test]

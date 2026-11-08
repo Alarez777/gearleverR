@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
-use super::http::HttpClient;
+use super::http::{HttpClient, MAX_CONTROL_BYTES};
 use super::{
     DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus, delta, value, zsync,
 };
@@ -92,7 +92,19 @@ impl StaticFile {
     /// download.
     fn resolve_target(&self) -> Result<Option<Target>> {
         if let Some(zsync_url) = self.embedded_url() {
-            let control = self.http.get_bytes(&zsync_url)?;
+            let Some(control) = self.http.get_bytes_limited(&zsync_url, MAX_CONTROL_BYTES)? else {
+                tracing::debug!("zsync control file is too large, using the default download URL");
+                let url = zsync_url
+                    .strip_suffix(".zsync")
+                    .unwrap_or(&zsync_url)
+                    .to_owned();
+                return Ok(Some(Target {
+                    url,
+                    zsync: None,
+                    zsync_url: None,
+                    control: None,
+                }));
+            };
             let info = zsync::parse_bytes(&control);
             return Ok(Some(Target {
                 url: zsync::download_url(&zsync_url, &info),
@@ -228,7 +240,7 @@ mod tests {
     use crate::update::test_fixtures::{
         BLOCK_SIZE, FILE_SIZE, changed_copy, control_bytes, delta_server, pattern,
     };
-    use crate::update::test_server::Route;
+    use crate::update::test_server::{Route, TestServer};
 
     #[test]
     fn reuses_the_zsync_header_between_check_and_download() {
@@ -393,6 +405,58 @@ mod tests {
             "fallback progress must be monotonic: {progress_values:?}"
         );
         assert_eq!(progress_values.last().copied(), Some(1.0));
+    }
+
+    #[test]
+    fn falls_back_when_the_control_file_is_too_large() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let control = vec![b'x'; crate::update::http::MAX_CONTROL_BYTES + 1];
+        let server = delta_server(&control, Route::new(new.clone()));
+        let manager = StaticFile::new(
+            image,
+            BTreeMap::new(),
+            Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+            HttpClient::new(),
+        );
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let downloaded = manager.download(&mut context).unwrap();
+
+        assert_eq!(fs::read(downloaded).unwrap(), new);
+        assert_eq!(server.range_requests(), 0);
+        assert!(server.full_requests("/new.AppImage") >= 1);
+    }
+
+    #[test]
+    fn propagates_a_control_fetch_error() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = pattern(FILE_SIZE);
+        let new = changed_copy(&old);
+        let image = directory.path().join("App.AppImage");
+        fs::write(&image, &old).unwrap();
+
+        let server = TestServer::start(vec![("/new.AppImage", Route::new(new))]);
+        let manager = StaticFile::new(
+            image,
+            BTreeMap::new(),
+            Some(format!("zsync|{}", server.url("/new.AppImage.zsync"))),
+            HttpClient::new(),
+        );
+        let mut progress = |_fraction: f64| {};
+        let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
+        context.use_zsync_delta = true;
+
+        let error = manager.download(&mut context).unwrap_err();
+
+        assert!(matches!(error, Error::HttpStatus(_)));
+        assert_eq!(server.full_requests("/new.AppImage"), 0);
     }
 
     #[test]

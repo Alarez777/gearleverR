@@ -11,7 +11,7 @@ use serde::Deserialize;
 use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
-use super::http::HttpClient;
+use super::http::{HttpClient, MAX_CONTROL_BYTES};
 use super::{
     Asset, DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus, boolean,
     delta, pick_asset, value,
@@ -361,22 +361,29 @@ impl UpdateManager for Github {
 
         if let Some(zsync_url) = target.zsync_url.clone() {
             let control = if let Some(control) = &target.zsync_control {
-                Arc::clone(control)
-            } else {
-                let control: Arc<[u8]> = self.http.get_bytes(&zsync_url)?.into();
+                Some(Arc::clone(control))
+            } else if let Some(bytes) =
+                self.http.get_bytes_limited(&zsync_url, MAX_CONTROL_BYTES)?
+            {
+                let control: Arc<[u8]> = bytes.into();
                 target.zsync_control = Some(Arc::clone(&control));
                 self.cache.set(target.clone());
-                control
+                Some(control)
+            } else {
+                tracing::debug!("zsync control file is too large, skipping its checksum");
+                None
             };
 
-            let info = super::zsync::parse_bytes(&control);
-            if let Some(expected) = info.sha1 {
-                let actual = hashes.sha1(&self.image)?;
-                return Ok(if expected == actual {
-                    UpdateStatus::UpToDate
-                } else {
-                    UpdateStatus::Available
-                });
+            if let Some(control) = control {
+                let info = super::zsync::parse_bytes(&control);
+                if let Some(expected) = info.sha1 {
+                    let actual = hashes.sha1(&self.image)?;
+                    return Ok(if expected == actual {
+                        UpdateStatus::UpToDate
+                    } else {
+                        UpdateStatus::Available
+                    });
+                }
             }
         }
 
@@ -433,8 +440,15 @@ impl Github {
         if use_zsync_delta && let Some(zsync_url) = target.zsync_url.as_deref() {
             let control = match &target.zsync_control {
                 Some(control) => Some(Arc::clone(control)),
-                None => match self.http.get_bytes(zsync_url) {
-                    Ok(bytes) => Some(bytes.into()),
+                None => match self.http.get_bytes_limited(zsync_url, MAX_CONTROL_BYTES) {
+                    Ok(Some(bytes)) => Some(bytes.into()),
+                    Ok(None) => {
+                        tracing::debug!(
+                            image = %self.image.display(),
+                            "zsync control file is too large, downloading the full GitHub asset"
+                        );
+                        None
+                    }
                     Err(error) => {
                         tracing::debug!(
                             image = %self.image.display(),
