@@ -33,6 +33,15 @@ const ENVIRONMENT_HISTORY_PREFIX: &str = "entry_";
 /// Maximum number of environment variables kept in the history.
 const ENVIRONMENT_HISTORY_LIMIT: usize = 100;
 
+/// Global section that keeps environment variables removed from the history.
+const ENVIRONMENT_REMOVED_SECTION: &str = "environment_history_removed";
+
+/// Prefix of the keys inside [`ENVIRONMENT_REMOVED_SECTION`].
+const ENVIRONMENT_REMOVED_PREFIX: &str = "entry_";
+
+/// Maximum number of removed environment variables tracked.
+const ENVIRONMENT_REMOVED_LIMIT: usize = 100;
+
 /// An INI document with the same semantics as the original configuration.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Config {
@@ -296,17 +305,159 @@ impl Config {
     /// Returns the environment variables remembered across applications.
     ///
     /// Entries keep the `KEY=value` form and are ordered from most to least
-    /// recently used.
+    /// recently used. Variables removed through [`Config::forget_environment`]
+    /// are omitted.
     #[must_use]
     pub fn environment_history(&self) -> Vec<String> {
-        let Some(values) = self.sections.get(ENVIRONMENT_HISTORY_SECTION) else {
+        let removed = self.environment_removed();
+        let mut entries =
+            self.indexed_entries(ENVIRONMENT_HISTORY_SECTION, ENVIRONMENT_HISTORY_PREFIX);
+        entries.retain(|entry| !removed.contains(entry));
+        entries
+    }
+
+    /// Returns the environment variables removed from the history.
+    #[must_use]
+    pub fn environment_removed(&self) -> Vec<String> {
+        self.indexed_entries(ENVIRONMENT_REMOVED_SECTION, ENVIRONMENT_REMOVED_PREFIX)
+    }
+
+    /// Moves `variables` to the front of the environment history.
+    ///
+    /// Variables removed through [`Config::forget_environment`] stay out.
+    /// Returns whether the stored history changed.
+    pub fn remember_environment(&mut self, variables: &[String]) -> bool {
+        let previous = self.environment_history();
+        let removed = self.environment_removed();
+        let mut merged: Vec<String> = Vec::new();
+
+        for variable in variables.iter().chain(previous.iter()) {
+            if !variable.is_empty() && !removed.contains(variable) && !merged.contains(variable) {
+                merged.push(variable.clone());
+            }
+        }
+        merged.truncate(ENVIRONMENT_HISTORY_LIMIT);
+
+        if merged == previous {
+            return false;
+        }
+
+        self.write_indexed_entries(
+            ENVIRONMENT_HISTORY_SECTION,
+            ENVIRONMENT_HISTORY_PREFIX,
+            &merged,
+        );
+        true
+    }
+
+    /// Adds the variables that are not in the history yet.
+    ///
+    /// Existing entries keep their position, so scanning the installed apps
+    /// does not rewrite the history when there is nothing new. Variables
+    /// removed through [`Config::forget_environment`] stay out. Returns whether
+    /// the stored history changed.
+    pub fn remember_missing_environment(&mut self, variables: &[String]) -> bool {
+        let previous = self.environment_history();
+        let removed = self.environment_removed();
+        let mut missing: Vec<String> = Vec::new();
+
+        for variable in variables {
+            if !variable.is_empty()
+                && !removed.contains(variable)
+                && !previous.contains(variable)
+                && !missing.contains(variable)
+            {
+                missing.push(variable.clone());
+            }
+        }
+
+        if missing.is_empty() {
+            return false;
+        }
+
+        missing.extend(previous);
+        missing.truncate(ENVIRONMENT_HISTORY_LIMIT);
+        self.write_indexed_entries(
+            ENVIRONMENT_HISTORY_SECTION,
+            ENVIRONMENT_HISTORY_PREFIX,
+            &missing,
+        );
+        true
+    }
+
+    /// Removes `entry` from the environment history and keeps it out.
+    ///
+    /// The removal is remembered so scanning the installed applications does
+    /// not add the entry back while it is still in use. Returns whether
+    /// anything changed.
+    pub fn forget_environment(&mut self, entry: &str) -> bool {
+        if entry.is_empty() {
+            return false;
+        }
+
+        let mut changed = false;
+        let mut history =
+            self.indexed_entries(ENVIRONMENT_HISTORY_SECTION, ENVIRONMENT_HISTORY_PREFIX);
+        let history_len = history.len();
+        history.retain(|candidate| candidate != entry);
+        if history.len() != history_len {
+            self.write_indexed_entries(
+                ENVIRONMENT_HISTORY_SECTION,
+                ENVIRONMENT_HISTORY_PREFIX,
+                &history,
+            );
+            changed = true;
+        }
+
+        let mut removed = self.environment_removed();
+        if !removed.iter().any(|candidate| candidate == entry) {
+            removed.push(entry.to_owned());
+            removed.truncate(ENVIRONMENT_REMOVED_LIMIT);
+            self.write_indexed_entries(
+                ENVIRONMENT_REMOVED_SECTION,
+                ENVIRONMENT_REMOVED_PREFIX,
+                &removed,
+            );
+            changed = true;
+        }
+
+        changed
+    }
+
+    /// Drops remembered removals that no installed application uses anymore.
+    ///
+    /// This lets a variable enter the history again if it disappears from every
+    /// application and is later used anew. Returns whether anything changed.
+    pub fn prune_environment_removed(&mut self, current: &[String]) -> bool {
+        let previous = self.environment_removed();
+        let kept: Vec<String> = previous
+            .iter()
+            .filter(|entry| current.iter().any(|candidate| candidate == *entry))
+            .cloned()
+            .collect();
+
+        if kept == previous {
+            return false;
+        }
+
+        self.write_indexed_entries(
+            ENVIRONMENT_REMOVED_SECTION,
+            ENVIRONMENT_REMOVED_PREFIX,
+            &kept,
+        );
+        true
+    }
+
+    /// Reads the indexed entries of a section, ordered by index.
+    fn indexed_entries(&self, section: &str, prefix: &str) -> Vec<String> {
+        let Some(values) = self.sections.get(section) else {
             return Vec::new();
         };
 
         let mut entries: Vec<(usize, &str)> = values
             .iter()
             .filter_map(|(key, value)| {
-                let index = key.strip_prefix(ENVIRONMENT_HISTORY_PREFIX)?.parse().ok()?;
+                let index = key.strip_prefix(prefix)?.parse().ok()?;
                 Some((index, value.as_str()))
             })
             .collect();
@@ -318,62 +469,11 @@ impl Config {
             .collect()
     }
 
-    /// Moves `variables` to the front of the environment history.
-    ///
-    /// Returns whether the stored history changed.
-    pub fn remember_environment(&mut self, variables: &[String]) -> bool {
-        let previous = self.environment_history();
-        let mut merged: Vec<String> = Vec::new();
-
-        for variable in variables.iter().chain(previous.iter()) {
-            if !variable.is_empty() && !merged.contains(variable) {
-                merged.push(variable.clone());
-            }
-        }
-        merged.truncate(ENVIRONMENT_HISTORY_LIMIT);
-
-        if merged == previous {
-            return false;
-        }
-
-        self.write_environment_history(&merged);
-        true
-    }
-
-    /// Adds the variables that are not in the history yet.
-    ///
-    /// Existing entries keep their position, so scanning the installed apps
-    /// does not rewrite the history when there is nothing new. Returns whether
-    /// the stored history changed.
-    pub fn remember_missing_environment(&mut self, variables: &[String]) -> bool {
-        let previous = self.environment_history();
-        let mut missing: Vec<String> = Vec::new();
-
-        for variable in variables {
-            if !variable.is_empty() && !previous.contains(variable) && !missing.contains(variable) {
-                missing.push(variable.clone());
-            }
-        }
-
-        if missing.is_empty() {
-            return false;
-        }
-
-        missing.extend(previous);
-        missing.truncate(ENVIRONMENT_HISTORY_LIMIT);
-        self.write_environment_history(&missing);
-        true
-    }
-
-    /// Replaces the stored environment history.
-    fn write_environment_history(&mut self, entries: &[String]) {
-        self.sections.remove(ENVIRONMENT_HISTORY_SECTION);
+    /// Replaces the indexed entries of a section.
+    fn write_indexed_entries(&mut self, section: &str, prefix: &str, entries: &[String]) {
+        self.sections.remove(section);
         for (index, variable) in entries.iter().enumerate() {
-            self.set(
-                ENVIRONMENT_HISTORY_SECTION,
-                &format!("{ENVIRONMENT_HISTORY_PREFIX}{index:03}"),
-                variable.clone(),
-            );
+            self.set(section, &format!("{prefix}{index:03}"), variable.clone());
         }
     }
 
@@ -636,6 +736,33 @@ mod tests {
             config.environment_history(),
             vec!["C=3", "D=4", "A=1", "B=2"]
         );
+    }
+
+    #[test]
+    fn forgets_environment_variables_and_keeps_them_out() {
+        let mut config = Config::default();
+        config.remember_environment(&["A=1".to_owned(), "B=2".to_owned()]);
+
+        assert!(config.forget_environment("A=1"));
+        assert_eq!(config.environment_history(), vec!["B=2"]);
+        assert_eq!(config.environment_removed(), vec!["A=1"]);
+
+        assert!(!config.remember_environment(&["A=1".to_owned()]));
+        assert!(!config.remember_missing_environment(&["A=1".to_owned()]));
+        assert_eq!(config.environment_history(), vec!["B=2"]);
+        assert!(!config.forget_environment("A=1"));
+    }
+
+    #[test]
+    fn prunes_removed_environment_variables_when_unused() {
+        let mut config = Config::default();
+        config.forget_environment("A=1");
+
+        assert!(!config.prune_environment_removed(&["A=1".to_owned()]));
+        assert!(config.prune_environment_removed(&["B=2".to_owned()]));
+        assert!(config.environment_removed().is_empty());
+        assert!(config.remember_missing_environment(&["A=1".to_owned()]));
+        assert_eq!(config.environment_history(), vec!["A=1"]);
     }
 
     #[test]

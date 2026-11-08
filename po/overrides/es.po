@@ -93,6 +93,9 @@ msgstr "Salir"
 msgid "Release to open the AppImage"
 msgstr "Suelta para abrir la AppImage"
 
+msgid "Remove from history"
+msgstr "Quitar del historial"
+
 msgid "Remove application?"
 msgstr "¿Eliminar aplicación?"
 
