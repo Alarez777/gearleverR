@@ -8,6 +8,10 @@
     clippy::print_stdout,
     reason = "the CLI's standard output is its interface"
 )]
+#![expect(
+    clippy::print_stderr,
+    reason = "the CLI reports architecture warnings on standard error"
+)]
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -224,6 +228,10 @@ impl Cli {
         Ok(())
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the interactive integration flow is easier to follow in one place"
+    )]
     fn integrate(&mut self, context: &mut CommandContext, file: &Path) -> Result<()> {
         let app_image = AppImage::open(file)
             .with_context(|| format!("{} is not a valid AppImage", file.display()))?;
@@ -237,6 +245,7 @@ impl Cli {
             return Ok(());
         }
 
+        Self::warn_foreign_architecture(&app_image);
         let metadata = app_image
             .metadata_with(&MetadataOptions {
                 allow_unsafe_extractor: !context.settings.values().block_unsafe_extractor,
@@ -338,6 +347,18 @@ impl Cli {
         );
 
         Ok(())
+    }
+
+    fn warn_foreign_architecture(app_image: &AppImage) {
+        if app_image.arch().is_compatible_with_host() {
+            return;
+        }
+
+        eprintln!(
+            "Warning: {} ({})",
+            t("This app might not be compatible with your system architecture"),
+            app_image.arch()
+        );
     }
 
     fn remove_command(&mut self, context: &mut CommandContext, file: &Path) -> Result<()> {
