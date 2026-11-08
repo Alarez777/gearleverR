@@ -30,7 +30,9 @@ use relm4::prelude::*;
 use relm4::{adw, gtk};
 
 use gearlever_core::Error as CoreError;
-use gearlever_core::appimage::{AppImage, AppMetadata, MetadataOptions, detect, is_running};
+use gearlever_core::appimage::{
+    AppImage, AppMetadata, ElfArch, MetadataOptions, detect, is_running,
+};
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
 use gearlever_core::error::RateLimitInfo;
@@ -146,17 +148,21 @@ enum WindowAfterLaunch {
 #[derive(Debug, Clone)]
 enum DetailsItem {
     Installed(InstalledApp),
-    Candidate {
-        path: PathBuf,
-        metadata: Box<AppMetadata>,
-    },
+    Candidate(Box<CandidateFile>),
+}
+
+/// An AppImage that is not integrated yet, together with the data read from it.
+#[derive(Debug, Clone)]
+struct CandidateFile {
+    path: PathBuf,
+    metadata: AppMetadata,
+    arch: ElfArch,
 }
 
 /// One AppImage read from the command line, the chooser or a drop.
 #[derive(Debug)]
 struct LoadedFile {
-    path: PathBuf,
-    metadata: AppMetadata,
+    candidate: CandidateFile,
     installed: Option<PathBuf>,
 }
 
@@ -172,6 +178,7 @@ enum Msg {
     FilesChosen(Vec<PathBuf>),
     OpenedFiles(Vec<PathBuf>),
     FilesLoaded(Vec<LoadedFile>, Vec<String>),
+    ArchDecision(bool),
     DragActive(bool),
     CheckUpdates,
     CheckAppUpdates(PathBuf),
@@ -275,7 +282,8 @@ struct AppModel {
     checking: bool,
     check_total: usize,
     check_done: usize,
-    pending: Vec<(PathBuf, AppMetadata)>,
+    pending: Vec<CandidateFile>,
+    pending_arch: Option<Vec<LoadedFile>>,
     multi_done: HashSet<PathBuf>,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
@@ -445,66 +453,44 @@ impl Component for AppModel {
                     Self::toast(widgets, &error);
                 }
 
-                let mut fresh = Vec::new();
-                let mut already_installed = 0;
+                let foreign: Vec<String> = loaded
+                    .iter()
+                    .filter(|file| {
+                        self.installed_path(file).is_none()
+                            && !file.candidate.arch.is_compatible_with_host()
+                    })
+                    .map(|file| file.candidate.path.display().to_string())
+                    .collect();
 
-                for file in loaded {
-                    let installed = file.installed.or_else(|| {
-                        self.apps
-                            .iter()
-                            .find(|app| same_file(&app.image_path, &file.path))
-                            .map(|app| app.image_path.clone())
-                    });
-
-                    if let Some(installed) = installed {
-                        if let Some(app) = self.apps.iter().find(|app| app.image_path == installed)
-                        {
-                            already_installed += 1;
-                            if self.apps.len() == 1 || already_installed == 1 {
-                                self.details = Some(DetailsItem::Installed(app.clone()));
-                                self.details_source = None;
-                                self.reloaded = None;
-                            }
-                        }
-                    } else {
-                        fresh.push((file.path, file.metadata));
-                    }
+                if foreign.is_empty() {
+                    Self::apply_loaded_files(self, widgets, &sender, loaded);
+                } else {
+                    self.pending_arch = Some(loaded);
+                    Self::confirm_foreign_arch(widgets, &sender, &foreign);
                 }
+            }
+            Msg::ArchDecision(proceed) => {
+                let Some(loaded) = self.pending_arch.take() else {
+                    return;
+                };
 
-                if already_installed > 0 && fresh.is_empty() {
-                    self.page = Page::Details;
-                    Self::show_page(self, widgets);
-                    Self::rebuild_details(self, widgets, &sender);
-                    if self.minimal_preview() {
-                        Self::minimal_ui(widgets);
-                    }
+                if proceed {
+                    Self::apply_loaded_files(self, widgets, &sender, loaded);
                     return;
                 }
 
-                match fresh.len() {
-                    0 => {}
-                    1 => {
-                        if let Some((path, metadata)) = fresh.into_iter().next() {
-                            self.details = Some(DetailsItem::Candidate {
-                                path,
-                                metadata: Box::new(metadata),
-                            });
-                            self.details_source = None;
-                            self.reloaded = None;
-                            self.page = Page::Details;
-                            Self::show_page(self, widgets);
-                            Self::rebuild_details(self, widgets, &sender);
-                            if self.minimal_preview() {
-                                Self::minimal_ui(widgets);
-                            }
-                        }
-                    }
-                    _ => {
-                        self.pending = fresh;
-                        self.page = Page::MultiInstall;
-                        Self::show_page(self, widgets);
-                        Self::rebuild_multi(self, widgets, &sender);
-                    }
+                self.pending.clear();
+                self.details = None;
+                self.details_source = None;
+                self.reloaded = None;
+
+                if self.minimal_preview() {
+                    widgets.window.close();
+                } else {
+                    self.external_open = false;
+                    self.page = Page::List;
+                    Self::show_page(self, widgets);
+                    Self::rebuild_list(self, widgets, &sender);
                 }
             }
             Msg::DragActive(active) => {
@@ -645,11 +631,18 @@ impl Component for AppModel {
 
                 std::thread::spawn(move || {
                     let mut config = config;
-                    for (index, (path, metadata)) in pending.iter().enumerate() {
-                        if let Err(error) =
-                            install::integrate(path, metadata, None, &options, &mut config)
-                        {
-                            sender.input(Msg::Toast(format!("{}: {error}", path.display())));
+                    for (index, candidate) in pending.iter().enumerate() {
+                        if let Err(error) = install::integrate(
+                            &candidate.path,
+                            &candidate.metadata,
+                            None,
+                            &options,
+                            &mut config,
+                        ) {
+                            sender.input(Msg::Toast(format!(
+                                "{}: {error}",
+                                candidate.path.display()
+                            )));
                             continue;
                         }
                         sender.input(Msg::Progress(
@@ -1398,6 +1391,7 @@ impl AppModel {
             check_total: 0,
             check_done: 0,
             pending: Vec::new(),
+            pending_arch: None,
             multi_done: HashSet::new(),
             update_queue: Vec::new(),
             opened_from_file: false,
@@ -1624,19 +1618,16 @@ impl AppModel {
     }
 
     fn pending_metadata(&self, path: &Path) -> Option<&AppMetadata> {
-        if let Some(DetailsItem::Candidate {
-            path: candidate,
-            metadata,
-        }) = &self.details
-            && candidate == path
+        if let Some(DetailsItem::Candidate(candidate)) = &self.details
+            && candidate.path == path
         {
-            return Some(metadata);
+            return Some(&candidate.metadata);
         }
 
         self.pending
             .iter()
-            .find(|(candidate, _)| candidate == path)
-            .map(|(_, metadata)| metadata)
+            .find(|candidate| candidate.path == path)
+            .map(|candidate| &candidate.metadata)
     }
 
     fn integrate_options(
@@ -1738,6 +1729,76 @@ impl AppModel {
         );
     }
 
+    /// Returns the installed path that already matches `file`, if any.
+    fn installed_path(&self, file: &LoadedFile) -> Option<PathBuf> {
+        file.installed.clone().or_else(|| {
+            self.apps
+                .iter()
+                .find(|app| same_file(&app.image_path, &file.candidate.path))
+                .map(|app| app.image_path.clone())
+        })
+    }
+
+    fn apply_loaded_files(
+        &mut self,
+        widgets: &Widgets,
+        sender: &ComponentSender<Self>,
+        loaded: Vec<LoadedFile>,
+    ) {
+        let mut fresh = Vec::new();
+        let mut already_installed = 0;
+
+        for file in loaded {
+            let installed = self.installed_path(&file);
+
+            if let Some(installed) = installed {
+                if let Some(app) = self.apps.iter().find(|app| app.image_path == installed) {
+                    already_installed += 1;
+                    if self.apps.len() == 1 || already_installed == 1 {
+                        self.details = Some(DetailsItem::Installed(app.clone()));
+                        self.details_source = None;
+                        self.reloaded = None;
+                    }
+                }
+            } else {
+                fresh.push(file.candidate);
+            }
+        }
+
+        if already_installed > 0 && fresh.is_empty() {
+            self.page = Page::Details;
+            Self::show_page(self, widgets);
+            Self::rebuild_details(self, widgets, sender);
+            if self.minimal_preview() {
+                Self::minimal_ui(widgets);
+            }
+            return;
+        }
+
+        match fresh.len() {
+            0 => {}
+            1 => {
+                if let Some(candidate) = fresh.into_iter().next() {
+                    self.details = Some(DetailsItem::Candidate(Box::new(candidate)));
+                    self.details_source = None;
+                    self.reloaded = None;
+                    self.page = Page::Details;
+                    Self::show_page(self, widgets);
+                    Self::rebuild_details(self, widgets, sender);
+                    if self.minimal_preview() {
+                        Self::minimal_ui(widgets);
+                    }
+                }
+            }
+            _ => {
+                self.pending = fresh;
+                self.page = Page::MultiInstall;
+                Self::show_page(self, widgets);
+                Self::rebuild_multi(self, widgets, sender);
+            }
+        }
+    }
+
     #[expect(
         clippy::fn_params_excessive_bools,
         reason = "the security switch mirrors the block-unsafe-extractor setting"
@@ -1765,19 +1826,35 @@ impl AppModel {
                     work_dir: work_dir.clone(),
                 };
 
-                match AppImage::open(&path).and_then(|appimage| appimage.metadata_with(&options)) {
-                    Ok(metadata) => {
-                        let duplicate = installed
-                            .iter()
-                            .find(|candidate| {
-                                install::is_installed_copy(&path, candidate, &appimages_dir)
-                            })
-                            .cloned();
-                        loaded.push(LoadedFile {
-                            path,
-                            metadata,
-                            installed: duplicate,
-                        });
+                match AppImage::open(&path) {
+                    Ok(appimage) => {
+                        let arch = appimage.arch();
+                        match appimage.metadata_with(&options) {
+                            Ok(metadata) => {
+                                let duplicate = installed
+                                    .iter()
+                                    .find(|candidate| {
+                                        install::is_installed_copy(&path, candidate, &appimages_dir)
+                                    })
+                                    .cloned();
+                                loaded.push(LoadedFile {
+                                    candidate: CandidateFile {
+                                        path,
+                                        metadata,
+                                        arch,
+                                    },
+                                    installed: duplicate,
+                                });
+                            }
+                            Err(error) => {
+                                let suffix = if arch.is_compatible_with_host() {
+                                    String::new()
+                                } else {
+                                    format!(" ({arch})")
+                                };
+                                errors.push(format!("{}: {error}{suffix}", path.display()));
+                            }
+                        }
                     }
                     Err(error) => errors.push(format!("{}: {error}", path.display())),
                 }
@@ -1813,6 +1890,30 @@ impl AppModel {
                 sender.input(Msg::FilesChosen(paths));
             }
             dialog.destroy();
+        });
+
+        dialog.present();
+    }
+
+    fn confirm_foreign_arch(widgets: &Widgets, sender: &ComponentSender<Self>, paths: &[String]) {
+        let body = paths.join("\n");
+        let dialog = adw::MessageDialog::new(
+            Some(&widgets.window),
+            Some(&t(
+                "This app might not be compatible with your system architecture",
+            )),
+            Some(&body),
+        );
+        dialog.add_response("cancel", &t("Cancel"));
+        dialog.add_response("open", &t("Open"));
+        dialog.set_response_appearance("open", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+
+        let sender = sender.clone();
+        dialog.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
+            dialog.close();
+            sender.input(Msg::ArchDecision(response == "open"));
         });
 
         dialog.present();
@@ -2007,6 +2108,15 @@ impl AppModel {
             return;
         };
 
+        let arch = match item {
+            DetailsItem::Installed(app) => detect::elf_arch(&app.image_path).ok(),
+            DetailsItem::Candidate(candidate) => Some(candidate.arch),
+        };
+
+        if arch.is_some_and(|arch| !arch.is_compatible_with_host()) {
+            widgets.details.append(&architecture_banner());
+        }
+
         let content = gtk::Box::new(gtk::Orientation::Vertical, 18);
         content.set_margin_top(18);
         content.set_margin_bottom(24);
@@ -2017,8 +2127,8 @@ impl AppModel {
             DetailsItem::Installed(app) => {
                 self.build_installed_details(app, &content, sender);
             }
-            DetailsItem::Candidate { path, metadata } => {
-                Self::build_candidate_details(path, metadata, &content, sender);
+            DetailsItem::Candidate(candidate) => {
+                Self::build_candidate_details(candidate, &content, sender);
             }
         }
 
@@ -2255,15 +2365,14 @@ impl AppModel {
     }
 
     fn build_candidate_details(
-        path: &Path,
-        metadata: &AppMetadata,
+        candidate: &CandidateFile,
         content: &gtk::Box,
         sender: &ComponentSender<Self>,
     ) {
         content.append(&details_header(
-            &metadata.name,
+            &candidate.metadata.name,
             "",
-            &util::candidate_icon(metadata, util::DETAILS_ICON),
+            &util::candidate_icon(&candidate.metadata, util::DETAILS_ICON),
             &[],
         ));
 
@@ -2273,7 +2382,7 @@ impl AppModel {
         let launch = gtk::Button::with_label(&t("Launch"));
         launch.set_size_request(PREVIEW_BUTTON_WIDTH, CANDIDATE_BUTTON_HEIGHT);
         let sender_launch = sender.clone();
-        let path_buf = path.to_path_buf();
+        let path_buf = candidate.path.clone();
         launch.connect_clicked(move |_| sender_launch.input(Msg::Launch(path_buf.clone())));
         actions.append(&launch);
 
@@ -2281,7 +2390,7 @@ impl AppModel {
         install.add_css_class("suggested-action");
         install.set_size_request(PREVIEW_BUTTON_WIDTH, CANDIDATE_BUTTON_HEIGHT);
         let sender_install = sender.clone();
-        let path_buf = path.to_path_buf();
+        let path_buf = candidate.path.clone();
         install.connect_clicked(move |_| {
             sender_install.input(Msg::InstallCandidate(path_buf.clone()));
         });
@@ -2505,12 +2614,12 @@ impl AppModel {
             list.add_css_class("boxed-list");
             list.set_selection_mode(gtk::SelectionMode::None);
 
-            for (path, metadata) in &self.pending {
+            for candidate in &self.pending {
                 let row = adw::ActionRow::builder()
-                    .title(metadata.name.clone())
-                    .subtitle(path.to_string_lossy().into_owned())
+                    .title(candidate.metadata.name.clone())
+                    .subtitle(candidate.path.to_string_lossy().into_owned())
                     .build();
-                row.add_prefix(&util::candidate_icon(metadata, util::ROW_ICON));
+                row.add_prefix(&util::candidate_icon(&candidate.metadata, util::ROW_ICON));
                 list.append(&row);
             }
             content.append(&list);
@@ -4253,6 +4362,34 @@ fn clear_listbox(listbox: &gtk::ListBox) {
     while let Some(child) = listbox.first_child() {
         listbox.remove(&child);
     }
+}
+
+/// Builds the inline warning shown when an AppImage targets another architecture.
+///
+/// `AdwBanner` is libadwaita 1.3 and the project targets 1.2, so the banner is
+/// assembled from a styled box and a label.
+fn architecture_banner() -> gtk::Widget {
+    let banner = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    banner.add_css_class("arch-warning");
+    banner.set_margin_top(12);
+    banner.set_margin_start(12);
+    banner.set_margin_end(12);
+    banner.set_valign(gtk::Align::Center);
+
+    let icon = gtk::Image::from_icon_name("dialog-warning-symbolic");
+    icon.set_pixel_size(24);
+    icon.add_css_class("warning");
+    banner.append(&icon);
+
+    let label = gtk::Label::new(Some(&t(
+        "This app might not be compatible with your system architecture",
+    )));
+    label.set_halign(gtk::Align::Start);
+    label.set_hexpand(true);
+    label.set_wrap(true);
+    banner.append(&label);
+
+    banner.upcast()
 }
 
 fn details_header(

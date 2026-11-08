@@ -25,6 +25,7 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 ## Funciones
 
 - Integrar AppImages con un click, por arrastrar y soltar o desde el selector de archivos.
+- Avisar antes de abrir o integrar un AppImage compilado para otra arquitectura de CPU.
 - Integrar varios AppImages a la vez y detectar conflictos de nombre (mantener ambos o reemplazar).
 - Extraer icono, nombre, versión y descripción **sin** ejecutar la AppImage y sin
   herramientas externas para SquashFS.
