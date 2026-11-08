@@ -456,11 +456,7 @@ impl Component for AppModel {
                 let foreign: Vec<String> = loaded
                     .iter()
                     .filter(|file| {
-                        file.installed.is_none()
-                            && !self
-                                .apps
-                                .iter()
-                                .any(|app| same_file(&app.image_path, &file.candidate.path))
+                        self.installed_path(file).is_none()
                             && !file.candidate.arch.is_compatible_with_host()
                     })
                     .map(|file| file.candidate.path.display().to_string())
@@ -1733,6 +1729,16 @@ impl AppModel {
         );
     }
 
+    /// Returns the installed path that already matches `file`, if any.
+    fn installed_path(&self, file: &LoadedFile) -> Option<PathBuf> {
+        file.installed.clone().or_else(|| {
+            self.apps
+                .iter()
+                .find(|app| same_file(&app.image_path, &file.candidate.path))
+                .map(|app| app.image_path.clone())
+        })
+    }
+
     fn apply_loaded_files(
         &mut self,
         widgets: &Widgets,
@@ -1743,12 +1749,7 @@ impl AppModel {
         let mut already_installed = 0;
 
         for file in loaded {
-            let installed = file.installed.or_else(|| {
-                self.apps
-                    .iter()
-                    .find(|app| same_file(&app.image_path, &file.candidate.path))
-                    .map(|app| app.image_path.clone())
-            });
+            let installed = self.installed_path(&file);
 
             if let Some(installed) = installed {
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == installed) {
