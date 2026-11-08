@@ -221,6 +221,7 @@ enum Msg {
     SaveExec {
         path: PathBuf,
         env: Vec<String>,
+        disabled_env: Vec<String>,
         arguments: String,
     },
     SaveArguments {
@@ -1101,11 +1102,22 @@ impl Component for AppModel {
             Msg::SaveExec {
                 path,
                 env,
+                disabled_env,
                 arguments,
             } => {
                 if let Some(app) = self.apps.iter().find(|app| app.image_path == path).cloned() {
                     match install::set_exec(&app, &env, &arguments) {
                         Ok(()) => {
+                            let mut config = self.config.clone();
+                            config.set_disabled_env(&path, &disabled_env);
+                            if let Err(error) = config.save(&self.paths.config_file()) {
+                                Self::toast(widgets, &error.to_string());
+                            }
+                            // `Exec` already changed, so keep the in-memory
+                            // configuration in sync even when the file could
+                            // not be written; the toast reports the failure.
+                            self.config = config;
+
                             self.refresh_apps();
                             self.details = self
                                 .apps
@@ -2361,7 +2373,12 @@ impl AppModel {
 
         content.append(&list);
         content.append(&self.update_group(&app.image_path, sender));
-        content.append(&Self::env_group(app, sender, current_arguments));
+        content.append(&Self::env_group(
+            app,
+            &self.config,
+            sender,
+            current_arguments,
+        ));
     }
 
     fn build_candidate_details(
@@ -2535,6 +2552,7 @@ impl AppModel {
 
     fn env_group(
         app: &InstalledApp,
+        config: &Config,
         sender: &ComponentSender<Self>,
         arguments: Rc<RefCell<String>>,
     ) -> adw::PreferencesGroup {
@@ -2578,13 +2596,28 @@ impl AppModel {
 
         for entry in &app.env_variables {
             let (key, value) = entry.split_once('=').unwrap_or((entry.as_str(), ""));
-            editor.add(key, value);
+            editor.add(key, value, EnvState::Enabled);
+        }
+
+        for entry in config.disabled_env(&app.image_path) {
+            let (key, value) = entry.split_once('=').unwrap_or((entry.as_str(), ""));
+            // A key that is also active was re-enabled outside the editor; the
+            // desktop entry wins and the stale configuration entry is dropped
+            // the next time the variables are saved.
+            if app
+                .env_variables
+                .iter()
+                .any(|variable| env_key(variable) == key)
+            {
+                continue;
+            }
+            editor.add(key, value, EnvState::Disabled);
         }
         editor.refresh();
 
         let editor_add = editor.clone();
         add.connect_clicked(move |_| {
-            editor_add.add("", "");
+            editor_add.add("", "", EnvState::Enabled);
             editor_add.refresh();
         });
         let editor_save = editor;
@@ -3868,10 +3901,18 @@ struct EnvRow {
     id: u64,
     key: gtk::Entry,
     value: gtk::Entry,
+    enabled: gtk::CheckButton,
+}
+
+/// Whether an environment variable is written to the desktop entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EnvState {
+    Enabled,
+    Disabled,
 }
 
 impl EnvEditor {
-    fn add(&self, key: &str, value: &str) {
+    fn add(&self, key: &str, value: &str, state: EnvState) {
         let id = self.next_id.get();
         self.next_id.set(id.wrapping_add(1));
 
@@ -3890,6 +3931,11 @@ impl EnvEditor {
         delete.add_css_class("destructive-action");
         delete.set_valign(gtk::Align::Center);
 
+        let check = gtk::CheckButton::new();
+        check.set_active(state == EnvState::Enabled);
+        check.set_valign(gtk::Align::Center);
+        check.set_tooltip_text(Some(&t("Enable or disable this environment variable")));
+
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         row.set_margin_top(6);
         row.set_margin_bottom(6);
@@ -3899,18 +3945,25 @@ impl EnvEditor {
         row.append(&gtk::Label::new(Some("=")));
         row.append(&value_entry);
         row.append(&delete);
+        row.append(&check);
 
         self.container.append(&row);
         self.rows.borrow_mut().push(EnvRow {
             id,
             key: key_entry.clone(),
             value: value_entry.clone(),
+            enabled: check.clone(),
         });
 
         let editor = self.clone();
         key_entry.connect_changed(move |_| editor.refresh());
         let editor = self.clone();
         value_entry.connect_changed(move |_| editor.refresh());
+        let editor = self.clone();
+        check.connect_toggled(move |_| {
+            editor.refresh();
+            editor.save();
+        });
         let editor = self.clone();
         let row_for_delete = row;
         delete.connect_clicked(move |_| {
@@ -3946,6 +3999,15 @@ impl EnvEditor {
                 row.key.remove_css_class("error");
             }
             row.value.set_sensitive(unique);
+
+            let opacity = if row.enabled.is_active() {
+                1.0
+            } else {
+                DISABLED_ENV_OPACITY
+            };
+            row.key.set_opacity(opacity);
+            row.value.set_opacity(opacity);
+
             if !unique {
                 valid = false;
             }
@@ -3955,32 +4017,71 @@ impl EnvEditor {
     }
 
     fn save(&self) {
-        let rows = self.rows.borrow();
-        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-        for row in rows.iter() {
-            let key = row.key.text().trim().to_owned();
-            if !key.is_empty() {
-                *counts.entry(key).or_default() += 1;
-            }
-        }
-
-        let mut env = Vec::new();
-        for row in rows.iter() {
-            let key = row.key.text().trim().to_owned();
-            if key.is_empty() || counts.get(&key).copied().unwrap_or(0) != 1 {
-                continue;
-            }
-            let value = row.value.text().trim().to_owned();
-            env.push(format!("{key}={}", gearlever_core::args::quote(&value)));
-        }
+        let rows: Vec<(String, String, EnvState)> = self
+            .rows
+            .borrow()
+            .iter()
+            .map(|row| {
+                let state = if row.enabled.is_active() {
+                    EnvState::Enabled
+                } else {
+                    EnvState::Disabled
+                };
+                (
+                    row.key.text().trim().to_owned(),
+                    row.value.text().trim().to_owned(),
+                    state,
+                )
+            })
+            .collect();
+        let (env, disabled_env) = partition_environment(&rows);
 
         let arguments = self.arguments.borrow().clone();
         self.sender.input(Msg::SaveExec {
             path: self.path.clone(),
             env,
+            disabled_env,
             arguments,
         });
     }
+}
+
+/// Returns the key of a `KEY=value` environment entry.
+fn env_key(entry: &str) -> &str {
+    entry.split_once('=').map_or(entry, |(key, _)| key)
+}
+
+/// Splits editor rows into active `Exec` assignments and disabled entries.
+///
+/// Empty and duplicated keys are skipped, matching the validation performed by
+/// [`EnvEditor::refresh`]. Active values are quoted for the desktop entry;
+/// disabled values stay raw because they are stored in the configuration.
+fn partition_environment(rows: &[(String, String, EnvState)]) -> (Vec<String>, Vec<String>) {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for (key, _, _) in rows {
+        if !key.is_empty() {
+            *counts.entry(key.as_str()).or_default() += 1;
+        }
+    }
+
+    let mut active = Vec::new();
+    let mut disabled = Vec::new();
+    for (key, value, state) in rows {
+        if key.is_empty() || counts.get(key.as_str()).copied().unwrap_or(0) != 1 {
+            continue;
+        }
+
+        match state {
+            EnvState::Enabled => {
+                active.push(format!("{key}={}", gearlever_core::args::quote(value)));
+            }
+            EnvState::Disabled => {
+                disabled.push(format!("{key}={value}"));
+            }
+        }
+    }
+
+    (active, disabled)
 }
 
 #[derive(Debug)]
@@ -4015,6 +4116,9 @@ fn fraction(done: usize, total: usize) -> f64 {
 
 /// Width shared by the primary action buttons.
 const ACTION_BUTTON_WIDTH: i32 = 200;
+
+/// Opacity of the text entries of a disabled environment variable.
+const DISABLED_ENV_OPACITY: f64 = 0.55;
 
 /// Icon size used by the rows of the multi-update page.
 const MULTI_ROW_ICON: i32 = 45;
@@ -4435,7 +4539,7 @@ fn details_header(
 
 #[cfg(test)]
 mod tests {
-    use super::Page;
+    use super::{EnvState, Page, partition_environment};
 
     #[test]
     fn preview_windows_hide_the_back_button() {
@@ -4447,5 +4551,21 @@ mod tests {
         assert!(Page::List.shows_left_button(false));
         assert!(Page::Details.shows_left_button(false));
         assert!(Page::MultiInstall.shows_left_button(false));
+    }
+
+    #[test]
+    fn partitions_environment_into_active_and_disabled_entries() {
+        let rows = vec![
+            ("A".to_owned(), "1".to_owned(), EnvState::Enabled),
+            ("B".to_owned(), "two words".to_owned(), EnvState::Disabled),
+            ("C".to_owned(), "3".to_owned(), EnvState::Enabled),
+            ("C".to_owned(), "4".to_owned(), EnvState::Disabled),
+            (String::new(), String::new(), EnvState::Enabled),
+        ];
+
+        let (active, disabled) = partition_environment(&rows);
+
+        assert_eq!(active, vec!["A=1"]);
+        assert_eq!(disabled, vec!["B=two words"]);
     }
 }
