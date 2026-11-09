@@ -166,6 +166,53 @@ struct LoadedFile {
     installed: Option<PathBuf>,
 }
 
+/// What to do with every name conflict in a batch integration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BatchConflictPolicy {
+    ReplaceAll,
+    KeepAll,
+    AskEach,
+}
+
+/// What to do with one AppImage that conflicts with an installed app.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BatchConflictDecision {
+    Replace,
+    KeepBoth,
+    Skip,
+}
+
+/// Which kind of conflict dialog is being shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConflictDialogScope {
+    Single,
+    Batch,
+}
+
+/// Whether the bottom progress row offers a cancel button.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProgressCancel {
+    Hidden,
+    Shown,
+}
+
+/// One integration of a batch, with its conflict already resolved.
+#[derive(Debug)]
+struct InstallJob {
+    path: PathBuf,
+    metadata: AppMetadata,
+    conflict: Conflict,
+    previous: Option<PreviousInstall>,
+}
+
+/// Outcome of integrating a batch.
+#[derive(Debug)]
+struct BatchInstallResult {
+    config: Config,
+    integrated: Vec<PathBuf>,
+    failed: Vec<PathBuf>,
+}
+
 #[derive(Debug)]
 enum Msg {
     Refresh,
@@ -198,8 +245,14 @@ enum Msg {
         replace: bool,
     },
     InstallAll,
+    BatchPolicy(BatchConflictPolicy),
+    BatchConflictDecision {
+        path: PathBuf,
+        decision: BatchConflictDecision,
+    },
+    BatchConflictCancelled,
     Installed(Result<(InstalledApp, Config), String>),
-    MultiInstalled(Result<Config, String>),
+    MultiInstalled(Result<BatchInstallResult, String>),
     Remove(PathBuf),
     RemoveConfirmed(PathBuf),
     Removed(Result<(PathBuf, Config), String>),
@@ -286,6 +339,11 @@ struct AppModel {
     check_done: usize,
     pending: Vec<CandidateFile>,
     pending_arch: Option<Vec<LoadedFile>>,
+    batch_conflicts: Vec<PathBuf>,
+    batch_decisions: HashMap<PathBuf, Conflict>,
+    batch_skipped: HashSet<PathBuf>,
+    batch_ask_index: usize,
+    install_running: bool,
     multi_done: HashSet<PathBuf>,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
@@ -482,6 +540,7 @@ impl Component for AppModel {
                 }
 
                 self.pending.clear();
+                self.reset_batch();
                 self.details = None;
                 self.details_source = None;
                 self.reloaded = None;
@@ -601,22 +660,39 @@ impl Component for AppModel {
                 widgets.toast.add_toast(toast);
             }
             Msg::InstallCandidate(path) => {
+                if self.install_running {
+                    Self::toast(widgets, &t("An installation is already running"));
+                    return;
+                }
+                if self.cancel_token.is_some() {
+                    Self::toast(widgets, &t("An update is already running"));
+                    return;
+                }
+
                 let Some(metadata) = self.pending_metadata(&path).cloned() else {
                     Self::toast(widgets, &t("Cannot read the AppImage metadata"));
                     return;
                 };
 
-                if self.apps.iter().any(|app| {
-                    app.name == metadata.name
-                        || (self_install::is_self_metadata(&metadata) && app.self_entry)
-                }) {
-                    Self::confirm_conflict(widgets, path, &metadata.name, &sender);
+                if conflict_app(&self.apps, &metadata).is_some() {
+                    Self::confirm_conflict(
+                        widgets,
+                        path,
+                        &metadata.name,
+                        ConflictDialogScope::Single,
+                        &sender,
+                    );
                     return;
                 }
 
                 Self::start_install(self, widgets, path, Conflict::KeepBoth, &sender);
             }
             Msg::InstallWithConflict { path, replace } => {
+                if self.install_running {
+                    Self::toast(widgets, &t("An installation is already running"));
+                    return;
+                }
+
                 let conflict = if replace {
                     Conflict::Replace
                 } else {
@@ -625,49 +701,86 @@ impl Component for AppModel {
                 Self::start_install(self, widgets, path, conflict, &sender);
             }
             Msg::InstallAll => {
-                let pending = self.pending.clone();
-                let options = self.integrate_options(Conflict::KeepBoth, None);
-                let config = self.config.clone();
-                let total = pending.len();
-                widgets.progress.set_visible(true);
+                if self.install_running {
+                    Self::toast(widgets, &t("An installation is already running"));
+                    return;
+                }
+                if self.cancel_token.is_some() {
+                    Self::toast(widgets, &t("An update is already running"));
+                    return;
+                }
+                if self.pending.is_empty() {
+                    return;
+                }
 
-                std::thread::spawn(move || {
-                    let mut config = config;
-                    for (index, candidate) in pending.iter().enumerate() {
-                        if let Err(error) = install::integrate(
-                            &candidate.path,
-                            &candidate.metadata,
-                            None,
-                            &options,
-                            &mut config,
-                        ) {
-                            sender.input(Msg::Toast(format!(
-                                "{}: {error}",
-                                candidate.path.display()
-                            )));
-                            continue;
-                        }
-                        sender.input(Msg::Progress(
-                            fraction(index + 1, total),
-                            tf(
-                                "Integrated {done} of {total}",
-                                &[
-                                    ("done", &(index + 1).to_string()),
-                                    ("total", &total.to_string()),
-                                ],
-                            ),
-                        ));
+                self.batch_conflicts = self
+                    .pending
+                    .iter()
+                    .filter(|candidate| conflict_app(&self.apps, &candidate.metadata).is_some())
+                    .map(|candidate| candidate.path.clone())
+                    .collect();
+                self.batch_decisions.clear();
+                self.batch_skipped.clear();
+                self.batch_ask_index = 0;
+
+                if self.batch_conflicts.is_empty() {
+                    Self::start_batch_install(self, widgets, &sender);
+                } else if self.batch_conflicts.len() == 1 {
+                    Self::show_next_batch_conflict(self, widgets, &sender);
+                } else {
+                    Self::confirm_batch_conflict(widgets, self.batch_conflicts.len(), &sender);
+                }
+            }
+            Msg::BatchPolicy(policy) => match policy {
+                BatchConflictPolicy::ReplaceAll => {
+                    for path in &self.batch_conflicts {
+                        self.batch_decisions.insert(path.clone(), Conflict::Replace);
                     }
-                    sender.input(Msg::MultiInstalled(Ok(config)));
-                });
+                    Self::start_batch_install(self, widgets, &sender);
+                }
+                BatchConflictPolicy::KeepAll => {
+                    Self::start_batch_install(self, widgets, &sender);
+                }
+                BatchConflictPolicy::AskEach => {
+                    self.batch_ask_index = 0;
+                    Self::show_next_batch_conflict(self, widgets, &sender);
+                }
+            },
+            Msg::BatchConflictDecision { path, decision } => {
+                match decision {
+                    BatchConflictDecision::Replace => {
+                        self.batch_decisions.insert(path, Conflict::Replace);
+                    }
+                    BatchConflictDecision::KeepBoth => {
+                        self.batch_decisions.insert(path, Conflict::KeepBoth);
+                    }
+                    BatchConflictDecision::Skip => {
+                        self.batch_skipped.insert(path);
+                    }
+                }
+
+                self.batch_ask_index = self.batch_ask_index.saturating_add(1);
+                if self.batch_ask_index < self.batch_conflicts.len() {
+                    Self::show_next_batch_conflict(self, widgets, &sender);
+                } else {
+                    Self::start_batch_install(self, widgets, &sender);
+                }
+            }
+            Msg::BatchConflictCancelled => {
+                self.reset_batch();
+                if self.page == Page::MultiInstall {
+                    Self::rebuild_multi(self, widgets, &sender);
+                }
             }
             Msg::Installed(result) => {
-                widgets.progress.set_visible(false);
+                self.install_running = false;
+                Self::hide_progress(widgets);
                 match result {
                     Ok((app, config)) => {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
                         self.pending.clear();
+                        self.reset_batch();
                         self.reloaded = None;
                         self.refresh_apps();
                         let installed = self
@@ -699,20 +812,67 @@ impl Component for AppModel {
                 }
             }
             Msg::MultiInstalled(result) => {
-                widgets.progress.set_visible(false);
+                self.install_running = false;
+                Self::hide_progress(widgets);
                 match result {
-                    Ok(config) => {
-                        self.config = config;
+                    Ok(result) => {
+                        self.config = result.config;
                         let _ = self.config.save(&self.paths.config_file());
-                        self.pending.clear();
-                        self.preview_window = false;
-                        self.page = Page::List;
+
+                        // Only failed and skipped AppImages stay on the batch
+                        // page, so the user can retry them without adding the
+                        // files again.
+                        retain_pending(&mut self.pending, &result.failed, &self.batch_skipped);
+
+                        let integrated = result.integrated.len();
+                        let failed = result.failed.len();
+                        let remaining = self.pending.len();
+                        self.reset_batch();
+                        self.reloaded = None;
                         self.refresh_apps();
-                        Self::show_page(self, widgets);
-                        Self::rebuild_list(self, widgets, &sender);
-                        Self::toast(widgets, &t("AppImages integrated"));
+
+                        if remaining == 0 {
+                            self.preview_window = false;
+                            self.page = Page::List;
+                            Self::show_page(self, widgets);
+                            Self::rebuild_list(self, widgets, &sender);
+                            Self::toast(widgets, &t("AppImages integrated"));
+                        } else {
+                            self.page = Page::MultiInstall;
+                            Self::show_page(self, widgets);
+                            Self::rebuild_multi(self, widgets, &sender);
+                            if integrated > 0 {
+                                Self::toast(
+                                    widgets,
+                                    &tf(
+                                        "{done} integrated; {remaining} pending",
+                                        &[
+                                            ("done", &integrated.to_string()),
+                                            ("remaining", &remaining.to_string()),
+                                        ],
+                                    ),
+                                );
+                            } else if failed > 0 {
+                                Self::toast(widgets, &t("No AppImage could be integrated"));
+                            } else {
+                                Self::toast(widgets, &t("Some AppImages were skipped"));
+                            }
+                        }
                     }
-                    Err(error) => Self::toast(widgets, &error),
+                    Err(error) => {
+                        self.reset_batch();
+                        if self.pending.is_empty() {
+                            self.preview_window = false;
+                            self.page = Page::List;
+                            Self::show_page(self, widgets);
+                            Self::rebuild_list(self, widgets, &sender);
+                        } else {
+                            self.page = Page::MultiInstall;
+                            Self::show_page(self, widgets);
+                            Self::rebuild_multi(self, widgets, &sender);
+                        }
+                        Self::toast(widgets, &error);
+                    }
                 }
             }
             Msg::Remove(path) => {
@@ -835,6 +995,10 @@ impl Component for AppModel {
                     Self::toast(widgets, &t("An update is already running"));
                     return;
                 }
+                if self.install_running {
+                    Self::toast(widgets, &t("An installation is already running"));
+                    return;
+                }
 
                 let Some(app) = self.apps.iter().find(|app| app.image_path == path).cloned() else {
                     return;
@@ -852,7 +1016,7 @@ impl Component for AppModel {
                 let download_dir = options.staging_dir();
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
-                Self::show_progress(widgets);
+                Self::show_progress(widgets, ProgressCancel::Shown);
 
                 std::thread::spawn(move || {
                     let mut config = config;
@@ -907,6 +1071,10 @@ impl Component for AppModel {
             Msg::StartAllUpdates => {
                 if self.cancel_token.is_some() {
                     Self::toast(widgets, &t("An update is already running"));
+                    return;
+                }
+                if self.install_running {
+                    Self::toast(widgets, &t("An installation is already running"));
                     return;
                 }
 
@@ -1013,7 +1181,10 @@ impl Component for AppModel {
                     widgets.multi_progress.set_visible(true);
                     widgets.multi_progress.set_fraction(fraction);
                 } else {
-                    Self::show_progress(widgets);
+                    widgets.progress.set_visible(true);
+                    widgets
+                        .cancel_button
+                        .set_visible(self.cancel_token.is_some());
                     widgets.progress.set_fraction(fraction);
                     widgets.progress.set_text(Some(&text));
                 }
@@ -1021,7 +1192,9 @@ impl Component for AppModel {
             Msg::CancelUpdate => {
                 if let Some(cancel) = &self.cancel_token {
                     cancel.store(true, Ordering::Relaxed);
-                    if self.page != Page::MultiUpdate {
+                    if self.page == Page::MultiUpdate {
+                        Self::rebuild_multi(self, widgets, &sender);
+                    } else {
                         widgets.cancel_button.set_sensitive(false);
                         widgets.cancel_button.set_label(&t("Cancelling..."));
                     }
@@ -1421,6 +1594,11 @@ impl AppModel {
             check_done: 0,
             pending: Vec::new(),
             pending_arch: None,
+            batch_conflicts: Vec::new(),
+            batch_decisions: HashMap::new(),
+            batch_skipped: HashSet::new(),
+            batch_ask_index: 0,
+            install_running: false,
             multi_done: HashSet::new(),
             update_queue: Vec::new(),
             opened_from_file: false,
@@ -1741,41 +1919,38 @@ impl AppModel {
     }
 
     fn start_install(
-        &self,
+        &mut self,
         widgets: &Widgets,
         path: PathBuf,
         conflict: Conflict,
         sender: &ComponentSender<Self>,
     ) {
+        if self.install_running {
+            Self::toast(widgets, &t("An installation is already running"));
+            return;
+        }
+        if self.cancel_token.is_some() {
+            Self::toast(widgets, &t("An update is already running"));
+            return;
+        }
+
         let Some(metadata) = self.pending_metadata(&path).cloned() else {
             Self::toast(widgets, &t("Cannot read the AppImage metadata"));
             return;
         };
 
         let previous = if conflict == Conflict::Replace {
-            let self_candidate = self_install::is_self_metadata(&metadata);
-            let preferred = if self_candidate {
-                self.apps.iter().find(|app| app.self_entry)
-            } else {
-                None
-            };
-
-            preferred
-                .or_else(|| self.apps.iter().find(|app| app.name == metadata.name))
-                .map(|app| PreviousInstall {
-                    image_path: app.image_path.clone(),
-                    desktop_path: app.desktop_path.clone(),
-                    exec_arguments: app.exec_arguments.clone(),
-                    env_variables: app.env_variables.clone(),
-                })
+            conflict_app(&self.apps, &metadata).map(previous_install)
         } else {
             None
         };
 
         let options = self.integrate_options(conflict, None);
         let config = self.config.clone();
-        widgets.progress.set_visible(true);
+        Self::show_progress(widgets, ProgressCancel::Hidden);
+        widgets.progress.set_fraction(0.0);
         widgets.progress.set_text(Some(&t("Integrating...")));
+        self.install_running = true;
 
         let sender = sender.clone();
         std::thread::spawn(move || {
@@ -1786,6 +1961,111 @@ impl AppModel {
                     .map_err(|error| error.to_string());
             sender.input(Msg::Installed(result));
         });
+    }
+
+    /// Starts the integrations that were not skipped.
+    fn start_batch_install(&mut self, widgets: &Widgets, sender: &ComponentSender<Self>) {
+        if self.install_running {
+            Self::toast(widgets, &t("An installation is already running"));
+            return;
+        }
+        if self.cancel_token.is_some() {
+            Self::toast(widgets, &t("An update is already running"));
+            return;
+        }
+
+        let jobs = install_jobs(
+            &self.pending,
+            &self.apps,
+            &self.batch_decisions,
+            &self.batch_skipped,
+        );
+
+        if jobs.is_empty() {
+            self.reset_batch();
+            Self::rebuild_multi(self, widgets, sender);
+            Self::toast(widgets, &t("Some AppImages were skipped"));
+            return;
+        }
+
+        let options = self.integrate_options(Conflict::KeepBoth, None);
+        let config = self.config.clone();
+        let total = jobs.len();
+        Self::show_progress(widgets, ProgressCancel::Hidden);
+        widgets.progress.set_fraction(0.0);
+        widgets.progress.set_text(Some(&t("Integrating...")));
+        self.install_running = true;
+        Self::rebuild_multi(self, widgets, sender);
+
+        let sender = sender.clone();
+        std::thread::spawn(move || {
+            let mut config = config;
+            let mut integrated = Vec::new();
+            let mut failed = Vec::new();
+            let mut done = 0_usize;
+
+            for (index, job) in jobs.iter().enumerate() {
+                let mut job_options = options.clone();
+                job_options.conflict = job.conflict;
+
+                match install::integrate(
+                    &job.path,
+                    &job.metadata,
+                    job.previous.as_ref(),
+                    &job_options,
+                    &mut config,
+                ) {
+                    Ok(_) => {
+                        done = done.saturating_add(1);
+                        integrated.push(job.path.clone());
+                    }
+                    Err(error) => {
+                        failed.push(job.path.clone());
+                        sender.input(Msg::Toast(format!("{}: {error}", job.path.display())));
+                    }
+                }
+
+                sender.input(Msg::Progress(
+                    fraction(index + 1, total),
+                    tf(
+                        "Integrated {done} of {total}",
+                        &[("done", &done.to_string()), ("total", &total.to_string())],
+                    ),
+                ));
+            }
+
+            sender.input(Msg::MultiInstalled(Ok(BatchInstallResult {
+                config,
+                integrated,
+                failed,
+            })));
+        });
+    }
+
+    /// Shows the conflict dialog for the next AppImage of the batch.
+    fn show_next_batch_conflict(&mut self, widgets: &Widgets, sender: &ComponentSender<Self>) {
+        while let Some(path) = self.batch_conflicts.get(self.batch_ask_index).cloned() {
+            if let Some(metadata) = self.pending_metadata(&path).cloned() {
+                Self::confirm_conflict(
+                    widgets,
+                    path,
+                    &metadata.name,
+                    ConflictDialogScope::Batch,
+                    sender,
+                );
+                return;
+            }
+            self.batch_ask_index = self.batch_ask_index.saturating_add(1);
+        }
+
+        Self::start_batch_install(self, widgets, sender);
+    }
+
+    fn reset_batch(&mut self) {
+        self.batch_conflicts.clear();
+        self.batch_decisions.clear();
+        self.batch_skipped.clear();
+        self.batch_ask_index = 0;
     }
 
     fn update_options(&self) -> UpdateOptions {
@@ -1886,6 +2166,7 @@ impl AppModel {
             }
             _ => {
                 self.pending = fresh;
+                self.reset_batch();
                 self.page = Page::MultiInstall;
                 Self::show_page(self, widgets);
                 Self::rebuild_multi(self, widgets, sender);
@@ -2730,96 +3011,10 @@ impl AppModel {
         content.set_margin_start(20);
         content.set_margin_end(20);
 
-        if self.page == Page::MultiInstall {
-            let title = gtk::Label::new(Some(&t("Apps to integrate")));
-            title.add_css_class("title-2");
-            title.set_halign(gtk::Align::Start);
-            content.append(&title);
-
-            let list = gtk::ListBox::new();
-            list.add_css_class("boxed-list");
-            list.set_selection_mode(gtk::SelectionMode::None);
-
-            for candidate in &self.pending {
-                let row = adw::ActionRow::builder()
-                    .title(candidate.metadata.name.clone())
-                    .subtitle(candidate.path.to_string_lossy().into_owned())
-                    .build();
-                row.add_prefix(&util::candidate_icon(&candidate.metadata, util::ROW_ICON));
-                list.append(&row);
-            }
-            content.append(&list);
-
-            let all = gtk::Button::with_label(&t("Move all to the app menu"));
-            all.add_css_class("suggested-action");
-            all.set_halign(gtk::Align::Center);
-            let sender = sender.clone();
-            all.connect_clicked(move |_| sender.input(Msg::InstallAll));
-            content.append(&all);
-        } else if self.page == Page::MultiUpdate {
-            let cancel = gtk::Button::with_label(&t("Cancel update"));
-            cancel.set_halign(gtk::Align::Center);
-            let sender_cancel = sender.clone();
-            cancel.connect_clicked(move |_| sender_cancel.input(Msg::CancelUpdate));
-            content.append(&cancel);
-
-            let list = gtk::ListBox::new();
-            list.add_css_class("boxed-list");
-            list.set_selection_mode(gtk::SelectionMode::None);
-
-            for app in &self.update_queue {
-                let done = self.multi_done.contains(&app.image_path);
-                let row = gtk::ListBoxRow::new();
-                row.set_activatable(false);
-                row.set_opacity(if done { 1.0 } else { 0.5 });
-
-                let line = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-                line.set_margin_top(6);
-                line.set_margin_bottom(6);
-                line.set_margin_start(6);
-                line.set_margin_end(6);
-                line.append(&util::app_image(
-                    app,
-                    &self.paths.metadata_cache_dir(),
-                    MULTI_ROW_ICON,
-                ));
-
-                let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
-                text.set_hexpand(true);
-                text.set_valign(gtk::Align::Center);
-
-                let name = gtk::Label::new(Some(&app.name));
-                name.set_halign(gtk::Align::Start);
-                name.add_css_class("heading");
-                name.set_ellipsize(gtk::pango::EllipsizeMode::End);
-                name.set_max_width_chars(70);
-                text.append(&name);
-
-                if !app.description.trim().is_empty() {
-                    let description = gtk::Label::new(Some(&app.description));
-                    description.set_halign(gtk::Align::Start);
-                    description.add_css_class("dim-label");
-                    description.set_ellipsize(gtk::pango::EllipsizeMode::End);
-                    description.set_lines(1);
-                    description.set_max_width_chars(100);
-                    text.append(&description);
-                }
-
-                line.append(&text);
-
-                if done {
-                    let check = gtk::Image::from_icon_name("object-select-symbolic");
-                    check.set_pixel_size(16);
-                    check.set_valign(gtk::Align::Center);
-                    check.set_margin_end(6);
-                    check.add_css_class("success");
-                    line.append(&check);
-                }
-
-                row.set_child(Some(&line));
-                list.append(&row);
-            }
-            content.append(&list);
+        match self.page {
+            Page::MultiInstall => self.rebuild_multi_install(&content, sender),
+            Page::MultiUpdate => self.rebuild_multi_update(&content, sender),
+            Page::List | Page::Details => {}
         }
 
         let clamp = adw::Clamp::builder()
@@ -2827,6 +3022,127 @@ impl AppModel {
             .child(&content)
             .build();
         widgets.multi.append(&clamp);
+    }
+
+    fn rebuild_multi_install(&self, content: &gtk::Box, sender: &ComponentSender<Self>) {
+        let title = gtk::Label::new(Some(&t("Apps to integrate")));
+        title.add_css_class("title-2");
+        title.set_halign(gtk::Align::Start);
+        content.append(&title);
+
+        let conflicts = self
+            .pending
+            .iter()
+            .filter(|candidate| conflict_app(&self.apps, &candidate.metadata).is_some())
+            .count();
+        if conflicts > 0 {
+            let warning = gtk::Label::new(Some(&tf(
+                "{count} of the selected AppImages have the same name as an app that is already integrated.",
+                &[("count", &conflicts.to_string())],
+            )));
+            warning.add_css_class("dim-label");
+            warning.set_halign(gtk::Align::Start);
+            warning.set_wrap(true);
+            content.append(&warning);
+        }
+
+        let list = gtk::ListBox::new();
+        list.add_css_class("boxed-list");
+        list.set_selection_mode(gtk::SelectionMode::None);
+
+        for candidate in &self.pending {
+            let row = adw::ActionRow::builder()
+                .title(candidate.metadata.name.clone())
+                .subtitle(candidate.path.to_string_lossy().into_owned())
+                .build();
+            row.add_prefix(&util::candidate_icon(&candidate.metadata, util::ROW_ICON));
+            list.append(&row);
+        }
+        content.append(&list);
+
+        let all = gtk::Button::with_label(&t("Move all to the app menu"));
+        all.add_css_class("suggested-action");
+        all.set_halign(gtk::Align::Center);
+        all.set_sensitive(!self.install_running);
+        let sender = sender.clone();
+        all.connect_clicked(move |_| sender.input(Msg::InstallAll));
+        content.append(&all);
+    }
+
+    fn rebuild_multi_update(&self, content: &gtk::Box, sender: &ComponentSender<Self>) {
+        let cancelling = self
+            .cancel_token
+            .as_ref()
+            .is_some_and(|token| token.load(Ordering::Relaxed));
+        let label = if cancelling {
+            t("Cancelling...")
+        } else {
+            t("Cancel update")
+        };
+        let cancel = gtk::Button::with_label(&label);
+        cancel.set_halign(gtk::Align::Center);
+        cancel.set_sensitive(!cancelling);
+        let sender_cancel = sender.clone();
+        cancel.connect_clicked(move |_| sender_cancel.input(Msg::CancelUpdate));
+        content.append(&cancel);
+
+        let list = gtk::ListBox::new();
+        list.add_css_class("boxed-list");
+        list.set_selection_mode(gtk::SelectionMode::None);
+
+        for app in &self.update_queue {
+            let done = self.multi_done.contains(&app.image_path);
+            let row = gtk::ListBoxRow::new();
+            row.set_activatable(false);
+            row.set_opacity(if done { 1.0 } else { 0.5 });
+
+            let line = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+            line.set_margin_top(6);
+            line.set_margin_bottom(6);
+            line.set_margin_start(6);
+            line.set_margin_end(6);
+            line.append(&util::app_image(
+                app,
+                &self.paths.metadata_cache_dir(),
+                MULTI_ROW_ICON,
+            ));
+
+            let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
+            text.set_hexpand(true);
+            text.set_valign(gtk::Align::Center);
+
+            let name = gtk::Label::new(Some(&app.name));
+            name.set_halign(gtk::Align::Start);
+            name.add_css_class("heading");
+            name.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            name.set_max_width_chars(70);
+            text.append(&name);
+
+            if !app.description.trim().is_empty() {
+                let description = gtk::Label::new(Some(&app.description));
+                description.set_halign(gtk::Align::Start);
+                description.add_css_class("dim-label");
+                description.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                description.set_lines(1);
+                description.set_max_width_chars(100);
+                text.append(&description);
+            }
+
+            line.append(&text);
+
+            if done {
+                let check = gtk::Image::from_icon_name("object-select-symbolic");
+                check.set_pixel_size(16);
+                check.set_valign(gtk::Align::Center);
+                check.set_margin_end(6);
+                check.add_css_class("success");
+                line.append(&check);
+            }
+
+            row.set_child(Some(&line));
+            list.append(&row);
+        }
+        content.append(&list);
     }
 
     /// Prompts for a restart after the interface scale changes.
@@ -3468,6 +3784,7 @@ impl AppModel {
         widgets: &Widgets,
         path: PathBuf,
         app_name: &str,
+        scope: ConflictDialogScope,
         sender: &ComponentSender<Self>,
     ) {
         let dialog = adw::MessageDialog::new(
@@ -3493,7 +3810,11 @@ impl AppModel {
         let keep = gtk::Button::with_label(&t("Keep both"));
         keep.set_hexpand(true);
 
-        let cancel = gtk::Button::with_label(&t("Cancel"));
+        let cancel_label = match scope {
+            ConflictDialogScope::Single => t("Cancel"),
+            ConflictDialogScope::Batch => t("Skip"),
+        };
+        let cancel = gtk::Button::with_label(&cancel_label);
         cancel.add_css_class("destructive-action");
         cancel.set_hexpand(true);
 
@@ -3506,26 +3827,114 @@ impl AppModel {
         let dialog_replace = dialog.clone();
         let replace_path = path.clone();
         replace.connect_clicked(move |_| {
-            sender_replace.input(Msg::InstallWithConflict {
-                path: replace_path.clone(),
-                replace: true,
-            });
+            let message = match scope {
+                ConflictDialogScope::Single => Msg::InstallWithConflict {
+                    path: replace_path.clone(),
+                    replace: true,
+                },
+                ConflictDialogScope::Batch => Msg::BatchConflictDecision {
+                    path: replace_path.clone(),
+                    decision: BatchConflictDecision::Replace,
+                },
+            };
+            sender_replace.input(message);
             dialog_replace.close();
         });
 
         let sender_keep = sender.clone();
         let dialog_keep = dialog.clone();
-        let keep_path = path;
+        let keep_path = path.clone();
         keep.connect_clicked(move |_| {
-            sender_keep.input(Msg::InstallWithConflict {
-                path: keep_path.clone(),
-                replace: false,
-            });
+            let message = match scope {
+                ConflictDialogScope::Single => Msg::InstallWithConflict {
+                    path: keep_path.clone(),
+                    replace: false,
+                },
+                ConflictDialogScope::Batch => Msg::BatchConflictDecision {
+                    path: keep_path.clone(),
+                    decision: BatchConflictDecision::KeepBoth,
+                },
+            };
+            sender_keep.input(message);
             dialog_keep.close();
         });
 
+        let sender_skip = sender.clone();
+        let dialog_skip = dialog.clone();
+        let skip_path = path;
+        cancel.connect_clicked(move |_| {
+            if scope == ConflictDialogScope::Batch {
+                sender_skip.input(Msg::BatchConflictDecision {
+                    path: skip_path.clone(),
+                    decision: BatchConflictDecision::Skip,
+                });
+            }
+            dialog_skip.close();
+        });
+
+        dialog.present();
+    }
+
+    fn confirm_batch_conflict(widgets: &Widgets, count: usize, sender: &ComponentSender<Self>) {
+        let dialog = adw::MessageDialog::new(
+            Some(&widgets.window),
+            Some(&t("Some apps are already installed")),
+            Some(&tf(
+                "{count} of the selected AppImages have the same name as an app that is already integrated.",
+                &[("count", &count.to_string())],
+            )),
+        );
+
+        let buttons = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        buttons.set_margin_top(6);
+
+        let replace_all = gtk::Button::with_label(&t("Replace all"));
+        replace_all.set_hexpand(true);
+
+        let keep_all = gtk::Button::with_label(&t("Keep all"));
+        keep_all.set_hexpand(true);
+
+        let ask = gtk::Button::with_label(&t("Ask for each"));
+        ask.add_css_class("suggested-action");
+        ask.set_hexpand(true);
+
+        let cancel = gtk::Button::with_label(&t("Cancel all"));
+        cancel.add_css_class("destructive-action");
+        cancel.set_hexpand(true);
+
+        buttons.append(&replace_all);
+        buttons.append(&keep_all);
+        buttons.append(&ask);
+        buttons.append(&cancel);
+        dialog.set_extra_child(Some(&buttons));
+
+        let sender_replace = sender.clone();
+        let dialog_replace = dialog.clone();
+        replace_all.connect_clicked(move |_| {
+            sender_replace.input(Msg::BatchPolicy(BatchConflictPolicy::ReplaceAll));
+            dialog_replace.close();
+        });
+
+        let sender_keep = sender.clone();
+        let dialog_keep = dialog.clone();
+        keep_all.connect_clicked(move |_| {
+            sender_keep.input(Msg::BatchPolicy(BatchConflictPolicy::KeepAll));
+            dialog_keep.close();
+        });
+
+        let sender_ask = sender.clone();
+        let dialog_ask = dialog.clone();
+        ask.connect_clicked(move |_| {
+            sender_ask.input(Msg::BatchPolicy(BatchConflictPolicy::AskEach));
+            dialog_ask.close();
+        });
+
+        let sender_cancel = sender.clone();
         let dialog_cancel = dialog.clone();
-        cancel.connect_clicked(move |_| dialog_cancel.close());
+        cancel.connect_clicked(move |_| {
+            sender_cancel.input(Msg::BatchConflictCancelled);
+            dialog_cancel.close();
+        });
 
         dialog.present();
     }
@@ -3719,9 +4128,11 @@ impl AppModel {
         widgets.window.set_default_size(width, height);
     }
 
-    fn show_progress(widgets: &Widgets) {
+    fn show_progress(widgets: &Widgets, cancel: ProgressCancel) {
         widgets.progress.set_visible(true);
-        widgets.cancel_button.set_visible(true);
+        widgets
+            .cancel_button
+            .set_visible(cancel == ProgressCancel::Shown);
         widgets.cancel_button.set_sensitive(true);
         widgets.cancel_button.set_label(&t("Cancel update"));
     }
@@ -4465,6 +4876,107 @@ fn same_file(left: &Path, right: &Path) -> bool {
     }
 }
 
+/// Returns whether an installed app refers to the same application as `metadata`.
+fn matches_metadata(app: &InstalledApp, metadata: &AppMetadata) -> bool {
+    app.matches_name(&metadata.name)
+}
+
+/// Returns the installed app that conflicts with `metadata`, if any.
+///
+/// Gear LeverR's own entry is matched by its marker so a new version can
+/// replace it even when the display name was translated or edited.
+fn conflict_app<'a>(apps: &'a [InstalledApp], metadata: &AppMetadata) -> Option<&'a InstalledApp> {
+    if self_install::is_self_metadata(metadata)
+        && let Some(app) = apps.iter().find(|app| app.self_entry)
+    {
+        return Some(app);
+    }
+
+    apps.iter().find(|app| matches_metadata(app, metadata))
+}
+
+/// Finds an installed app that matches `metadata` and was not replaced yet.
+fn free_conflict_app<'a>(
+    apps: &'a [InstalledApp],
+    metadata: &AppMetadata,
+    used: &HashSet<PathBuf>,
+) -> Option<&'a InstalledApp> {
+    if self_install::is_self_metadata(metadata)
+        && let Some(app) = apps
+            .iter()
+            .find(|app| app.self_entry && !used.contains(&app.image_path))
+    {
+        return Some(app);
+    }
+
+    apps.iter()
+        .find(|app| !used.contains(&app.image_path) && matches_metadata(app, metadata))
+}
+
+/// Builds the data [`install::integrate`] needs to replace an installed app.
+fn previous_install(app: &InstalledApp) -> PreviousInstall {
+    PreviousInstall {
+        image_path: app.image_path.clone(),
+        desktop_path: app.desktop_path.clone(),
+        exec_arguments: app.exec_arguments.clone(),
+        env_variables: app.env_variables.clone(),
+    }
+}
+
+/// Resolves the batch into the integrations that still have to run.
+///
+/// Skipped AppImages are left out, and a `Replace` without a matching
+/// installed app falls back to `KeepBoth` inside [`install::integrate`].
+fn install_jobs(
+    pending: &[CandidateFile],
+    apps: &[InstalledApp],
+    decisions: &HashMap<PathBuf, Conflict>,
+    skipped: &HashSet<PathBuf>,
+) -> Vec<InstallJob> {
+    let mut used = HashSet::new();
+
+    pending
+        .iter()
+        .filter(|candidate| !skipped.contains(&candidate.path))
+        .map(|candidate| {
+            let conflict = decisions
+                .get(&candidate.path)
+                .copied()
+                .unwrap_or(Conflict::KeepBoth);
+            let previous = if conflict == Conflict::Replace {
+                let app = free_conflict_app(apps, &candidate.metadata, &used);
+                app.map(|app| {
+                    used.insert(app.image_path.clone());
+                    previous_install(app)
+                })
+            } else {
+                None
+            };
+
+            InstallJob {
+                path: candidate.path.clone(),
+                metadata: candidate.metadata.clone(),
+                conflict,
+                previous,
+            }
+        })
+        .collect()
+}
+
+/// Keeps only the AppImages that failed or were skipped in the batch.
+fn retain_pending(
+    pending: &mut Vec<CandidateFile>,
+    failed: &[PathBuf],
+    skipped: &HashSet<PathBuf>,
+) {
+    let keep: HashSet<&Path> = failed
+        .iter()
+        .map(PathBuf::as_path)
+        .chain(skipped.iter().map(PathBuf::as_path))
+        .collect();
+    pending.retain(|candidate| keep.contains(candidate.path.as_path()));
+}
+
 /// Returns whether launching `app` would start Gear LeverR itself.
 fn is_self_launch(app: &InstalledApp) -> bool {
     app.self_entry || running_appimage().is_some_and(|image| same_file(&image, &app.image_path))
@@ -4861,7 +5373,199 @@ fn details_header(
 
 #[cfg(test)]
 mod tests {
-    use super::{EnvState, Page, is_history_variable, partition_environment};
+    use super::*;
+
+    fn metadata(name: &str) -> AppMetadata {
+        AppMetadata {
+            name: name.to_owned(),
+            comment: String::new(),
+            exec: String::new(),
+            try_exec: String::new(),
+            icon_name: None,
+            terminal: false,
+            version: None,
+            desktop_file: Some("test.desktop".to_owned()),
+            desktop_contents: String::new(),
+            icon: None,
+        }
+    }
+
+    fn installed(name: &str, image: &str) -> InstalledApp {
+        InstalledApp {
+            name: name.to_owned(),
+            appimage_name: Some(name.to_owned()),
+            description: String::new(),
+            version: None,
+            image_path: PathBuf::from(image),
+            desktop_path: PathBuf::from(format!("{image}.desktop")),
+            desktop_id: String::new(),
+            icon: None,
+            icon_path: None,
+            exec_arguments: "--custom".to_owned(),
+            env_variables: vec!["CUSTOM=1".to_owned()],
+            terminal: false,
+            size: 0,
+            external: false,
+            self_entry: false,
+        }
+    }
+
+    fn self_installed(name: &str, image: &str) -> InstalledApp {
+        let mut app = installed(name, image);
+        app.self_entry = true;
+        app
+    }
+
+    fn candidate(name: &str, image: &str) -> CandidateFile {
+        CandidateFile {
+            path: PathBuf::from(image),
+            metadata: metadata(name),
+            arch: ElfArch::X86_64,
+        }
+    }
+
+    #[test]
+    fn detects_conflicts_by_name() {
+        let apps = vec![installed("Test App", "/managed/test.appimage")];
+
+        assert!(conflict_app(&apps, &metadata("Test App")).is_some());
+        assert!(conflict_app(&apps, &metadata("Other App")).is_none());
+        assert!(conflict_app(&[], &metadata("Test App")).is_none());
+    }
+
+    #[test]
+    fn detects_conflicts_through_the_appimage_name() {
+        let mut app = installed("Multi Test (abc123)", "/managed/test.appimage");
+        app.appimage_name = Some("Multi Test".to_owned());
+
+        assert!(conflict_app(&[app], &metadata("Multi Test")).is_some());
+    }
+
+    #[test]
+    fn prefers_the_self_entry_when_replacing_gearlever() {
+        let apps = vec![
+            installed("Gear LeverR", "/managed/other.appimage"),
+            self_installed("Gear LeverR", "/managed/self.appimage"),
+        ];
+        let mut candidate = metadata("Gear LeverR");
+        candidate.desktop_file = Some("io.github.alarez777.GearLeverR.desktop".to_owned());
+
+        let found = conflict_app(&apps, &candidate).unwrap();
+
+        assert!(found.self_entry);
+        assert_eq!(found.image_path, PathBuf::from("/managed/self.appimage"));
+    }
+
+    #[test]
+    fn builds_jobs_with_the_replace_previous_install() {
+        let apps = vec![installed("Test App", "/managed/old.appimage")];
+        let pending = vec![
+            candidate("Test App", "/tmp/new.appimage"),
+            candidate("Other App", "/tmp/other.appimage"),
+        ];
+        let decisions = HashMap::from([(PathBuf::from("/tmp/new.appimage"), Conflict::Replace)]);
+
+        let jobs = install_jobs(&pending, &apps, &decisions, &HashSet::new());
+
+        assert_eq!(jobs.len(), 2);
+        assert_eq!(jobs[0].conflict, Conflict::Replace);
+        let previous = jobs[0].previous.as_ref().unwrap();
+        assert_eq!(previous.image_path, PathBuf::from("/managed/old.appimage"));
+        assert_eq!(previous.exec_arguments, "--custom");
+        assert_eq!(previous.env_variables, vec!["CUSTOM=1"]);
+        assert_eq!(jobs[1].conflict, Conflict::KeepBoth);
+        assert!(jobs[1].previous.is_none());
+    }
+
+    #[test]
+    fn replaces_each_installed_version_at_most_once() {
+        let apps = vec![
+            installed("Test App", "/managed/old-1.appimage"),
+            installed("Test App", "/managed/old-2.appimage"),
+        ];
+        let pending = vec![
+            candidate("Test App", "/tmp/new-1.appimage"),
+            candidate("Test App", "/tmp/new-2.appimage"),
+        ];
+        let decisions = HashMap::from([
+            (PathBuf::from("/tmp/new-1.appimage"), Conflict::Replace),
+            (PathBuf::from("/tmp/new-2.appimage"), Conflict::Replace),
+        ]);
+
+        let jobs = install_jobs(&pending, &apps, &decisions, &HashSet::new());
+
+        assert_eq!(
+            jobs[0].previous.as_ref().unwrap().image_path,
+            PathBuf::from("/managed/old-1.appimage")
+        );
+        assert_eq!(
+            jobs[1].previous.as_ref().unwrap().image_path,
+            PathBuf::from("/managed/old-2.appimage")
+        );
+    }
+
+    #[test]
+    fn falls_back_to_keep_both_when_no_previous_is_left() {
+        let apps = vec![installed("Test App", "/managed/old.appimage")];
+        let pending = vec![
+            candidate("Test App", "/tmp/new-1.appimage"),
+            candidate("Test App", "/tmp/new-2.appimage"),
+        ];
+        let decisions = HashMap::from([
+            (PathBuf::from("/tmp/new-1.appimage"), Conflict::Replace),
+            (PathBuf::from("/tmp/new-2.appimage"), Conflict::Replace),
+        ]);
+
+        let jobs = install_jobs(&pending, &apps, &decisions, &HashSet::new());
+
+        assert!(jobs[0].previous.is_some());
+        assert!(jobs[1].previous.is_none());
+    }
+
+    #[test]
+    fn leaves_skipped_appimages_out_of_the_batch() {
+        let pending = vec![
+            candidate("Test App", "/tmp/new.appimage"),
+            candidate("Other App", "/tmp/other.appimage"),
+        ];
+        let skipped = HashSet::from([PathBuf::from("/tmp/new.appimage")]);
+
+        let jobs = install_jobs(&pending, &[], &HashMap::new(), &skipped);
+
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].path, PathBuf::from("/tmp/other.appimage"));
+        assert_eq!(jobs[0].conflict, Conflict::KeepBoth);
+    }
+
+    #[test]
+    fn keeps_failed_and_skipped_appimages_for_a_retry() {
+        let mut pending = vec![
+            candidate("Integrated", "/tmp/integrated.appimage"),
+            candidate("Failed", "/tmp/failed.appimage"),
+            candidate("Skipped", "/tmp/skipped.appimage"),
+        ];
+        let failed = vec![PathBuf::from("/tmp/failed.appimage")];
+        let skipped = HashSet::from([PathBuf::from("/tmp/skipped.appimage")]);
+
+        retain_pending(&mut pending, &failed, &skipped);
+
+        assert_eq!(pending.len(), 2);
+        assert!(
+            pending
+                .iter()
+                .any(|candidate| candidate.path == Path::new("/tmp/failed.appimage"))
+        );
+        assert!(
+            pending
+                .iter()
+                .any(|candidate| candidate.path == Path::new("/tmp/skipped.appimage"))
+        );
+        assert!(
+            !pending
+                .iter()
+                .any(|candidate| candidate.path == Path::new("/tmp/integrated.appimage"))
+        );
+    }
 
     #[test]
     fn preview_windows_hide_the_back_button() {

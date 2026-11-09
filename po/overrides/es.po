@@ -444,3 +444,36 @@ msgstr ""
 "En equipos de muy bajos recursos puede ser mejor desactivarlo: las "
 "actualizaciones descargan el AppImage completo y se evita el escaneo de "
 "checksums de bloques."
+
+msgid "Some apps are already installed"
+msgstr "Algunas aplicaciones ya están instaladas"
+
+msgid "{count} of the selected AppImages have the same name as an app that is already integrated."
+msgstr "{count} de las AppImages seleccionadas tienen el mismo nombre que una aplicación ya integrada."
+
+msgid "Replace all"
+msgstr "Remplazar todos"
+
+msgid "Keep all"
+msgstr "Mantener todas"
+
+msgid "Ask for each"
+msgstr "Preguntar en cada uno"
+
+msgid "Cancel all"
+msgstr "Cancelar todo"
+
+msgid "Skip"
+msgstr "Omitir"
+
+msgid "An installation is already running"
+msgstr "Ya hay una instalación en curso"
+
+msgid "No AppImage could be integrated"
+msgstr "No se pudo integrar ninguna AppImage"
+
+msgid "Some AppImages were skipped"
+msgstr "Se omitieron algunas AppImages"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "{done} integradas; {remaining} pendientes"

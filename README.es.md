@@ -26,7 +26,7 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 
 - Integrar AppImages con un click, por arrastrar y soltar o desde el selector de archivos.
 - Avisar antes de abrir o integrar un AppImage compilado para otra arquitectura de CPU.
-- Integrar varios AppImages a la vez y detectar conflictos de nombre (mantener ambos o reemplazar).
+- Integrar varios AppImages a la vez y detectar conflictos de nombre (mantener ambos, reemplazar o preguntar en cada uno).
 - Extraer icono, nombre, versión y descripción **sin** ejecutar la AppImage y sin
   herramientas externas para SquashFS.
 - Gestionar actualizaciones desde URL estática, GitHub, GitLab, Codeberg, Forgejo y FTP,

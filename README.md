@@ -30,7 +30,7 @@ updates from six sources, a compatible CLI and the full interface. See
   Launch and Remove instead of integrating a second copy.
 - Ask whether to replace the installed version, keep both or cancel when a different
   AppImage with the same name is integrated.
-- Integrate several AppImages at once and resolve name conflicts (keep both or replace).
+- Integrate several AppImages at once and resolve name conflicts (keep both, replace or ask for each).
 - Extract the icon, name, version and description **without** running the AppImage and
   without external tools for SquashFS.
 - Manage updates from a static URL, GitHub, GitLab, Codeberg, Forgejo and FTP,
