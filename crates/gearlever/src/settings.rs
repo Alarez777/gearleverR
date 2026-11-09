@@ -13,11 +13,21 @@
 use std::path::{Path, PathBuf};
 
 use gearlever_core::paths::Paths;
+use gearlever_core::update;
 use relm4::gtk::gio;
 use relm4::gtk::gio::prelude::*;
 
 /// Application ID, shared by D-Bus, GSettings and the desktop entry.
 pub const APP_ID: &str = "io.github.alarez777.GearLeverR";
+
+/// Minimum number of tasks that can run in parallel.
+pub const MIN_PARALLEL_TASKS: usize = 1;
+
+/// Maximum number of updates downloaded at the same time.
+pub const MAX_PARALLEL_DOWNLOADS: usize = 8;
+
+/// Maximum number of update checks run at the same time.
+pub const MAX_PARALLEL_CHECKS: usize = 10;
 
 /// Keys used in the GSettings schema.
 pub mod keys {
@@ -37,6 +47,10 @@ pub mod keys {
     pub const FETCH_IN_BACKGROUND: &str = "fetch-updates-in-background";
     /// Whether update sources that publish zsync data use delta downloads.
     pub const USE_ZSYNC_DELTA: &str = "use-zsync-delta";
+    /// Maximum number of updates downloaded at the same time.
+    pub const MAX_PARALLEL_DOWNLOADS: &str = "max-parallel-downloads";
+    /// Maximum number of update checks run at the same time.
+    pub const MAX_PARALLEL_CHECKS: &str = "max-parallel-checks";
     /// Verbose logging.
     pub const DEBUG_LOGS: &str = "debug-logs";
     /// Whether the window was maximized.
@@ -80,6 +94,10 @@ pub struct Values {
     pub fetch_in_background: bool,
     /// Whether update sources that publish zsync data use delta downloads.
     pub use_zsync_delta: bool,
+    /// Maximum number of updates downloaded at the same time.
+    pub max_parallel_downloads: usize,
+    /// Maximum number of update checks run at the same time.
+    pub max_parallel_checks: usize,
     /// Verbose logging.
     pub debug_logs: bool,
     /// Whether the window was maximized.
@@ -105,6 +123,8 @@ impl Values {
             block_unsafe_extractor: true,
             fetch_in_background: false,
             use_zsync_delta: true,
+            max_parallel_downloads: update::DEFAULT_PARALLEL_DOWNLOADS,
+            max_parallel_checks: update::DEFAULT_PARALLEL_CHECKS,
             debug_logs: false,
             is_maximized: false,
             window_width: 720,
@@ -161,6 +181,18 @@ impl Settings {
             block_unsafe_extractor: settings.boolean(keys::BLOCK_UNSAFE_EXTRACTOR),
             fetch_in_background: settings.boolean(keys::FETCH_IN_BACKGROUND),
             use_zsync_delta,
+            max_parallel_downloads: parallel_value(
+                &settings,
+                keys::MAX_PARALLEL_DOWNLOADS,
+                update::DEFAULT_PARALLEL_DOWNLOADS,
+                MAX_PARALLEL_DOWNLOADS,
+            ),
+            max_parallel_checks: parallel_value(
+                &settings,
+                keys::MAX_PARALLEL_CHECKS,
+                update::DEFAULT_PARALLEL_CHECKS,
+                MAX_PARALLEL_CHECKS,
+            ),
             debug_logs: settings.boolean(keys::DEBUG_LOGS),
             is_maximized: settings.boolean(keys::IS_MAXIMIZED),
             window_width: integer_value(&settings, keys::WINDOW_WIDTH, 720).clamp(320, 10_000),
@@ -262,6 +294,33 @@ impl Settings {
         }
 
         self.values.ui_scale = percent;
+    }
+
+    /// Stores the maximum number of parallel update downloads.
+    pub fn set_max_parallel_downloads(&mut self, value: usize) {
+        self.values.max_parallel_downloads =
+            self.store_parallel_value(keys::MAX_PARALLEL_DOWNLOADS, value, MAX_PARALLEL_DOWNLOADS);
+    }
+
+    /// Stores the maximum number of parallel update checks.
+    pub fn set_max_parallel_checks(&mut self, value: usize) {
+        self.values.max_parallel_checks =
+            self.store_parallel_value(keys::MAX_PARALLEL_CHECKS, value, MAX_PARALLEL_CHECKS);
+    }
+
+    /// Clamps and persists a parallel-task setting, returning the applied value.
+    fn store_parallel_value(&self, key: &str, value: usize, max: usize) -> usize {
+        let value = value.clamp(MIN_PARALLEL_TASKS, max);
+
+        if let Some(settings) = &self.settings
+            && settings
+                .settings_schema()
+                .is_some_and(|schema| schema.has_key(key))
+        {
+            let _ = settings.set_int(key, i32::try_from(value).unwrap_or(1));
+        }
+
+        value
     }
 
     /// Returns the encrypted GitHub token blob, when one is stored.
@@ -401,6 +460,17 @@ fn ui_scale(settings: &gio::Settings) -> u32 {
         .clamp(100, 200)
 }
 
+/// Returns a parallel-task setting, clamped to the supported range.
+fn parallel_value(settings: &gio::Settings, key: &str, default: usize, max: usize) -> usize {
+    usize::try_from(integer_value(
+        settings,
+        key,
+        i32::try_from(default).unwrap_or(1),
+    ))
+    .unwrap_or(default)
+    .clamp(MIN_PARALLEL_TASKS, max)
+}
+
 /// Expands a leading `~` using the user's home directory.
 fn expand(value: &str, home: &Path) -> PathBuf {
     if let Some(rest) = value.strip_prefix('~') {
@@ -418,7 +488,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn persists_the_zsync_delta_setting_in_gsettings() {
+    fn persists_settings_in_gsettings() {
         let directory = tempfile::tempdir().unwrap();
         let schema_dir = directory.path().join("schemas");
         fs::create_dir_all(&schema_dir).unwrap();
@@ -445,10 +515,16 @@ mod tests {
 
         let mut settings = Settings::from_settings(raw.clone(), &paths);
         assert!(settings.values().use_zsync_delta);
+        assert_eq!(settings.values().max_parallel_downloads, 3);
+        assert_eq!(settings.values().max_parallel_checks, 5);
         settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
+        settings.set_max_parallel_downloads(1);
+        settings.set_max_parallel_checks(12);
 
         let reloaded = Settings::from_settings(raw, &paths);
         assert!(!reloaded.values().use_zsync_delta);
+        assert_eq!(reloaded.values().max_parallel_downloads, 1);
+        assert_eq!(reloaded.values().max_parallel_checks, MAX_PARALLEL_CHECKS);
     }
 
     #[test]
@@ -486,6 +562,22 @@ mod tests {
         assert!(settings.values().use_zsync_delta);
         settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
         assert!(!settings.values().use_zsync_delta);
+    }
+
+    #[test]
+    fn clamps_parallelism_settings_without_gsettings() {
+        let paths = Paths::with_home(Path::new("/home/tester"));
+        let mut settings = Settings {
+            settings: None,
+            values: Values::defaults(&paths),
+        };
+
+        assert_eq!(settings.values().max_parallel_downloads, 3);
+        assert_eq!(settings.values().max_parallel_checks, 5);
+        settings.set_max_parallel_downloads(0);
+        settings.set_max_parallel_checks(99);
+        assert_eq!(settings.values().max_parallel_downloads, MIN_PARALLEL_TASKS);
+        assert_eq!(settings.values().max_parallel_checks, MAX_PARALLEL_CHECKS);
     }
 
     #[test]

@@ -40,6 +40,18 @@
             <summary>Use zsync delta updates</summary>
             <description>Download only changed blocks when the update source provides zsync information. Disable this on very low-resource computers to avoid scanning the installed AppImage and calculating block checksums; updates will download the full file.</description>
         </key>
+        <key name="max-parallel-downloads" type="i">
+            <default>3</default>
+            <range min="1" max="8"/>
+            <summary>Parallel update downloads</summary>
+            <description>Number of updates downloaded at the same time. Set it to 1 on slow or metered connections; installing updates is always sequential.</description>
+        </key>
+        <key name="max-parallel-checks" type="i">
+            <default>5</default>
+            <range min="1" max="10"/>
+            <summary>Parallel update checks</summary>
+            <description>Number of applications checked for updates at the same time. Lower it when the update source limits concurrent requests or the connection is slow.</description>
+        </key>
         <key name="preview-minimal-ui" type="b">
             <default>true</default>
         </key>
