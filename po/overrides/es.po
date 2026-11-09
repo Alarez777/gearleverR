@@ -477,3 +477,24 @@ msgstr "Se omitieron algunas AppImages"
 
 msgid "{done} integrated; {remaining} pending"
 msgstr "{done} integradas; {remaining} pendientes"
+
+msgid "Continue"
+msgstr "Continuar"
+
+msgid "Incompatible architecture"
+msgstr "Arquitectura incompatible"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Compilada para {arch}; no se integrará"
+
+msgid "Already integrated"
+msgstr "Ya integrada"
+
+msgid "Version {version} is already integrated"
+msgstr "La versión {version} ya está integrada"
+
+msgid "Name conflict"
+msgstr "Conflicto de nombre"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Ninguna de las AppImages seleccionadas se puede integrar"

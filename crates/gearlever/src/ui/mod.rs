@@ -166,6 +166,20 @@ struct LoadedFile {
     installed: Option<PathBuf>,
 }
 
+/// Why a selected AppImage will not be integrated in a batch.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum IgnoredReason {
+    ForeignArchitecture,
+    AlreadyInstalled(PathBuf),
+}
+
+/// An AppImage shown on the batch page that cannot be integrated.
+#[derive(Debug, Clone)]
+struct IgnoredCandidate {
+    candidate: CandidateFile,
+    reason: IgnoredReason,
+}
+
 /// What to do with every name conflict in a batch integration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BatchConflictPolicy {
@@ -339,6 +353,7 @@ struct AppModel {
     check_done: usize,
     pending: Vec<CandidateFile>,
     pending_arch: Option<Vec<LoadedFile>>,
+    multi_ignored: Vec<IgnoredCandidate>,
     batch_conflicts: Vec<PathBuf>,
     batch_decisions: HashMap<PathBuf, Conflict>,
     batch_skipped: HashSet<PathBuf>,
@@ -513,14 +528,18 @@ impl Component for AppModel {
                     Self::toast(widgets, &error);
                 }
 
-                let foreign: Vec<String> = loaded
-                    .iter()
-                    .filter(|file| {
-                        self.installed_path(file).is_none()
-                            && !file.candidate.arch.is_compatible_with_host()
-                    })
-                    .map(|file| file.candidate.path.display().to_string())
-                    .collect();
+                let foreign: Vec<String> = if loaded.len() == 1 {
+                    loaded
+                        .iter()
+                        .filter(|file| {
+                            self.installed_path(file).is_none()
+                                && !file.candidate.arch.is_compatible_with_host()
+                        })
+                        .map(|file| file.candidate.path.display().to_string())
+                        .collect()
+                } else {
+                    Vec::new()
+                };
 
                 if foreign.is_empty() {
                     Self::apply_loaded_files(self, widgets, &sender, loaded);
@@ -540,6 +559,7 @@ impl Component for AppModel {
                 }
 
                 self.pending.clear();
+                self.multi_ignored.clear();
                 self.reset_batch();
                 self.details = None;
                 self.details_source = None;
@@ -710,6 +730,10 @@ impl Component for AppModel {
                     return;
                 }
                 if self.pending.is_empty() {
+                    Self::toast(
+                        widgets,
+                        &t("None of the selected AppImages can be integrated"),
+                    );
                     return;
                 }
 
@@ -780,6 +804,7 @@ impl Component for AppModel {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
                         self.pending.clear();
+                        self.multi_ignored.clear();
                         self.reset_batch();
                         self.reloaded = None;
                         self.refresh_apps();
@@ -827,6 +852,7 @@ impl Component for AppModel {
                         let integrated = result.integrated.len();
                         let failed = result.failed.len();
                         let remaining = self.pending.len();
+                        self.multi_ignored.clear();
                         self.reset_batch();
                         self.reloaded = None;
                         self.refresh_apps();
@@ -860,6 +886,7 @@ impl Component for AppModel {
                         }
                     }
                     Err(error) => {
+                        self.multi_ignored.clear();
                         self.reset_batch();
                         if self.pending.is_empty() {
                             self.preview_window = false;
@@ -1594,6 +1621,7 @@ impl AppModel {
             check_done: 0,
             pending: Vec::new(),
             pending_arch: None,
+            multi_ignored: Vec::new(),
             batch_conflicts: Vec::new(),
             batch_decisions: HashMap::new(),
             batch_skipped: HashSet::new(),
@@ -2119,27 +2147,50 @@ impl AppModel {
         sender: &ComponentSender<Self>,
         loaded: Vec<LoadedFile>,
     ) {
+        let multiple = loaded.len() > 1;
         let mut fresh = Vec::new();
-        let mut already_installed = 0;
+        let mut ignored = Vec::new();
+        let mut installed_details = None;
 
         for file in loaded {
-            let installed = self.installed_path(&file);
+            let existing = self.installed_path(&file);
 
-            if let Some(installed) = installed {
-                if let Some(app) = self.apps.iter().find(|app| app.image_path == installed) {
-                    already_installed += 1;
-                    if self.apps.len() == 1 || already_installed == 1 {
-                        self.details = Some(DetailsItem::Installed(app.clone()));
-                        self.details_source = None;
-                        self.reloaded = None;
-                    }
+            if multiple {
+                if let Some(reason) = ignored_reason(&file, existing) {
+                    ignored.push(IgnoredCandidate {
+                        candidate: file.candidate,
+                        reason,
+                    });
+                } else {
+                    fresh.push(file.candidate);
                 }
+            } else if let Some(path) = existing {
+                installed_details = self.apps.iter().find(|app| app.image_path == path).cloned();
             } else {
                 fresh.push(file.candidate);
             }
         }
 
-        if already_installed > 0 && fresh.is_empty() {
+        self.pending.clear();
+        self.multi_ignored.clear();
+        self.reset_batch();
+
+        if multiple {
+            self.pending = fresh;
+            self.multi_ignored = ignored;
+            self.details = None;
+            self.details_source = None;
+            self.reloaded = None;
+            self.page = Page::MultiInstall;
+            Self::show_page(self, widgets);
+            Self::rebuild_multi(self, widgets, sender);
+            return;
+        }
+
+        if let Some(app) = installed_details {
+            self.details = Some(DetailsItem::Installed(app));
+            self.details_source = None;
+            self.reloaded = None;
             self.page = Page::Details;
             Self::show_page(self, widgets);
             Self::rebuild_details(self, widgets, sender);
@@ -2149,27 +2200,15 @@ impl AppModel {
             return;
         }
 
-        match fresh.len() {
-            0 => {}
-            1 => {
-                if let Some(candidate) = fresh.into_iter().next() {
-                    self.details = Some(DetailsItem::Candidate(Box::new(candidate)));
-                    self.details_source = None;
-                    self.reloaded = None;
-                    self.page = Page::Details;
-                    Self::show_page(self, widgets);
-                    Self::rebuild_details(self, widgets, sender);
-                    if self.minimal_preview() {
-                        Self::minimal_ui(widgets);
-                    }
-                }
-            }
-            _ => {
-                self.pending = fresh;
-                self.reset_batch();
-                self.page = Page::MultiInstall;
-                Self::show_page(self, widgets);
-                Self::rebuild_multi(self, widgets, sender);
+        if let Some(candidate) = fresh.into_iter().next() {
+            self.details = Some(DetailsItem::Candidate(Box::new(candidate)));
+            self.details_source = None;
+            self.reloaded = None;
+            self.page = Page::Details;
+            Self::show_page(self, widgets);
+            Self::rebuild_details(self, widgets, sender);
+            if self.minimal_preview() {
+                Self::minimal_ui(widgets);
             }
         }
     }
@@ -2280,15 +2319,15 @@ impl AppModel {
             Some(&body),
         );
         dialog.add_response("cancel", &t("Cancel"));
-        dialog.add_response("open", &t("Open"));
-        dialog.set_response_appearance("open", adw::ResponseAppearance::Suggested);
+        dialog.add_response("continue", &t("Continue"));
+        dialog.set_response_appearance("continue", adw::ResponseAppearance::Suggested);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
 
         let sender = sender.clone();
         dialog.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
             dialog.close();
-            sender.input(Msg::ArchDecision(response == "open"));
+            sender.input(Msg::ArchDecision(response == "continue"));
         });
 
         dialog.present();
@@ -3051,22 +3090,105 @@ impl AppModel {
         list.set_selection_mode(gtk::SelectionMode::None);
 
         for candidate in &self.pending {
-            let row = adw::ActionRow::builder()
-                .title(candidate.metadata.name.clone())
-                .subtitle(candidate.path.to_string_lossy().into_owned())
-                .build();
-            row.add_prefix(&util::candidate_icon(&candidate.metadata, util::ROW_ICON));
-            list.append(&row);
+            list.append(&self.multi_install_row(candidate));
         }
+
+        for ignored in &self.multi_ignored {
+            list.append(&self.ignored_multi_row(ignored));
+        }
+
         content.append(&list);
+
+        if self.pending.is_empty() {
+            let nothing =
+                gtk::Label::new(Some(&t("None of the selected AppImages can be integrated")));
+            nothing.add_css_class("dim-label");
+            nothing.set_halign(gtk::Align::Center);
+            nothing.set_wrap(true);
+            content.append(&nothing);
+        }
 
         let all = gtk::Button::with_label(&t("Move all to the app menu"));
         all.add_css_class("suggested-action");
         all.set_halign(gtk::Align::Center);
-        all.set_sensitive(!self.install_running);
+        all.set_sensitive(!self.install_running && !self.pending.is_empty());
         let sender = sender.clone();
         all.connect_clicked(move |_| sender.input(Msg::InstallAll));
         content.append(&all);
+    }
+
+    fn multi_install_row(&self, candidate: &CandidateFile) -> adw::ActionRow {
+        let row = adw::ActionRow::builder()
+            .title(candidate.metadata.name.clone())
+            .subtitle(candidate.path.to_string_lossy().into_owned())
+            .build();
+        row.add_prefix(&util::candidate_icon(&candidate.metadata, util::ROW_ICON));
+
+        if conflict_app(&self.apps, &candidate.metadata).is_some() {
+            let tooltip =
+                t("There is already an app with the same name, how do you want to proceed?");
+            row.add_suffix(&status_suffix(
+                "dialog-warning-symbolic",
+                &t("Name conflict"),
+                Some(&tooltip),
+                "warning",
+            ));
+        }
+
+        row
+    }
+
+    fn ignored_multi_row(&self, ignored: &IgnoredCandidate) -> adw::ActionRow {
+        let row = adw::ActionRow::builder()
+            .title(ignored.candidate.metadata.name.clone())
+            .subtitle(ignored.candidate.path.to_string_lossy().into_owned())
+            .build();
+        row.add_prefix(&util::candidate_icon(
+            &ignored.candidate.metadata,
+            util::ROW_ICON,
+        ));
+        row.set_opacity(0.6);
+
+        let (icon, text, tooltip, css) = match &ignored.reason {
+            IgnoredReason::ForeignArchitecture => {
+                let arch = ignored.candidate.arch.to_string();
+                (
+                    "dialog-warning-symbolic",
+                    t("Incompatible architecture"),
+                    tf(
+                        "Built for {arch}; it will not be integrated",
+                        &[("arch", &arch)],
+                    ),
+                    "warning",
+                )
+            }
+            IgnoredReason::AlreadyInstalled(path) => {
+                let version = self
+                    .apps
+                    .iter()
+                    .find(|app| &app.image_path == path)
+                    .and_then(|app| app.version.as_deref());
+                let tooltip = version.map_or_else(
+                    || t("This AppImage is already integrated"),
+                    |version| {
+                        tf(
+                            "Version {version} is already integrated",
+                            &[("version", version)],
+                        )
+                    },
+                );
+                (
+                    "object-select-symbolic",
+                    t("Already integrated"),
+                    tooltip,
+                    "success",
+                )
+            }
+        };
+
+        row.set_tooltip_text(Some(&tooltip));
+        row.add_suffix(&status_suffix(icon, &text, Some(&tooltip), css));
+        row
     }
 
     fn rebuild_multi_update(&self, content: &gtk::Box, sender: &ComponentSender<Self>) {
@@ -4923,6 +5045,17 @@ fn previous_install(app: &InstalledApp) -> PreviousInstall {
     }
 }
 
+/// Classifies a loaded AppImage that cannot be integrated in a batch.
+fn ignored_reason(file: &LoadedFile, installed: Option<PathBuf>) -> Option<IgnoredReason> {
+    if let Some(path) = installed {
+        Some(IgnoredReason::AlreadyInstalled(path))
+    } else if !file.candidate.arch.is_compatible_with_host() {
+        Some(IgnoredReason::ForeignArchitecture)
+    } else {
+        None
+    }
+}
+
 /// Resolves the batch into the integrations that still have to run.
 ///
 /// Skipped AppImages are left out, and a `Replace` without a matching
@@ -5302,6 +5435,28 @@ fn clear_listbox(listbox: &gtk::ListBox) {
     }
 }
 
+/// Builds the small icon and label that describes a batch row.
+fn status_suffix(icon: &str, text: &str, tooltip: Option<&str>, css: &str) -> gtk::Widget {
+    let container = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    container.set_valign(gtk::Align::Center);
+
+    let image = gtk::Image::from_icon_name(icon);
+    image.set_pixel_size(16);
+    image.add_css_class(css);
+    container.append(&image);
+
+    let label = gtk::Label::new(Some(text));
+    label.add_css_class("caption");
+    label.add_css_class("dim-label");
+    container.append(&label);
+
+    if let Some(tooltip) = tooltip {
+        container.set_tooltip_text(Some(tooltip));
+    }
+
+    container.upcast()
+}
+
 /// Builds the inline warning shown when an AppImage targets another architecture.
 ///
 /// `AdwBanner` is libadwaita 1.3 and the project targets 1.2, so the banner is
@@ -5421,6 +5576,17 @@ mod tests {
             path: PathBuf::from(image),
             metadata: metadata(name),
             arch: ElfArch::X86_64,
+        }
+    }
+
+    fn loaded(name: &str, image: &str, arch: ElfArch) -> LoadedFile {
+        LoadedFile {
+            candidate: CandidateFile {
+                path: PathBuf::from(image),
+                metadata: metadata(name),
+                arch,
+            },
+            installed: None,
         }
     }
 
@@ -5564,6 +5730,31 @@ mod tests {
             !pending
                 .iter()
                 .any(|candidate| candidate.path == Path::new("/tmp/integrated.appimage"))
+        );
+    }
+
+    #[test]
+    fn classifies_batch_candidates_that_cannot_be_integrated() {
+        let host = ElfArch::host().unwrap_or(ElfArch::X86_64);
+        let foreign = if host == ElfArch::X86_64 {
+            ElfArch::Aarch64
+        } else {
+            ElfArch::X86_64
+        };
+
+        let compatible = loaded("Compatible", "/tmp/compatible.appimage", host);
+        assert!(ignored_reason(&compatible, None).is_none());
+
+        let incompatible = loaded("Foreign", "/tmp/foreign.appimage", foreign);
+        assert_eq!(
+            ignored_reason(&incompatible, None),
+            Some(IgnoredReason::ForeignArchitecture)
+        );
+
+        let installed_path = PathBuf::from("/managed/compatible.appimage");
+        assert_eq!(
+            ignored_reason(&compatible, Some(installed_path.clone())),
+            Some(IgnoredReason::AlreadyInstalled(installed_path))
         );
     }
 
