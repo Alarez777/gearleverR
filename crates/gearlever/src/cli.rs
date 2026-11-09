@@ -253,7 +253,7 @@ impl Cli {
             })
             .with_context(|| format!("cannot read the metadata of {}", file.display()))?;
 
-        let same_name = apps.iter().find(|app| app.name == metadata.name);
+        let same_name = apps.iter().find(|app| app.matches_name(&metadata.name));
         let mut conflict = if self.replace {
             Conflict::Replace
         } else {

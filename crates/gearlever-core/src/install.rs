@@ -225,6 +225,7 @@ pub fn integrate(
 
     Ok(InstalledApp {
         name: metadata.name.clone(),
+        appimage_name: Some(metadata.name.clone()),
         description: metadata.comment.clone(),
         version: metadata.version.clone(),
         terminal: metadata.terminal,
