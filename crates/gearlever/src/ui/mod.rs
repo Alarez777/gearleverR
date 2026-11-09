@@ -2829,6 +2829,55 @@ impl AppModel {
         widgets.multi.append(&clamp);
     }
 
+    /// Prompts for a restart after the interface scale changes.
+    fn show_ui_scale_restart_dialog(
+        preferences: &glib::WeakRef<adw::PreferencesWindow>,
+        main: &glib::WeakRef<adw::ApplicationWindow>,
+        sender: &ComponentSender<Self>,
+        dialog_open: &Rc<Cell<bool>>,
+    ) {
+        if dialog_open.get() {
+            return;
+        }
+
+        let preferences = preferences.upgrade();
+        let main = main.upgrade();
+        let parent = preferences
+            .as_ref()
+            .filter(|window| window.is_visible())
+            .map(|window| window.clone().upcast::<gtk::Window>())
+            .or_else(|| {
+                main.as_ref()
+                    .map(|window| window.clone().upcast::<gtk::Window>())
+            });
+        let Some(parent) = parent else {
+            return;
+        };
+
+        dialog_open.set(true);
+        let dialog = adw::MessageDialog::new(
+            Some(&parent),
+            Some(&t("Restart required")),
+            Some(&t("Restart Gear LeverR to apply the new interface scale.")),
+        );
+        dialog.add_response("later", &t("Later"));
+        dialog.add_response("restart", &t("Restart"));
+        dialog.set_response_appearance("restart", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("restart"));
+        dialog.set_close_response("later");
+
+        let sender = sender.clone();
+        let dialog_open = Rc::clone(dialog_open);
+        dialog.connect_response(None, move |dialog: &adw::MessageDialog, response: &str| {
+            dialog_open.set(false);
+            if response == "restart" {
+                sender.input(Msg::RestartApp);
+            }
+            dialog.close();
+        });
+        dialog.present();
+    }
+
     #[expect(
         clippy::too_many_lines,
         reason = "the preferences window is a flat list of rows"
@@ -2952,12 +3001,26 @@ impl AppModel {
 
         let applied_scale = self.applied_ui_scale;
         let sender_scale = sender.clone();
-        let preferences_ref = window.downgrade();
-        let main_ref = widgets.window.downgrade();
         let generation = Rc::new(Cell::new(0_u64));
         let dialog_open = Rc::new(Cell::new(false));
+        let pointer_down = Rc::new(Cell::new(false));
+        let pending_restart = Rc::new(Cell::new(false));
 
+        let show_restart: Rc<dyn Fn()> = {
+            let preferences = window.downgrade();
+            let main = widgets.window.downgrade();
+            let sender = sender.clone();
+            let dialog_open = Rc::clone(&dialog_open);
+            Rc::new(move || {
+                Self::show_ui_scale_restart_dialog(&preferences, &main, &sender, &dialog_open);
+            })
+        };
+
+        let pointer_down_spin = Rc::clone(&pointer_down);
+        let pending_restart_spin = Rc::clone(&pending_restart);
+        let show_restart_spin = Rc::clone(&show_restart);
         let scale_ref = scale.downgrade();
+        let spin_timer_ref = spin.downgrade();
         spin.connect_value_changed(move |spin| {
             let value = spin.value();
             if let Some(scale) = scale_ref.upgrade()
@@ -2969,62 +3032,39 @@ impl AppModel {
             let percent = u32::try_from(spin.value_as_int()).unwrap_or(100);
             sender_scale.input(Msg::UiScaleChanged(percent));
 
+            let current = generation.get().wrapping_add(1);
+            generation.set(current);
+            pending_restart_spin.set(false);
+
             if percent == applied_scale {
                 return;
             }
 
-            let current = generation.get().wrapping_add(1);
-            generation.set(current);
             let generation_timer = Rc::clone(&generation);
-            let dialog_open = Rc::clone(&dialog_open);
-            let sender_restart = sender_scale.clone();
-            let preferences_ref = preferences_ref.clone();
-            let main_ref = main_ref.clone();
+            let dialog_open_timer = Rc::clone(&dialog_open);
+            let pointer_down_timer = Rc::clone(&pointer_down_spin);
+            let pending_restart_timer = Rc::clone(&pending_restart_spin);
+            let show_restart = Rc::clone(&show_restart_spin);
+            let spin_timer_ref = spin_timer_ref.clone();
 
             glib::timeout_add_local_once(Duration::from_millis(500), move || {
-                if generation_timer.get() != current || dialog_open.get() {
+                if generation_timer.get() != current || dialog_open_timer.get() {
                     return;
                 }
 
-                let preferences = preferences_ref.upgrade();
-                let main = main_ref.upgrade();
-                let parent = preferences
-                    .as_ref()
-                    .filter(|window| window.is_visible())
-                    .map(|window| window.clone().upcast::<gtk::Window>())
-                    .or_else(|| {
-                        main.as_ref()
-                            .map(|window| window.clone().upcast::<gtk::Window>())
-                    });
-                let Some(parent) = parent else {
+                if pointer_down_timer.get() {
+                    pending_restart_timer.set(true);
                     return;
-                };
+                }
 
-                dialog_open.set(true);
-                let dialog = adw::MessageDialog::new(
-                    Some(&parent),
-                    Some(&t("Restart required")),
-                    Some(&t("Restart Gear LeverR to apply the new interface scale.")),
-                );
-                dialog.add_response("later", &t("Later"));
-                dialog.add_response("restart", &t("Restart"));
-                dialog.set_response_appearance("restart", adw::ResponseAppearance::Suggested);
-                dialog.set_default_response(Some("restart"));
-                dialog.set_close_response("later");
+                let at_applied_scale = spin_timer_ref.upgrade().is_some_and(|spin| {
+                    u32::try_from(spin.value_as_int()).unwrap_or(100) == applied_scale
+                });
+                if at_applied_scale {
+                    return;
+                }
 
-                let sender = sender_restart.clone();
-                let dialog_open = Rc::clone(&dialog_open);
-                dialog.connect_response(
-                    None,
-                    move |dialog: &adw::MessageDialog, response: &str| {
-                        dialog_open.set(false);
-                        if response == "restart" {
-                            sender.input(Msg::RestartApp);
-                        }
-                        dialog.close();
-                    },
-                );
-                dialog.present();
+                show_restart();
             });
         });
 
@@ -3037,6 +3077,42 @@ impl AppModel {
                 spin.set_value(value);
             }
         });
+
+        let pointer_down_release = Rc::clone(&pointer_down);
+        let pending_restart_release = Rc::clone(&pending_restart);
+        let show_restart_release = Rc::clone(&show_restart);
+        let spin_release_ref = spin.downgrade();
+        // GtkScale owns its drag gesture, so another gesture would lose the
+        // sequence. This controller only observes the pointer and lets the
+        // scale keep dragging; the prompt waits until the button is released.
+        let pointer_controller = gtk::EventControllerLegacy::new();
+        pointer_controller.set_propagation_phase(gtk::PropagationPhase::Capture);
+        pointer_controller.connect_event(move |_, event| {
+            match event.event_type() {
+                gdk::EventType::ButtonPress | gdk::EventType::TouchBegin => {
+                    pointer_down_release.set(true);
+                    pending_restart_release.set(false);
+                }
+                gdk::EventType::ButtonRelease
+                | gdk::EventType::TouchEnd
+                | gdk::EventType::TouchCancel
+                | gdk::EventType::GrabBroken => {
+                    pointer_down_release.set(false);
+                    if pending_restart_release.take() {
+                        let at_applied_scale = spin_release_ref.upgrade().is_some_and(|spin| {
+                            u32::try_from(spin.value_as_int()).unwrap_or(100) == applied_scale
+                        });
+                        if !at_applied_scale {
+                            show_restart_release();
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            glib::Propagation::Proceed
+        });
+        controls.add_controller(pointer_controller);
 
         let updates = adw::PreferencesGroup::new();
         updates.set_title(&t("Updates management"));
