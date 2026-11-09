@@ -1388,6 +1388,7 @@ mod tests {
 
         InstalledApp {
             name: name.to_owned(),
+            appimage_name: Some(name.to_owned()),
             description: String::new(),
             version: None,
             image_path,

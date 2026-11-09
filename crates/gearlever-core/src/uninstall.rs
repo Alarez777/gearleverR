@@ -101,6 +101,7 @@ mod tests {
 
         let app = InstalledApp {
             name: "Example".to_owned(),
+            appimage_name: Some("Example".to_owned()),
             description: String::new(),
             version: None,
             terminal: false,
@@ -135,6 +136,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let app = InstalledApp {
             name: "Gone".to_owned(),
+            appimage_name: Some("Gone".to_owned()),
             description: String::new(),
             version: None,
             terminal: false,

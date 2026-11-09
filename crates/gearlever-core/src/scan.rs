@@ -14,6 +14,11 @@ use crate::paths::Paths;
 pub struct InstalledApp {
     /// `Name` from the desktop entry.
     pub name: String,
+    /// `X-AppImage-Name` from the desktop entry, when present.
+    ///
+    /// This is the application name without the version or fingerprint suffix
+    /// that keeps two integrations of the same app apart.
+    pub appimage_name: Option<String>,
     /// `Comment` from the desktop entry, empty when missing.
     pub description: String,
     /// `X-AppImage-Version`, when present.
@@ -40,6 +45,17 @@ pub struct InstalledApp {
     pub external: bool,
     /// Whether this is Gear LeverR's own integration.
     pub self_entry: bool,
+}
+
+impl InstalledApp {
+    /// Returns whether this app refers to `name`.
+    ///
+    /// `X-AppImage-Name` is checked as well, so a version added with a
+    /// fingerprint suffix in `Name` still matches the original application.
+    #[must_use]
+    pub fn matches_name(&self, name: &str) -> bool {
+        self.name == name || self.appimage_name.as_deref() == Some(name)
+    }
 }
 
 /// Options that affect which integrations are returned.
@@ -156,6 +172,11 @@ fn read_entry(path: &Path, options: &ScanOptions<'_>) -> Option<InstalledApp> {
 
     Some(InstalledApp {
         name,
+        appimage_name: main
+            .get("X-AppImage-Name")
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
         description: main.get("Comment").cloned().unwrap_or_default(),
         terminal: main
             .get("Terminal")
@@ -192,6 +213,31 @@ mod tests {
     }
 
     #[test]
+    fn matches_the_original_appimage_name_after_a_name_suffix() {
+        let app = InstalledApp {
+            name: "Example (abc123)".to_owned(),
+            appimage_name: Some("Example".to_owned()),
+            description: String::new(),
+            version: None,
+            image_path: PathBuf::from("/tmp/example.appimage"),
+            desktop_path: PathBuf::from("/tmp/example.desktop"),
+            desktop_id: "example.desktop".to_owned(),
+            icon: None,
+            icon_path: None,
+            exec_arguments: String::new(),
+            env_variables: Vec::new(),
+            terminal: false,
+            size: 0,
+            external: false,
+            self_entry: false,
+        };
+
+        assert!(app.matches_name("Example"));
+        assert!(app.matches_name("Example (abc123)"));
+        assert!(!app.matches_name("Other"));
+    }
+
+    #[test]
     fn finds_integrated_appimages_and_parses_exec() {
         let directory = tempfile::tempdir().unwrap();
         let paths = Paths::with_home(directory.path());
@@ -205,7 +251,8 @@ mod tests {
             paths.applications_dir().join("example.desktop"),
             format!(
                 "[Desktop Entry]\nName=Example\nComment=Demo\nTryExec={}\n\
-                 Exec=env DESKTOPINTEGRATION=1 {} --flag %U\nX-AppImage-Version=1.0\nIcon=example\n",
+                 Exec=env DESKTOPINTEGRATION=1 {} --flag %U\nX-AppImage-Version=1.0\n\
+                 X-AppImage-Name=Example\nIcon=example\n",
                 image.display(),
                 image.display()
             ),
@@ -224,6 +271,7 @@ mod tests {
         assert_eq!(apps.len(), 1);
         let app = &apps[0];
         assert_eq!(app.name, "Example");
+        assert_eq!(app.appimage_name.as_deref(), Some("Example"));
         assert_eq!(app.version.as_deref(), Some("1.0"));
         assert_eq!(app.exec_arguments, "--flag %U");
         assert_eq!(app.env_variables, vec!["DESKTOPINTEGRATION=1"]);
