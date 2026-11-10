@@ -56,6 +56,9 @@ use util::{normalize, pill};
 /// Time budget for the sequential retry pass after the parallel checks.
 const RETRY_BUDGET: Duration = update::DEFAULT_RETRY_BUDGET;
 
+/// How long the green check stays visible before the row moves to the installed list.
+const SINGLE_UPDATE_CHECK_DURATION: Duration = Duration::from_secs(1);
+
 /// Application name used by the main window and its header.
 const APP_NAME: &str = "Gear LeverR";
 
@@ -202,13 +205,6 @@ enum ConflictDialogScope {
     Batch,
 }
 
-/// Whether the bottom progress row offers a cancel button.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProgressCancel {
-    Hidden,
-    Shown,
-}
-
 /// One integration of a batch, with its conflict already resolved.
 #[derive(Debug)]
 struct InstallJob {
@@ -232,6 +228,40 @@ struct MultiUpdateRow {
     status: gtk::Stack,
     ring: util::CircularProgress,
     error: gtk::Label,
+}
+
+/// Stage of an update started from a single application.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SingleUpdateStage {
+    Running,
+    Done,
+}
+
+/// State of the update started from a single application.
+#[derive(Debug)]
+struct SingleUpdate {
+    path: PathBuf,
+    fraction: f64,
+    stage: SingleUpdateStage,
+}
+
+/// Widgets that show the progress of a single update in the visible view.
+struct SingleUpdateRow {
+    status: gtk::Stack,
+    ring: util::CircularProgress,
+}
+
+/// Action shown at the end of a row of the list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RowAction {
+    Open,
+    Update,
+}
+
+/// One row of the updates or installed lists.
+struct ListRow {
+    row: gtk::ListBoxRow,
+    single: Option<SingleUpdateRow>,
 }
 
 #[derive(Debug)]
@@ -287,9 +317,11 @@ enum Msg {
     StartUpdate(PathBuf),
     StartAllUpdates,
     Progress(f64, String),
+    SingleProgress(f64),
     CancelUpdate,
     UpdateCancelled,
     Updated(Result<(InstalledApp, Config), String>),
+    SingleUpdateFinished(PathBuf),
     MultiAppStarted(PathBuf),
     MultiAppUpdated(PathBuf),
     MultiAppCancelled(PathBuf),
@@ -386,6 +418,8 @@ struct AppModel {
     multi_failed: HashMap<PathBuf, String>,
     multi_rows: HashMap<PathBuf, MultiUpdateRow>,
     multi_finished: bool,
+    single_update: Option<SingleUpdate>,
+    single_row: Option<SingleUpdateRow>,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
     /// Whether the window was created to preview an externally opened AppImage.
@@ -424,7 +458,6 @@ struct Widgets {
     multi: gtk::Box,
     multi_progress: gtk::ProgressBar,
     progress: gtk::ProgressBar,
-    cancel_button: gtk::Button,
     drop_revealer: gtk::Revealer,
     minimal_preview: Rc<Cell<bool>>,
     welcome: Option<welcome::Welcome>,
@@ -466,7 +499,7 @@ impl Component for AppModel {
             PENDING_OPEN.with(|pending| pending.borrow_mut().drain(..).collect::<Vec<_>>());
 
         let widgets = Self::build_shell(&root, &sender);
-        Self::rebuild_list(&model, &widgets, &sender);
+        Self::rebuild_list(&mut model, &widgets, &sender);
         Self::show_page(&model, &widgets);
 
         if !model.minimal_preview() && model.settings.values().is_maximized {
@@ -1072,7 +1105,16 @@ impl Component for AppModel {
                 let download_dir = options.staging_dir();
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
-                Self::show_progress(widgets, ProgressCancel::Shown);
+                self.single_update = Some(SingleUpdate {
+                    path: path.clone(),
+                    fraction: 0.0,
+                    stage: SingleUpdateStage::Running,
+                });
+                if self.page == Page::Details {
+                    Self::rebuild_details(self, widgets, &sender);
+                } else {
+                    Self::rebuild_list(self, widgets, &sender);
+                }
 
                 std::thread::spawn(move || {
                     let mut config = config;
@@ -1101,10 +1143,7 @@ impl Component for AppModel {
                     };
 
                     let mut progress = |fraction: f64| {
-                        sender.input(Msg::Progress(
-                            fraction,
-                            tf("Updating {name}...", &[("name", &app.name)]),
-                        ));
+                        sender.input(Msg::SingleProgress(fraction));
                     };
 
                     let result = update::apply(
@@ -1275,11 +1314,17 @@ impl Component for AppModel {
                     widgets.multi_progress.set_fraction(fraction);
                 } else {
                     widgets.progress.set_visible(true);
-                    widgets
-                        .cancel_button
-                        .set_visible(self.cancel_token.is_some());
                     widgets.progress.set_fraction(fraction);
                     widgets.progress.set_text(Some(&text));
+                }
+            }
+            Msg::SingleProgress(fraction) => {
+                let fraction = fraction.clamp(0.0, 1.0);
+                if let Some(update) = &mut self.single_update {
+                    update.fraction = fraction;
+                }
+                if let Some(row) = &self.single_row {
+                    row.ring.set_fraction(fraction);
                 }
             }
             Msg::MultiProgress {
@@ -1301,20 +1346,22 @@ impl Component for AppModel {
                     cancel.store(true, Ordering::Relaxed);
                     if self.page == Page::MultiUpdate {
                         Self::rebuild_multi(self, widgets, &sender);
-                    } else {
-                        widgets.cancel_button.set_sensitive(false);
-                        widgets.cancel_button.set_label(&t("Cancelling..."));
                     }
                 }
             }
             Msg::UpdateCancelled => {
                 self.cancel_token = None;
-                Self::hide_progress(widgets);
+                self.single_update = None;
+                self.single_row = None;
+                if self.page == Page::Details {
+                    Self::rebuild_details(self, widgets, &sender);
+                } else {
+                    Self::rebuild_list(self, widgets, &sender);
+                }
                 Self::toast(widgets, &t("Update cancelled"));
             }
             Msg::Updated(result) => {
                 self.cancel_token = None;
-                Self::hide_progress(widgets);
                 match result {
                     Ok((app, config)) => {
                         self.config = config;
@@ -1323,18 +1370,67 @@ impl Component for AppModel {
                         self.managers.remove(&app.image_path);
                         self.reloaded = None;
                         self.refresh_apps();
+                        widgets.update_all_button.set_visible(self.has_updates());
+
+                        if let Some(update) = self.single_update.as_mut()
+                            && update.path == app.image_path
+                        {
+                            update.fraction = 1.0;
+                            update.stage = SingleUpdateStage::Done;
+                            if let Some(row) = &self.single_row {
+                                row.ring.set_fraction(1.0);
+                                row.status.set_visible_child_name("done");
+                                row.status.set_tooltip_text(None);
+                            }
+                        }
+
+                        let sender_finished = sender.clone();
+                        let path = app.image_path.clone();
+                        glib::timeout_add_local_once(SINGLE_UPDATE_CHECK_DURATION, move || {
+                            sender_finished.input(Msg::SingleUpdateFinished(path));
+                        });
+                        Self::toast(widgets, &tf("{name} updated", &[("name", &app.name)]));
+                    }
+                    Err(error) => {
+                        self.single_update = None;
+                        self.single_row = None;
+                        if self.page == Page::Details {
+                            Self::rebuild_details(self, widgets, &sender);
+                        } else {
+                            Self::rebuild_list(self, widgets, &sender);
+                        }
+                        Self::toast(widgets, &error);
+                    }
+                }
+            }
+            Msg::SingleUpdateFinished(path) => {
+                if self
+                    .single_update
+                    .as_ref()
+                    .is_none_or(|update| update.path != path)
+                {
+                    return;
+                }
+
+                self.single_update = None;
+                self.single_row = None;
+                self.updates.remove(&path);
+                self.managers.remove(&path);
+
+                if self.page == Page::Details {
+                    if let Some(DetailsItem::Installed(app)) = &self.details
+                        && app.image_path == path
+                    {
                         self.details = self
                             .apps
                             .iter()
-                            .find(|candidate| candidate.image_path == app.image_path)
+                            .find(|candidate| candidate.image_path == path)
                             .cloned()
                             .map(DetailsItem::Installed);
-                        Self::rebuild_details(self, widgets, &sender);
-                        Self::rebuild_list(self, widgets, &sender);
-                        Self::toast(widgets, &tf("{name} updated", &[("name", &app.name)]));
                     }
-                    Err(error) => Self::toast(widgets, &error),
+                    Self::rebuild_details(self, widgets, &sender);
                 }
+                Self::rebuild_list(self, widgets, &sender);
             }
             Msg::MultiAppStarted(path) => {
                 self.multi_active.insert(path.clone());
@@ -1769,6 +1865,8 @@ impl AppModel {
             multi_failed: HashMap::new(),
             multi_rows: HashMap::new(),
             multi_finished: false,
+            single_update: None,
+            single_row: None,
             update_queue: Vec::new(),
             opened_from_file: false,
             preview_window: false,
@@ -2117,7 +2215,7 @@ impl AppModel {
 
         let options = self.integrate_options(conflict, None);
         let config = self.config.clone();
-        Self::show_progress(widgets, ProgressCancel::Hidden);
+        Self::show_progress(widgets);
         widgets.progress.set_fraction(0.0);
         widgets.progress.set_text(Some(&t("Integrating...")));
         self.install_running = true;
@@ -2161,7 +2259,7 @@ impl AppModel {
         let options = self.integrate_options(Conflict::KeepBoth, None);
         let config = self.config.clone();
         let total = jobs.len();
-        Self::show_progress(widgets, ProgressCancel::Hidden);
+        Self::show_progress(widgets);
         widgets.progress.set_fraction(0.0);
         widgets.progress.set_text(Some(&t("Integrating...")));
         self.install_running = true;
@@ -2530,9 +2628,12 @@ impl AppModel {
         }
     }
 
-    fn rebuild_list(&self, widgets: &Widgets, sender: &ComponentSender<Self>) {
+    fn rebuild_list(&mut self, widgets: &Widgets, sender: &ComponentSender<Self>) {
         clear_listbox(&widgets.updates_list);
         clear_listbox(&widgets.installed_list);
+        if self.page == Page::List {
+            self.single_row = None;
+        }
 
         let query = normalize(&self.search);
         let mut update_visible = 0;
@@ -2553,14 +2654,34 @@ impl AppModel {
             }
 
             let has_update = self.updates.contains(&app.image_path);
-            let row = Self::list_row(
+            let action = if has_update {
+                RowAction::Update
+            } else {
+                RowAction::Open
+            };
+            let single = self
+                .single_update
+                .as_ref()
+                .filter(|update| update.path == app.image_path);
+            let in_updates = has_update || single.is_some();
+            let ListRow {
+                row,
+                single: single_row,
+            } = Self::list_row(
                 &display,
-                has_update,
+                action,
+                single,
                 &self.paths.metadata_cache_dir(),
                 sender,
             );
 
-            if has_update {
+            if self.page == Page::List
+                && let Some(single_row) = single_row
+            {
+                self.single_row = Some(single_row);
+            }
+
+            if in_updates {
                 update_visible += 1;
                 widgets.updates_list.append(&row);
             } else {
@@ -2570,7 +2691,7 @@ impl AppModel {
         }
 
         let has_updates = self.has_updates();
-        let sections = has_updates && update_visible > 0;
+        let sections = update_visible > 0;
         widgets.updates_section.set_visible(sections);
         widgets.installed_section.set_visible(installed_visible > 0);
         widgets.installed_header.set_visible(sections);
@@ -2599,16 +2720,13 @@ impl AppModel {
             .any(|app| self.updates.contains(&app.image_path))
     }
 
-    #[expect(
-        clippy::fn_params_excessive_bools,
-        reason = "the row action switches between Open and Update"
-    )]
     fn list_row(
         app: &InstalledApp,
-        has_update: bool,
+        action: RowAction,
+        single: Option<&SingleUpdate>,
         cache_dir: &Path,
         sender: &ComponentSender<Self>,
-    ) -> gtk::ListBoxRow {
+    ) -> ListRow {
         let row = gtk::ListBoxRow::new();
         row.set_activatable(true);
         row.set_widget_name(&app.image_path.to_string_lossy());
@@ -2648,30 +2766,75 @@ impl AppModel {
 
         line.append(&text);
 
-        let label = if has_update { t("Update") } else { t("Open") };
-        let action = gtk::Button::with_label(&label);
-        action.set_valign(gtk::Align::Center);
-        if has_update {
-            action.add_css_class("suggested-action");
-        }
-        let sender = sender.clone();
-        let path = app.image_path.clone();
-        action.connect_clicked(move |_| {
-            if has_update {
-                sender.input(Msg::StartUpdate(path.clone()));
-            } else {
-                sender.input(Msg::Launch(path.clone()));
+        let single_row = if let Some(update) = single {
+            let progress_row = Self::single_update_row(update, &app.name);
+            line.append(&progress_row.status);
+            Some(progress_row)
+        } else {
+            let label = match action {
+                RowAction::Update => t("Update"),
+                RowAction::Open => t("Open"),
+            };
+            let button = gtk::Button::with_label(&label);
+            button.set_valign(gtk::Align::Center);
+            if action == RowAction::Update {
+                button.add_css_class("suggested-action");
             }
-        });
-        line.append(&action);
+            let sender = sender.clone();
+            let path = app.image_path.clone();
+            button.connect_clicked(move |_| match action {
+                RowAction::Update => sender.input(Msg::StartUpdate(path.clone())),
+                RowAction::Open => sender.input(Msg::Launch(path.clone())),
+            });
+            line.append(&button);
+            None
+        };
 
         row.set_child(Some(&line));
-        row
+        ListRow {
+            row,
+            single: single_row,
+        }
     }
 
-    fn rebuild_details(&self, widgets: &Widgets, sender: &ComponentSender<Self>) {
+    /// Builds the stack that replaces the update button while an app updates.
+    fn single_update_row(update: &SingleUpdate, app_name: &str) -> SingleUpdateRow {
+        let status = gtk::Stack::new();
+        status.set_transition_type(gtk::StackTransitionType::Crossfade);
+        status.set_transition_duration(120);
+        status.set_size_request(24, 24);
+        status.set_halign(gtk::Align::Center);
+        status.set_valign(gtk::Align::Center);
+        status.set_margin_end(6);
+
+        let ring = util::CircularProgress::new(20);
+        ring.set_fraction(update.fraction);
+        ring.activate();
+        status.add_named(ring.widget(), Some("progress"));
+
+        let check = gtk::Image::from_icon_name("object-select-symbolic");
+        check.set_pixel_size(16);
+        check.set_valign(gtk::Align::Center);
+        check.add_css_class("success");
+        status.add_named(&check, Some("done"));
+
+        match update.stage {
+            SingleUpdateStage::Running => {
+                status.set_visible_child_name("progress");
+                status.set_tooltip_text(Some(&tf("Updating {name}...", &[("name", app_name)])));
+            }
+            SingleUpdateStage::Done => status.set_visible_child_name("done"),
+        }
+
+        SingleUpdateRow { status, ring }
+    }
+
+    fn rebuild_details(&mut self, widgets: &Widgets, sender: &ComponentSender<Self>) {
         while let Some(child) = widgets.details.first_child() {
             widgets.details.remove(&child);
+        }
+        if self.page == Page::Details {
+            self.single_row = None;
         }
 
         let Some(item) = &self.details else {
@@ -2693,13 +2856,15 @@ impl AppModel {
         content.set_margin_start(24);
         content.set_margin_end(24);
 
-        match item {
-            DetailsItem::Installed(app) => {
-                self.build_installed_details(app, &content, sender);
-            }
+        let single_row = match item {
+            DetailsItem::Installed(app) => self.build_installed_details(app, &content, sender),
             DetailsItem::Candidate(candidate) => {
                 Self::build_candidate_details(candidate, &content, sender);
+                None
             }
+        };
+        if self.page == Page::Details {
+            self.single_row = single_row;
         }
 
         let clamp = adw::Clamp::builder()
@@ -2718,7 +2883,7 @@ impl AppModel {
         app: &InstalledApp,
         content: &gtk::Box,
         sender: &ComponentSender<Self>,
-    ) {
+    ) -> Option<SingleUpdateRow> {
         let reloaded = self
             .reloaded
             .as_ref()
@@ -2785,20 +2950,33 @@ impl AppModel {
 
         actions.append(&primary_actions);
 
-        if !minimal && self.updates.contains(&app.image_path) {
-            let update = gtk::Button::with_label(&t("Update"));
-            update.add_css_class("suggested-action");
-            update.set_size_request(ACTION_BUTTON_WIDTH, -1);
-            let sender_update = sender.clone();
-            let path = app.image_path.clone();
-            update.connect_clicked(move |_| sender_update.input(Msg::StartUpdate(path.clone())));
-            actions.append(&update);
+        let mut single_row = None;
+        if !minimal {
+            if let Some(update) = self
+                .single_update
+                .as_ref()
+                .filter(|update| update.path == app.image_path)
+            {
+                let row = Self::single_update_row(update, &name);
+                actions.append(&row.status);
+                single_row = Some(row);
+            } else if self.updates.contains(&app.image_path) {
+                let update = gtk::Button::with_label(&t("Update"));
+                update.add_css_class("suggested-action");
+                update.set_size_request(ACTION_BUTTON_WIDTH, -1);
+                let sender_update = sender.clone();
+                let path = app.image_path.clone();
+                update.connect_clicked(move |_| {
+                    sender_update.input(Msg::StartUpdate(path.clone()));
+                });
+                actions.append(&update);
+            }
         }
 
         content.append(&actions);
 
         if minimal {
-            return;
+            return single_row;
         }
 
         let reload = adw::ActionRow::builder()
@@ -2939,6 +3117,8 @@ impl AppModel {
             sender,
             current_arguments,
         ));
+
+        single_row
     }
 
     fn build_candidate_details(
@@ -4589,20 +4769,12 @@ impl AppModel {
         widgets.window.set_default_size(width, height);
     }
 
-    fn show_progress(widgets: &Widgets, cancel: ProgressCancel) {
+    fn show_progress(widgets: &Widgets) {
         widgets.progress.set_visible(true);
-        widgets
-            .cancel_button
-            .set_visible(cancel == ProgressCancel::Shown);
-        widgets.cancel_button.set_sensitive(true);
-        widgets.cancel_button.set_label(&t("Cancel update"));
     }
 
     fn hide_progress(widgets: &Widgets) {
         widgets.progress.set_visible(false);
-        widgets.cancel_button.set_visible(false);
-        widgets.cancel_button.set_sensitive(true);
-        widgets.cancel_button.set_label(&t("Cancel update"));
     }
 
     fn toast(widgets: &Widgets, message: &str) {
@@ -4804,18 +4976,11 @@ impl AppModel {
         progress.set_show_text(true);
         progress.set_hexpand(true);
 
-        let cancel_button = gtk::Button::with_label(&t("Cancel update"));
-        cancel_button.set_visible(false);
-        cancel_button.add_css_class("destructive-action");
-        let sender_cancel = sender.clone();
-        cancel_button.connect_clicked(move |_| sender_cancel.input(Msg::CancelUpdate));
-
         let progress_row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         progress_row.set_margin_start(12);
         progress_row.set_margin_end(12);
         progress_row.set_margin_bottom(6);
         progress_row.append(&progress);
-        progress_row.append(&cancel_button);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         content.append(&header);
@@ -4919,7 +5084,6 @@ impl AppModel {
             multi,
             multi_progress,
             progress,
-            cancel_button,
             drop_revealer,
             minimal_preview,
             welcome: None,
