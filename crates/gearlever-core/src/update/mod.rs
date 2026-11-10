@@ -545,10 +545,17 @@ pub struct CheckReport {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum BatchEvent {
-    /// Overall progress between 0.0 and 1.0.
+    /// One update started downloading its new release.
+    Started {
+        /// Position of the job in the input slice.
+        index: usize,
+    },
+    /// Progress of one update and of the whole batch.
     Progress {
         /// Position of the job in the input slice.
         index: usize,
+        /// Fraction of this job that has been downloaded, between 0.0 and 1.0.
+        fraction: f64,
         /// Fraction of the whole batch that has finished preparing or installing.
         overall: f64,
     },
@@ -965,6 +972,9 @@ enum CheckWorker {
 
 /// Message sent by a download worker to the coordinator.
 enum WorkerUpdate {
+    Started {
+        index: usize,
+    },
     Progress {
         index: usize,
         fraction: f64,
@@ -1016,6 +1026,7 @@ fn emit_batch_progress(
 ) {
     on_event(BatchEvent::Progress {
         index,
+        fraction: fractions[index],
         overall: batch_progress(fractions, weights),
     });
 }
@@ -1077,6 +1088,7 @@ pub fn apply_batch(
                         break;
                     };
 
+                    let _ = sender.send(WorkerUpdate::Started { index });
                     let progress_sender = sender.clone();
                     let mut progress = |fraction: f64| {
                         let _ = progress_sender.send(WorkerUpdate::Progress { index, fraction });
@@ -1112,6 +1124,7 @@ pub fn apply_batch(
 
         for message in receiver {
             match message {
+                WorkerUpdate::Started { index } => on_event(BatchEvent::Started { index }),
                 WorkerUpdate::Progress { index, fraction } => {
                     fractions[index] = fraction.clamp(0.0, 1.0);
                     emit_batch_progress(&fractions, &weights, index, on_event);
@@ -1567,7 +1580,9 @@ mod tests {
                 )
             })
             .collect();
+        let mut started_events = 0;
         let mut failed_events = 0;
+        let mut progress_events = 0;
         let mut config = Config::default();
 
         let report = apply_batch(
@@ -1577,16 +1592,22 @@ mod tests {
             &directory.path().join("staging"),
             2,
             &Arc::new(AtomicBool::new(false)),
-            &mut |event| {
-                if matches!(event, BatchEvent::Failed { .. }) {
-                    failed_events += 1;
+            &mut |event| match event {
+                BatchEvent::Started { .. } => started_events += 1,
+                BatchEvent::Progress { fraction, .. } => {
+                    assert!((0.0..=1.0).contains(&fraction), "fraction {fraction}");
+                    progress_events += 1;
                 }
+                BatchEvent::Failed { .. } => failed_events += 1,
+                _ => {}
             },
         );
 
         assert!(report.installed.is_empty());
         assert_eq!(report.failed.len(), 2);
         assert!(!report.cancelled);
+        assert_eq!(started_events, 2);
         assert_eq!(failed_events, 2);
+        assert!(progress_events >= 2, "each job reports its final fraction");
     }
 }

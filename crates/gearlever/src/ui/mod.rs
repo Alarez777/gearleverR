@@ -49,12 +49,9 @@ use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
 use crate::i18n::{t, tf};
 use crate::launch;
 use crate::rate_limit::{self, TokenState};
-use crate::settings::{APP_ID, Settings, keys};
+use crate::settings::{APP_ID, MAX_PARALLEL_CHECKS, MAX_PARALLEL_DOWNLOADS, Settings, keys};
 use crate::token_store::{TokenLookup, TokenStatus, TokenStore, valid_token};
 use util::{normalize, pill};
-
-/// Maximum update checks in flight at once.
-const MAX_PARALLEL_CHECKS: usize = update::DEFAULT_PARALLEL_CHECKS;
 
 /// Time budget for the sequential retry pass after the parallel checks.
 const RETRY_BUDGET: Duration = update::DEFAULT_RETRY_BUDGET;
@@ -114,6 +111,8 @@ impl Page {
     /// The button opens a file on the list and goes back everywhere else. A
     /// one-shot preview hides it because it has no list behind it; an external
     /// open into a running window keeps it so the user can return to the list.
+    /// `MultiUpdate` starts without it; `show_page` reveals it once the batch
+    /// finishes so the user can leave the results at their own pace.
     #[expect(
         clippy::fn_params_excessive_bools,
         reason = "the page only needs the preview-window flag to choose its button"
@@ -227,6 +226,14 @@ struct BatchInstallResult {
     failed: Vec<PathBuf>,
 }
 
+/// Widgets of one row on the multi-update page, updated without rebuilding it.
+struct MultiUpdateRow {
+    row: gtk::ListBoxRow,
+    status: gtk::Stack,
+    ring: util::CircularProgress,
+    error: gtk::Label,
+}
+
 #[derive(Debug)]
 enum Msg {
     Refresh,
@@ -283,7 +290,18 @@ enum Msg {
     CancelUpdate,
     UpdateCancelled,
     Updated(Result<(InstalledApp, Config), String>),
+    MultiAppStarted(PathBuf),
     MultiAppUpdated(PathBuf),
+    MultiAppCancelled(PathBuf),
+    MultiAppFailed {
+        path: PathBuf,
+        error: String,
+    },
+    MultiProgress {
+        path: PathBuf,
+        fraction: f64,
+        overall: f64,
+    },
     MultiUpdated(Result<Config, String>, bool),
     SaveExec {
         path: PathBuf,
@@ -305,6 +323,8 @@ enum Msg {
         path: PathBuf,
         enabled: bool,
     },
+    SetParallelDownloads(usize),
+    SetParallelChecks(usize),
     UiScaleChanged(u32),
     RestartApp,
     ConfigSaved(Result<Config, String>),
@@ -360,6 +380,12 @@ struct AppModel {
     batch_ask_index: usize,
     install_running: bool,
     multi_done: HashSet<PathBuf>,
+    multi_active: HashSet<PathBuf>,
+    multi_fractions: HashMap<PathBuf, f64>,
+    multi_cancelled: HashSet<PathBuf>,
+    multi_failed: HashMap<PathBuf, String>,
+    multi_rows: HashMap<PathBuf, MultiUpdateRow>,
+    multi_finished: bool,
     update_queue: Vec<InstalledApp>,
     opened_from_file: bool,
     /// Whether the window was created to preview an externally opened AppImage.
@@ -477,6 +503,9 @@ impl Component for AppModel {
                 Self::rebuild_details(self, widgets, &sender);
             }
             Msg::ShowList => {
+                if self.page == Page::MultiUpdate && self.cancel_token.is_none() {
+                    self.clear_multi_state();
+                }
                 self.external_open = false;
                 self.preview_window = false;
                 self.page = Page::List;
@@ -1117,7 +1146,7 @@ impl Component for AppModel {
                     return;
                 }
 
-                self.multi_done.clear();
+                self.clear_multi_state();
                 self.update_queue.clone_from(&queue);
                 self.page = Page::MultiUpdate;
                 Self::show_page(self, widgets);
@@ -1128,6 +1157,7 @@ impl Component for AppModel {
                 let options = self.update_options();
                 let stored_managers = self.managers.clone();
                 let download_dir = options.staging_dir();
+                let parallel = self.settings.values().max_parallel_downloads;
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
                 widgets.multi_progress.set_visible(true);
@@ -1140,52 +1170,88 @@ impl Component for AppModel {
                     let mut token_loaded = false;
 
                     for app in queue {
-                        let manager = if let Some(manager) = stored_managers.get(&app.image_path) {
-                            Some(Arc::clone(manager))
-                        } else {
-                            if !token_loaded {
-                                let settings = Settings::load(&paths);
-                                token = TokenStore::new(settings).get();
-                                token_loaded = true;
-                            }
-
-                            match update::resolve(
-                                &app.image_path,
-                                &config.update_manager(&app.image_path),
-                                token.as_deref(),
-                            ) {
-                                Ok(Some(manager)) => Some(Arc::from(manager)),
-                                Ok(None) => None,
-                                Err(error) => {
-                                    tracing::warn!(
-                                        app = %app.name,
-                                        %error,
-                                        "cannot resolve the update manager"
-                                    );
-                                    None
+                        let resolved: Result<Option<Arc<dyn update::UpdateManager>>, CoreError> =
+                            if let Some(manager) = stored_managers.get(&app.image_path) {
+                                Ok(Some(Arc::clone(manager)))
+                            } else {
+                                if !token_loaded {
+                                    let settings = Settings::load(&paths);
+                                    token = TokenStore::new(settings).get();
+                                    token_loaded = true;
                                 }
-                            }
-                        };
 
-                        if let Some(manager) = manager {
-                            jobs.push(update::UpdateJob::new(app, manager));
+                                update::resolve(
+                                    &app.image_path,
+                                    &config.update_manager(&app.image_path),
+                                    token.as_deref(),
+                                )
+                                .map(|manager| manager.map(Arc::from))
+                            };
+
+                        match resolved {
+                            Ok(Some(manager)) => {
+                                jobs.push(update::UpdateJob::new(app, manager));
+                            }
+                            Ok(None) => {
+                                sender.input(Msg::MultiAppFailed {
+                                    path: app.image_path,
+                                    error: t("No update method was found for this AppImage"),
+                                });
+                            }
+                            Err(error) => {
+                                tracing::warn!(
+                                    app = %app.name,
+                                    %error,
+                                    "cannot resolve the update manager"
+                                );
+                                sender.input(Msg::MultiAppFailed {
+                                    path: app.image_path,
+                                    error: error.to_string(),
+                                });
+                            }
                         }
                     }
 
                     if jobs.is_empty() {
-                        sender.input(Msg::MultiUpdated(Err(t("No updates available")), false));
+                        // Every queued app failed to resolve; keep the page so
+                        // each row can show its reason.
+                        sender.input(Msg::MultiUpdated(Ok(config), false));
                         return;
                     }
 
+                    let jobs_ref = &jobs;
                     let mut on_event = |event| match event {
-                        update::BatchEvent::Progress { overall, .. } => {
-                            sender.input(Msg::Progress(overall, String::new()));
+                        update::BatchEvent::Started { index } => {
+                            if let Some(job) = jobs_ref.get(index) {
+                                sender.input(Msg::MultiAppStarted(job.app.image_path.clone()));
+                            }
+                        }
+                        update::BatchEvent::Progress {
+                            index,
+                            fraction,
+                            overall,
+                        } => {
+                            if let Some(job) = jobs_ref.get(index) {
+                                sender.input(Msg::MultiProgress {
+                                    path: job.app.image_path.clone(),
+                                    fraction,
+                                    overall,
+                                });
+                            }
                         }
                         update::BatchEvent::Installed { app, .. } => {
                             sender.input(Msg::MultiAppUpdated(app.image_path));
                         }
                         update::BatchEvent::Failed { app, error, .. } => {
-                            sender.input(Msg::Toast(format!("{}: {error}", app.name)));
+                            sender.input(Msg::MultiAppFailed {
+                                path: app.image_path,
+                                error: error.to_string(),
+                            });
+                        }
+                        update::BatchEvent::Cancelled { index } => {
+                            if let Some(job) = jobs_ref.get(index) {
+                                sender.input(Msg::MultiAppCancelled(job.app.image_path.clone()));
+                            }
                         }
                         _ => {}
                     };
@@ -1195,7 +1261,7 @@ impl Component for AppModel {
                         &options,
                         &mut config,
                         &download_dir,
-                        update::DEFAULT_PARALLEL_DOWNLOADS,
+                        parallel,
                         &cancel,
                         &mut on_event,
                     );
@@ -1214,6 +1280,20 @@ impl Component for AppModel {
                         .set_visible(self.cancel_token.is_some());
                     widgets.progress.set_fraction(fraction);
                     widgets.progress.set_text(Some(&text));
+                }
+            }
+            Msg::MultiProgress {
+                path,
+                fraction,
+                overall,
+            } => {
+                self.multi_fractions.insert(path.clone(), fraction);
+                if let Some(row) = self.multi_rows.get(&path) {
+                    row.ring.set_fraction(fraction);
+                }
+                if self.page == Page::MultiUpdate {
+                    widgets.multi_progress.set_visible(true);
+                    widgets.multi_progress.set_fraction(overall);
                 }
             }
             Msg::CancelUpdate => {
@@ -1256,12 +1336,54 @@ impl Component for AppModel {
                     Err(error) => Self::toast(widgets, &error),
                 }
             }
+            Msg::MultiAppStarted(path) => {
+                self.multi_active.insert(path.clone());
+                if let Some(row) = self.multi_rows.get(&path) {
+                    row.row.set_opacity(1.0);
+                    row.ring.activate();
+                    if let Some(app) = self.update_queue.iter().find(|app| app.image_path == path) {
+                        row.status.set_tooltip_text(Some(&tf(
+                            "Updating {name}...",
+                            &[("name", &app.name)],
+                        )));
+                    }
+                }
+            }
             Msg::MultiAppUpdated(path) => {
                 self.multi_done.insert(path.clone());
+                self.multi_active.remove(&path);
+                self.multi_fractions.insert(path.clone(), 1.0);
                 self.updates.remove(&path);
                 self.managers.remove(&path);
-                if self.page == Page::MultiUpdate {
-                    Self::rebuild_multi(self, widgets, &sender);
+                if let Some(row) = self.multi_rows.get(&path) {
+                    row.row.set_opacity(1.0);
+                    row.ring.set_fraction(1.0);
+                    row.status.set_visible_child_name("done");
+                    row.status.set_tooltip_text(None);
+                    row.error.set_visible(false);
+                }
+            }
+            Msg::MultiAppCancelled(path) => {
+                self.multi_active.remove(&path);
+                self.multi_cancelled.insert(path.clone());
+                if let Some(row) = self.multi_rows.get(&path) {
+                    row.row.set_opacity(1.0);
+                    row.status.set_visible_child_name("cancelled");
+                    row.status.set_tooltip_text(Some(&t("Update cancelled")));
+                }
+            }
+            Msg::MultiAppFailed { path, error } => {
+                self.multi_active.remove(&path);
+                self.multi_fractions.insert(path.clone(), 1.0);
+                self.multi_failed.insert(path.clone(), error.clone());
+                if let Some(row) = self.multi_rows.get(&path) {
+                    row.row.set_opacity(1.0);
+                    row.row.set_tooltip_text(Some(&error));
+                    row.status.set_visible_child_name("failed");
+                    row.status.set_tooltip_text(Some(&error));
+                    row.error.set_label(&error);
+                    row.error.set_tooltip_text(Some(&error));
+                    row.error.set_visible(true);
                 }
             }
             Msg::MultiUpdated(result, cancelled) => {
@@ -1274,25 +1396,36 @@ impl Component for AppModel {
                         let _ = self.config.save(&self.paths.config_file());
                         // Remove only the badges that were actually installed;
                         // failed updates must stay visible in the list.
-                        let done = std::mem::take(&mut self.multi_done);
-                        for path in &done {
+                        for path in &self.multi_done {
                             self.updates.remove(path);
                             self.managers.remove(path);
                         }
-                        self.update_queue.clear();
-                        self.page = Page::List;
                         self.refresh_apps();
-                        Self::show_page(self, widgets);
-                        Self::rebuild_list(self, widgets, &sender);
-                        if cancelled {
-                            Self::toast(widgets, &t("Updates cancelled"));
-                        } else {
+                        if self.multi_failed.is_empty() && !cancelled {
+                            self.clear_multi_state();
+                            self.page = Page::List;
+                            Self::show_page(self, widgets);
+                            Self::rebuild_list(self, widgets, &sender);
                             Self::toast(widgets, &t("Updates installed"));
+                        } else {
+                            if cancelled {
+                                for app in &self.update_queue {
+                                    if !self.multi_done.contains(&app.image_path)
+                                        && !self.multi_failed.contains_key(&app.image_path)
+                                    {
+                                        self.multi_active.remove(&app.image_path);
+                                        self.multi_cancelled.insert(app.image_path.clone());
+                                    }
+                                }
+                                Self::toast(widgets, &t("Updates cancelled"));
+                            }
+                            self.multi_finished = true;
+                            Self::show_page(self, widgets);
+                            Self::rebuild_multi(self, widgets, &sender);
                         }
                     }
                     Err(error) => {
-                        self.multi_done.clear();
-                        self.update_queue.clear();
+                        self.clear_multi_state();
                         self.page = Page::List;
                         Self::show_page(self, widgets);
                         Self::rebuild_list(self, widgets, &sender);
@@ -1420,6 +1553,8 @@ impl Component for AppModel {
                     }
                 }
             }
+            Msg::SetParallelDownloads(value) => self.settings.set_max_parallel_downloads(value),
+            Msg::SetParallelChecks(value) => self.settings.set_max_parallel_checks(value),
             Msg::UiScaleChanged(percent) => self.settings.set_ui_scale(percent),
             Msg::RestartApp => Self::restart_self(self, widgets),
             Msg::ConfigSaved(result) => match result {
@@ -1628,6 +1763,12 @@ impl AppModel {
             batch_ask_index: 0,
             install_running: false,
             multi_done: HashSet::new(),
+            multi_active: HashSet::new(),
+            multi_fractions: HashMap::new(),
+            multi_cancelled: HashSet::new(),
+            multi_failed: HashMap::new(),
+            multi_rows: HashMap::new(),
+            multi_finished: false,
             update_queue: Vec::new(),
             opened_from_file: false,
             preview_window: false,
@@ -1780,6 +1921,7 @@ impl AppModel {
         let config = self.config.clone();
         let paths = self.paths.clone();
         let hash_dir = self.paths.cache_root().join("hashes");
+        let check_workers = self.settings.values().max_parallel_checks;
         let sender = sender.clone();
 
         std::thread::spawn(move || {
@@ -1849,7 +1991,7 @@ impl AppModel {
                 let report = update::check_batch(
                     jobs_ref,
                     &hashes,
-                    MAX_PARALLEL_CHECKS,
+                    check_workers,
                     RETRY_BUDGET,
                     &mut on_event,
                 );
@@ -2094,6 +2236,18 @@ impl AppModel {
         self.batch_decisions.clear();
         self.batch_skipped.clear();
         self.batch_ask_index = 0;
+    }
+
+    /// Clears every widget and value that belongs to the multi-update page.
+    fn clear_multi_state(&mut self) {
+        self.update_queue.clear();
+        self.multi_done.clear();
+        self.multi_active.clear();
+        self.multi_fractions.clear();
+        self.multi_cancelled.clear();
+        self.multi_failed.clear();
+        self.multi_rows.clear();
+        self.multi_finished = false;
     }
 
     fn update_options(&self) -> UpdateOptions {
@@ -2351,9 +2505,11 @@ impl AppModel {
             .title
             .set_visible(!matches!(self.page, Page::Details | Page::MultiUpdate));
         widgets.left_button.set_icon_name(icon);
-        widgets
-            .left_button
-            .set_visible(self.page.shows_left_button(self.preview_window));
+        let show_left_button = match self.page {
+            Page::MultiUpdate => self.multi_finished,
+            _ => self.page.shows_left_button(self.preview_window),
+        };
+        widgets.left_button.set_visible(show_left_button);
         widgets
             .search_button
             .set_visible(matches!(self.page, Page::List | Page::MultiUpdate));
@@ -3039,7 +3195,7 @@ impl AppModel {
         group
     }
 
-    fn rebuild_multi(&self, widgets: &Widgets, sender: &ComponentSender<Self>) {
+    fn rebuild_multi(&mut self, widgets: &Widgets, sender: &ComponentSender<Self>) {
         while let Some(child) = widgets.multi.first_child() {
             widgets.multi.remove(&child);
         }
@@ -3191,32 +3347,88 @@ impl AppModel {
         row
     }
 
-    fn rebuild_multi_update(&self, content: &gtk::Box, sender: &ComponentSender<Self>) {
-        let cancelling = self
-            .cancel_token
-            .as_ref()
-            .is_some_and(|token| token.load(Ordering::Relaxed));
-        let label = if cancelling {
-            t("Cancelling...")
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the header, result summary and every row share the same status widgets"
+    )]
+    fn rebuild_multi_update(&mut self, content: &gtk::Box, sender: &ComponentSender<Self>) {
+        self.multi_rows.clear();
+
+        if self.multi_finished {
+            let title = gtk::Label::new(Some(&t("Update results")));
+            title.add_css_class("title-2");
+            title.set_halign(gtk::Align::Start);
+            content.append(&title);
+
+            let cancelled = self.multi_cancelled.len();
+            if cancelled > 0 {
+                let warning = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+                warning.set_halign(gtk::Align::Start);
+                let icon = gtk::Image::from_icon_name("process-stop-symbolic");
+                icon.add_css_class("warning");
+                warning.append(&icon);
+                let label = gtk::Label::new(Some(&t("Updates cancelled")));
+                label.add_css_class("warning");
+                label.set_wrap(true);
+                warning.append(&label);
+                content.append(&warning);
+            }
+
+            let failed = self.multi_failed.len();
+            if failed > 0 {
+                let summary = if failed == 1 {
+                    t("1 update failed")
+                } else {
+                    tf("{count} updates failed", &[("count", &failed.to_string())])
+                };
+                let warning = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+                warning.set_halign(gtk::Align::Start);
+                let icon = gtk::Image::from_icon_name("dialog-warning-symbolic");
+                icon.add_css_class("error");
+                warning.append(&icon);
+                let label = gtk::Label::new(Some(&summary));
+                label.add_css_class("error");
+                label.set_wrap(true);
+                warning.append(&label);
+                content.append(&warning);
+            }
         } else {
-            t("Cancel update")
-        };
-        let cancel = gtk::Button::with_label(&label);
-        cancel.set_halign(gtk::Align::Center);
-        cancel.set_sensitive(!cancelling);
-        let sender_cancel = sender.clone();
-        cancel.connect_clicked(move |_| sender_cancel.input(Msg::CancelUpdate));
-        content.append(&cancel);
+            let cancelling = self
+                .cancel_token
+                .as_ref()
+                .is_some_and(|token| token.load(Ordering::Relaxed));
+            let label = if cancelling {
+                t("Cancelling...")
+            } else {
+                t("Cancel update")
+            };
+            let cancel = gtk::Button::with_label(&label);
+            cancel.set_halign(gtk::Align::Center);
+            cancel.set_sensitive(!cancelling);
+            let sender_cancel = sender.clone();
+            cancel.connect_clicked(move |_| sender_cancel.input(Msg::CancelUpdate));
+            content.append(&cancel);
+        }
 
         let list = gtk::ListBox::new();
         list.add_css_class("boxed-list");
         list.set_selection_mode(gtk::SelectionMode::None);
 
         for app in &self.update_queue {
-            let done = self.multi_done.contains(&app.image_path);
+            let path = &app.image_path;
+            let done = self.multi_done.contains(path);
+            let cancelled = self.multi_cancelled.contains(path);
+            let failed = self.multi_failed.get(path);
+            let active = self.multi_active.contains(path);
+            let fraction = self.multi_fractions.get(path).copied().unwrap_or(0.0);
+
             let row = gtk::ListBoxRow::new();
             row.set_activatable(false);
-            row.set_opacity(if done { 1.0 } else { 0.5 });
+            row.set_opacity(if done || cancelled || failed.is_some() || active {
+                1.0
+            } else {
+                0.5
+            });
 
             let line = gtk::Box::new(gtk::Orientation::Horizontal, 10);
             line.set_margin_top(6);
@@ -3250,21 +3462,95 @@ impl AppModel {
                 text.append(&description);
             }
 
+            let error_label = gtk::Label::new(failed.map(String::as_str));
+            error_label.add_css_class("error");
+            error_label.set_halign(gtk::Align::Start);
+            error_label.set_xalign(0.0);
+            error_label.set_wrap(true);
+            error_label.set_lines(2);
+            error_label.set_max_width_chars(100);
+            error_label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            error_label.set_visible(failed.is_some());
+            if let Some(error) = failed {
+                error_label.set_tooltip_text(Some(error));
+            }
+            text.append(&error_label);
+
             line.append(&text);
 
+            let status = gtk::Stack::new();
+            status.set_transition_type(gtk::StackTransitionType::Crossfade);
+            status.set_transition_duration(120);
+            status.set_size_request(24, 24);
+            status.set_halign(gtk::Align::Center);
+            status.set_valign(gtk::Align::Center);
+            status.set_margin_end(6);
+
+            let ring = util::CircularProgress::new(20);
+            ring.set_fraction(fraction);
+            if active {
+                ring.activate();
+            }
+            status.add_named(ring.widget(), Some("progress"));
+
+            let check = gtk::Image::from_icon_name("object-select-symbolic");
+            check.set_pixel_size(16);
+            check.set_valign(gtk::Align::Center);
+            check.add_css_class("success");
+            status.add_named(&check, Some("done"));
+
+            let error_icon = gtk::Image::from_icon_name("window-close-symbolic");
+            error_icon.set_pixel_size(16);
+            error_icon.set_valign(gtk::Align::Center);
+            error_icon.add_css_class("error");
+            status.add_named(&error_icon, Some("failed"));
+
+            let cancelled_icon = gtk::Image::from_icon_name("process-stop-symbolic");
+            cancelled_icon.set_pixel_size(16);
+            cancelled_icon.set_valign(gtk::Align::Center);
+            cancelled_icon.add_css_class("dim-label");
+            status.add_named(&cancelled_icon, Some("cancelled"));
+
             if done {
-                let check = gtk::Image::from_icon_name("object-select-symbolic");
-                check.set_pixel_size(16);
-                check.set_valign(gtk::Align::Center);
-                check.set_margin_end(6);
-                check.add_css_class("success");
-                line.append(&check);
+                status.set_visible_child_name("done");
+            } else if let Some(error) = failed {
+                status.set_visible_child_name("failed");
+                status.set_tooltip_text(Some(error));
+            } else if cancelled {
+                status.set_visible_child_name("cancelled");
+                status.set_tooltip_text(Some(&t("Update cancelled")));
+            } else {
+                status.set_visible_child_name("progress");
+                if active {
+                    status
+                        .set_tooltip_text(Some(&tf("Updating {name}...", &[("name", &app.name)])));
+                }
             }
 
+            line.append(&status);
             row.set_child(Some(&line));
             list.append(&row);
+
+            self.multi_rows.insert(
+                app.image_path.clone(),
+                MultiUpdateRow {
+                    row,
+                    status,
+                    ring,
+                    error: error_label,
+                },
+            );
         }
+
         content.append(&list);
+
+        if self.multi_finished {
+            let close = gtk::Button::with_label(&t("Close"));
+            close.set_halign(gtk::Align::Center);
+            let sender_close = sender.clone();
+            close.connect_clicked(move |_| sender_close.input(Msg::ShowList));
+            content.append(&close);
+        }
     }
 
     /// Prompts for a restart after the interface scale changes.
@@ -3572,6 +3858,26 @@ impl AppModel {
             self.settings.values().use_zsync_delta,
             sender,
         ));
+        updates.add(&Self::parallel_row(
+            &t("Parallel downloads"),
+            &t(
+                "Updates downloaded at the same time. Set it to 1 on slow or metered connections; installing updates is always sequential.",
+            ),
+            self.settings.values().max_parallel_downloads,
+            MAX_PARALLEL_DOWNLOADS,
+            Msg::SetParallelDownloads,
+            sender,
+        ));
+        updates.add(&Self::parallel_row(
+            &t("Parallel update checks"),
+            &t(
+                "Apps checked for updates at the same time. Lower it when the update source limits concurrent requests.",
+            ),
+            self.settings.values().max_parallel_checks,
+            MAX_PARALLEL_CHECKS,
+            Msg::SetParallelChecks,
+            sender,
+        ));
 
         let github = adw::PreferencesGroup::new();
         github.set_title(&t("GitHub"));
@@ -3846,6 +4152,39 @@ impl AppModel {
             sender.input(Msg::Refresh);
         });
 
+        row
+    }
+
+    /// Builds a row with a numeric spinner for a parallel-task setting.
+    fn parallel_row(
+        title: &str,
+        subtitle: &str,
+        value: usize,
+        max: usize,
+        message: fn(usize) -> Msg,
+        sender: &ComponentSender<Self>,
+    ) -> adw::ActionRow {
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(subtitle)
+            .build();
+        row.set_activatable(false);
+
+        let max = f64::from(u32::try_from(max).unwrap_or(1));
+        let spin = gtk::SpinButton::with_range(1.0, max, 1.0);
+        spin.set_digits(0);
+        spin.set_numeric(true);
+        spin.set_width_chars(2);
+        spin.set_valign(gtk::Align::Center);
+        spin.set_value(f64::from(u32::try_from(value).unwrap_or(1)));
+
+        let sender = sender.clone();
+        spin.connect_value_changed(move |spin| {
+            let value = usize::try_from(spin.value_as_int()).unwrap_or(1);
+            sender.input(message(value));
+        });
+
+        row.add_suffix(&spin);
         row
     }
 

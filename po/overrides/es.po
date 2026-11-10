@@ -498,3 +498,32 @@ msgstr "Conflicto de nombre"
 
 msgid "None of the selected AppImages can be integrated"
 msgstr "Ninguna de las AppImages seleccionadas se puede integrar"
+
+msgid "Parallel downloads"
+msgstr "Descargas simultáneas"
+
+msgid ""
+"Updates downloaded at the same time. Set it to 1 on slow or metered "
+"connections; installing updates is always sequential."
+msgstr ""
+"Actualizaciones que se descargan al mismo tiempo. Usa 1 en conexiones lentas "
+"o con datos limitados; la instalación siempre es secuencial."
+
+msgid "Parallel update checks"
+msgstr "Comprobaciones simultáneas"
+
+msgid ""
+"Apps checked for updates at the same time. Lower it when the update source "
+"limits concurrent requests."
+msgstr ""
+"Aplicaciones que se comprueban a la vez en busca de actualizaciones. Bájalo "
+"si la fuente limita las peticiones concurrentes."
+
+msgid "Update results"
+msgstr "Resultado de la actualización"
+
+msgid "1 update failed"
+msgstr "1 actualización falló"
+
+msgid "{count} updates failed"
+msgstr "{count} actualizaciones fallaron"
