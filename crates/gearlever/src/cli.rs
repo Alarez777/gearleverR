@@ -643,7 +643,7 @@ impl Cli {
             &options,
             &mut context.config,
             &download_dir,
-            update::DEFAULT_PARALLEL_DOWNLOADS,
+            context.settings.values().max_parallel_downloads,
             &cancel,
             &mut progress,
         );
@@ -924,7 +924,7 @@ impl CommandContext {
         let report = update::check_batch(
             &jobs,
             &hashes,
-            update::DEFAULT_PARALLEL_CHECKS,
+            self.settings.values().max_parallel_checks,
             update::DEFAULT_RETRY_BUDGET,
             &mut |_| {},
         );

@@ -2,8 +2,11 @@
 
 #![expect(unreachable_pub, reason = "private module of the binary")]
 
+use std::cell::Cell;
+use std::f64::consts::{FRAC_PI_2, TAU};
 use std::fs;
 use std::path::Path;
+use std::rc::Rc;
 
 use relm4::adw::prelude::*;
 use relm4::gtk;
@@ -137,12 +140,121 @@ pub fn pill(text: &str) -> gtk::Label {
     label
 }
 
+/// A small circular progress ring that can also stay empty or active.
+///
+/// GTK 4 has no circular determinate progress widget, and
+/// `AdwSpinnerPaintable` is libadwaita 1.6, so the ring is drawn with Cairo.
+#[derive(Clone)]
+pub struct CircularProgress {
+    area: gtk::DrawingArea,
+    fraction: Rc<Cell<f64>>,
+    active: Rc<Cell<bool>>,
+}
+
+impl CircularProgress {
+    /// Builds an empty ring with the requested size in logical pixels.
+    #[must_use]
+    pub fn new(pixels: i32) -> Self {
+        let area = gtk::DrawingArea::new();
+        area.set_content_width(pixels);
+        area.set_content_height(pixels);
+        area.set_size_request(pixels, pixels);
+        area.set_halign(gtk::Align::Center);
+        area.set_valign(gtk::Align::Center);
+        area.add_css_class("circular-progress");
+
+        let fraction = Rc::new(Cell::new(0.0_f64));
+        let active = Rc::new(Cell::new(false));
+        let draw_fraction = Rc::clone(&fraction);
+        let draw_active = Rc::clone(&active);
+
+        area.set_draw_func(move |area, context, width, height| {
+            let side = f64::from(width.min(height));
+            if side <= 0.0 {
+                return;
+            }
+
+            let stroke = (side * 0.14).clamp(2.0, 4.0);
+            let radius = ((side - stroke) / 2.0).max(0.0);
+            let center_x = f64::from(width) / 2.0;
+            let center_y = f64::from(height) / 2.0;
+            let color = area.style_context().color();
+
+            context.set_line_width(stroke);
+            context.set_line_cap(gtk::cairo::LineCap::Round);
+            context.set_source_rgba(
+                f64::from(color.red()),
+                f64::from(color.green()),
+                f64::from(color.blue()),
+                0.18,
+            );
+            context.arc(center_x, center_y, radius, 0.0, TAU);
+            let _ = context.stroke();
+
+            if draw_active.get() {
+                let fraction = draw_fraction.get().max(0.03);
+                context.set_source_rgba(
+                    f64::from(color.red()),
+                    f64::from(color.green()),
+                    f64::from(color.blue()),
+                    1.0,
+                );
+                context.arc(
+                    center_x,
+                    center_y,
+                    radius,
+                    -FRAC_PI_2,
+                    -FRAC_PI_2 + TAU * fraction,
+                );
+                let _ = context.stroke();
+            }
+        });
+
+        Self {
+            area,
+            fraction,
+            active,
+        }
+    }
+
+    /// Returns the widget to append to a row.
+    #[must_use]
+    pub fn widget(&self) -> &gtk::DrawingArea {
+        &self.area
+    }
+
+    /// Updates the filled fraction, between 0.0 and 1.0.
+    pub fn set_fraction(&self, fraction: f64) {
+        let fraction = if fraction.is_finite() {
+            fraction.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        if (self.fraction.get() - fraction).abs() > f64::EPSILON {
+            self.fraction.set(fraction);
+            self.area.queue_draw();
+        }
+    }
+
+    /// Marks the ring as active, which draws a visible minimum arc.
+    pub fn activate(&self) {
+        if !self.active.get() {
+            self.active.set(true);
+            self.area.queue_draw();
+        }
+    }
+}
+
 /// Static styles used by the interface.
 const STYLE: &str = r"
     .app-pill {
         background-color: alpha(@theme_fg_color, 0.1);
         border-radius: 9999px;
         padding: 4px 12px;
+    }
+    .circular-progress {
+        color: @accent_color;
     }
     .arch-warning {
         background-color: alpha(@warning_color, 0.15);
