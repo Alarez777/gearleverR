@@ -18,8 +18,8 @@ reference only** and must not be modified. That directory has its own `AGENTS.md
 
 ## Required Rust skills (BeautifulRust)
 
-Installed in `~/.config/opencode/skills/`. **Always use them**, without waiting to
-be asked:
+Vendored in `.agents/skills/` (upstream v1.5.0, MIT; see
+`.agents/skills/README.md`). **Always use them**, without waiting to be asked:
 
 | Skill | When |
 | --- | --- |
@@ -64,6 +64,7 @@ po/                      upstream catalogs, overrides and compiled translations
 packaging/appimage/      AppRun, build scripts and CI recipe
 scripts/                 benchmarks, translation tooling, UI smoke test
 docs/                    performance notes
+.agents/skills/          vendored BeautifulRust agent skills
 ```
 
 The core **does not** depend on GTK: the CLI runs without a display and the tests are
