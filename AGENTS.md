@@ -43,6 +43,9 @@ Style and API rules come from the skill; do not improvise them.
 - CLI: `clap` (derive). Errors: `thiserror` in the library, `anyhow` only in the binary.
 - SquashFS: `backhand` (no external binaries). DwarFS and ISO9660 use the external
   `dwarfsextract`/`7zz` fallback, gated by the safe-extractor setting.
+- AppImage runtime: `uruntime` v0.8.1 (static SquashFS build, pinned by SHA-256)
+  with `URUNTIME_EXTRACT=2`, so the AppImage extracts itself when FUSE is not
+  available. Its MIT notice lives in `LICENSES/uruntime-MIT.txt`.
 - FTP: `suppaftp`. Hashing: `md-5`, `sha1`, `sha2`, `blake3`.
 - No `unwrap()`/`expect()` on production paths; `expect("reason")` only for invariants.
 
@@ -50,6 +53,8 @@ Style and API rules come from the skill; do not improvise them.
 GTK 4.8, Adw 1.2) so it keeps running on Debian 12 even though development happens on
 Debian 13. Debian 13 binaries are for testing only. Use
 `packaging/appimage/build-in-debian12.sh`; do not build the AppImage on the host.
+The build downloads the pinned runtime with `packaging/appimage/fetch-uruntime.sh`
+and verifies its SHA-256 before packaging.
 
 ## Layout
 

@@ -8,7 +8,9 @@ los mismos archivos de configuración y la misma interfaz.
 
 - **UI**: GTK4 + libadwaita + Relm4
 - **AppImage**: dos variantes: el build por defecto (usa el GTK del sistema) y
-  `gtk-included` (incluye GTK/libadwaita y sus dependencias)
+  `gtk-included` (incluye GTK/libadwaita y sus dependencias). El AppImage usa
+  [uruntime](https://github.com/VHSgunzo/uruntime) y se extrae solo cuando FUSE
+  no está disponible.
 - **Licencia**: GPL-3.0-or-later
 
 ## Estado
@@ -50,6 +52,9 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 ## Requisitos
 
 - GTK 4.8 o superior y libadwaita 1.2 o superior.
+- Para montar AppImages hacen falta `/dev/fuse` y un helper `fusermount` o
+  `fusermount3`. Sin ellos, el AppImage se extrae a un directorio temporal.
+  `libfuse2` solo lo necesitan las AppImages creadas con el runtime antiguo.
 - Probado en Debian 12 y Debian 13. Ubuntu 23.04+, Fedora 38+ y Arch incluyen
   versiones compatibles. **Ubuntu 22.04 no** (GTK 4.6 / Adw 1.1).
 - Para payloads DwarFS o ISO9660 hacen falta `dwarfsextract`/`7zz`; sin ellos la
@@ -153,8 +158,9 @@ packaging/appimage/build-in-debian12.sh
 El script compila dentro de `rust:1.98-bookworm` y empaqueta las dos variantes en
 `dist/`: `...AppImage` (por defecto, GTK del sistema) y
 `...-gtk-included.AppImage`. La variante `gtk-included` se monta con
-`linuxdeploy` y su plugin de GTK, que se descargan automáticamente. Los binarios
-resultantes funcionan también en distros más nuevas.
+`linuxdeploy` y su plugin de GTK, que se descargan automáticamente. El binario
+`uruntime` fijado también se descarga y verifica antes de empaquetar. Los
+binarios resultantes funcionan también en distros más nuevas.
 
 Si ejecutas el binario directamente (sin AppImage), instala el esquema para que
 las preferencias persistan:
@@ -237,6 +243,10 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
   AppImage de demostración.
 - Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.
 - DwarFS e ISO9660 requieren `dwarfsextract` o `7zz` instalados.
+- Sin FUSE, el AppImage se extrae a `$TMPDIR` en cada arranque. Es más lento y
+  necesita un directorio temporal escribible y ejecutable.
+- Las AppImages creadas con el runtime antiguo siguen necesitando `libfuse2`;
+  Gear LeverR lo comprueba, pero no lo usa.
 - No hay auto-actualización del propio AppImage.
 
 ## Licencia y atribución
@@ -247,3 +257,6 @@ usan; este proyecto se distribuye como Gear LeverR.
 
 Las actualizaciones delta usan [zsync-rs](https://crates.io/crates/zsync-rs), con
 licencia MIT. Su aviso está en `LICENSES/zsync-rs-MIT.txt` y dentro del AppImage.
+
+El runtime del AppImage es [uruntime](https://github.com/VHSgunzo/uruntime), con
+licencia MIT. Su aviso está en `LICENSES/uruntime-MIT.txt` y dentro del AppImage.
