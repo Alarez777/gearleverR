@@ -28,6 +28,9 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
+      - name: Docs
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
+
       - name: Test
         run: cargo test --workspace
 

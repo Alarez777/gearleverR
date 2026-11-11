@@ -12,7 +12,6 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use gearlever_core::Error;
 use gearlever_core::appimage::AppImage;
 
 fn main() -> ExitCode {
@@ -47,29 +46,22 @@ fn inspect(path: &Path) -> gearlever_core::Result<()> {
     );
     println!("arch:      {}", appimage.arch());
 
-    match appimage.metadata() {
-        Ok(metadata) => {
-            println!(
-                "desktop:   {}",
-                metadata.desktop_file.as_deref().unwrap_or("-")
-            );
-            println!("name:      {}", metadata.name);
-            println!("version:   {}", metadata.version.as_deref().unwrap_or("-"));
-            println!("terminal:  {}", metadata.terminal);
-            println!("exec:      {}", metadata.exec);
-            println!("comment:   {}", metadata.comment);
+    let metadata = appimage.metadata()?;
+    println!(
+        "desktop:   {}",
+        metadata.desktop_file.as_deref().unwrap_or("-")
+    );
+    println!("name:      {}", metadata.name);
+    println!("version:   {}", metadata.version.as_deref().unwrap_or("-"));
+    println!("terminal:  {}", metadata.terminal);
+    println!("exec:      {}", metadata.exec);
+    println!("comment:   {}", metadata.comment);
 
-            match metadata.icon {
-                Some(icon) => {
-                    println!("icon:      {} ({} bytes)", icon.file_name, icon.bytes.len());
-                }
-                None => println!("icon:      -"),
-            }
+    match metadata.icon {
+        Some(icon) => {
+            println!("icon:      {} ({} bytes)", icon.file_name, icon.bytes.len());
         }
-        Err(Error::UnsupportedPayload(_)) => {
-            println!("metadata:  payload format not supported yet");
-        }
-        Err(error) => return Err(error),
+        None => println!("icon:      -"),
     }
 
     Ok(())
