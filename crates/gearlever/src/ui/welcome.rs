@@ -479,18 +479,21 @@ fn fuse_dependencies(report: FuseReport) -> gtk::Box {
     card
 }
 
-/// Builds one FUSE status item with a text check mark or a warning sign.
+/// Builds one FUSE status item with the same check used by the token status.
 fn fuse_status_item(label: &str, presence: FusePresence) -> gtk::Box {
     let item = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     item.set_valign(gtk::Align::Center);
 
     let installed = presence == FusePresence::Installed;
-    let mark = gtk::Label::new(Some(if installed { "✓" } else { "!" }));
-    mark.add_css_class("fuse-mark");
-    mark.add_css_class(if installed { "fuse-ok" } else { "fuse-missing" });
-    mark.set_width_chars(1);
-    mark.set_xalign(0.5);
-    item.append(&mark);
+    let icon = gtk::Image::from_icon_name(if installed {
+        "object-select-symbolic"
+    } else {
+        "dialog-warning-symbolic"
+    });
+    icon.set_pixel_size(16);
+    icon.set_valign(gtk::Align::Center);
+    icon.add_css_class(if installed { "success" } else { "warning" });
+    item.append(&icon);
 
     let label = gtk::Label::new(Some(label));
     label.add_css_class("dim-label");
