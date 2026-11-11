@@ -10,7 +10,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use std::os::unix::fs::{FileTypeExt, PermissionsExt};
+use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 
 /// Host capabilities related to FUSE.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,31 +29,33 @@ impl FuseReport {
     /// Inspects the host for the pieces AppImage runtimes use to mount images.
     #[must_use]
     pub fn detect() -> Self {
-        let device = Path::new("/dev/fuse")
-            .metadata()
-            .is_ok_and(|metadata| metadata.file_type().is_char_device());
-
         Self {
-            device,
+            device: fuse_device_available(),
             fusermount: find_helper("fusermount"),
             fusermount3: find_helper("fusermount3"),
             libfuse2: libfuse2_available(),
         }
     }
 
-    /// Returns whether the `/dev/fuse` device exists.
+    /// Returns whether `/dev/fuse` exists and can be opened read-write.
     #[must_use]
     pub const fn has_device(self) -> bool {
         self.device
     }
 
-    /// Returns whether the FUSE 2 `fusermount` helper is in `PATH`.
+    /// Returns whether the usable FUSE 2 `fusermount` helper is in `PATH`.
+    ///
+    /// The helper must be executable and setuid root, matching the normal
+    /// AppImage mount path.
     #[must_use]
     pub const fn has_fuse2_helper(self) -> bool {
         self.fusermount
     }
 
-    /// Returns whether the FUSE 3 `fusermount3` helper is in `PATH`.
+    /// Returns whether the usable FUSE 3 `fusermount3` helper is in `PATH`.
+    ///
+    /// The helper must be executable and setuid root, matching the normal
+    /// AppImage mount path.
     #[must_use]
     pub const fn has_fuse3_helper(self) -> bool {
         self.fusermount3
@@ -80,7 +82,7 @@ impl FuseReport {
         self.device && self.fusermount && self.libfuse2
     }
 
-    /// Returns whether both FUSE 2 and FUSE 3 are ready for AppImages.
+    /// Returns whether the normal FUSE 2 and FUSE 3 mount paths are ready.
     ///
     /// Gear LeverR itself can run with either generation, but an AppImage
     /// manager should not install until both the legacy and the current helper
@@ -231,12 +233,31 @@ fn find_helper(name: &str) -> bool {
 fn find_in_directories(name: &str, directories: &[PathBuf]) -> bool {
     directories
         .iter()
-        .any(|directory| is_executable(&directory.join(name)))
+        .any(|directory| is_usable_helper(&directory.join(name)))
 }
 
-fn is_executable(path: &Path) -> bool {
+fn is_usable_helper(path: &Path) -> bool {
+    path.metadata().is_ok_and(|metadata| {
+        metadata.is_file() && helper_metadata_ok(metadata.permissions().mode(), metadata.uid())
+    })
+}
+
+fn helper_metadata_ok(mode: u32, uid: u32) -> bool {
+    mode & 0o111 != 0 && uid == 0 && mode & 0o4000 != 0
+}
+
+fn fuse_device_available() -> bool {
+    fuse_device_at(Path::new("/dev/fuse"))
+}
+
+fn fuse_device_at(path: &Path) -> bool {
     path.metadata()
-        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+        .is_ok_and(|metadata| metadata.file_type().is_char_device())
+        && fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .is_ok()
 }
 
 fn libfuse2_available() -> bool {
@@ -467,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn finds_executables_in_directories() {
+    fn rejects_unprivileged_helpers() {
         let directory = tempfile::tempdir().expect("temporary directory");
         let helper = directory.path().join("fusermount3");
 
@@ -479,10 +500,28 @@ mod tests {
         fs::write(&helper, b"#!/bin/sh\n").expect("write helper");
         fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).expect("make executable");
 
-        assert!(find_in_directories(
+        assert!(!find_in_directories(
             "fusermount3",
             &[directory.path().to_path_buf()]
         ));
+    }
+
+    #[test]
+    fn accepts_setuid_root_helpers() {
+        assert!(helper_metadata_ok(0o4755, 0));
+        assert!(helper_metadata_ok(0o6755, 0));
+        assert!(!helper_metadata_ok(0o755, 0));
+        assert!(!helper_metadata_ok(0o4755, 1000));
+    }
+
+    #[test]
+    fn detects_a_regular_file_as_not_a_fuse_device() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let file = directory.path().join("fuse");
+
+        fs::write(&file, b"").expect("write file");
+
+        assert!(!fuse_device_at(&file));
     }
 
     #[test]

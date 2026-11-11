@@ -57,9 +57,10 @@ updates from six sources, a compatible CLI and the full interface. See
 ## Requirements
 
 - GTK 4.8 or newer and libadwaita 1.2 or newer.
-- Mounting AppImages needs `/dev/fuse` and a `fusermount` or `fusermount3`
-  helper. Without them the AppImage extracts itself to a temporary directory.
-  `libfuse2` is only needed by AppImages built with the older runtime.
+- Mounting AppImages needs `/dev/fuse` and a setuid `fusermount` or
+  `fusermount3` helper. Without them the AppImage extracts itself to a
+  temporary directory. `libfuse2` is only needed by AppImages built with the
+  older runtime.
 - Tested on Debian 12 and Debian 13. Ubuntu 23.04+, Fedora 38+ and Arch ship
   compatible versions. **Ubuntu 22.04 does not** (GTK 4.6 / Adw 1.1).
 - DwarFS or ISO9660 payloads need `dwarfsextract`/`7zz`; without them the app shows a

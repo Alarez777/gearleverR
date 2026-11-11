@@ -53,8 +53,9 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 
 - GTK 4.8 o superior y libadwaita 1.2 o superior.
 - Para montar AppImages hacen falta `/dev/fuse` y un helper `fusermount` o
-  `fusermount3`. Sin ellos, el AppImage se extrae a un directorio temporal.
-  `libfuse2` solo lo necesitan las AppImages creadas con el runtime antiguo.
+  `fusermount3` con setuid root. Sin ellos, el AppImage se extrae a un
+  directorio temporal. `libfuse2` solo lo necesitan las AppImages creadas con
+  el runtime antiguo.
 - Probado en Debian 12 y Debian 13. Ubuntu 23.04+, Fedora 38+ y Arch incluyen
   versiones compatibles. **Ubuntu 22.04 no** (GTK 4.6 / Adw 1.1).
 - Para payloads DwarFS o ISO9660 hacen falta `dwarfsextract`/`7zz`; sin ellos la
