@@ -261,6 +261,16 @@ const STYLE: &str = r"
         border-radius: 12px;
         padding: 12px;
     }
+    .fuse-warning {
+        background-color: alpha(@warning_color, 0.15);
+        border-radius: 12px;
+        padding: 12px;
+    }
+    .fuse-error {
+        background-color: alpha(@error_color, 0.15);
+        border-radius: 12px;
+        padding: 12px;
+    }
     .multi-progress {
         margin: 0;
         padding: 0;

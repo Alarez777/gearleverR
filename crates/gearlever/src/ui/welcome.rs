@@ -10,13 +10,14 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gearlever_core::self_install;
+use gearlever_core::system::{FuseComponent, FuseProblem, FuseReport};
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk};
 
 use crate::i18n::t;
 use crate::settings::Settings;
 
-use super::{AppModel, Msg};
+use super::{AppModel, FUSE_DOCS_URL, Msg};
 
 /// Widgets of the first-run window that the model keeps updating.
 pub(crate) struct Welcome {
@@ -223,6 +224,9 @@ pub(crate) fn present(
     body.set_margin_start(18);
     body.set_margin_end(18);
     body.append(&intro);
+    if let Some(notice) = fuse_notice() {
+        body.append(&notice);
+    }
     body.append(&location);
     body.append(&files);
     body.append(&updates);
@@ -284,6 +288,119 @@ pub(crate) fn present(
         fetch_switch,
         fetch_guard,
     }
+}
+
+/// Builds the FUSE notice shown when the host cannot mount AppImages.
+///
+/// The current AppImage runtime is statically linked with FUSE 3, so the red
+/// notice is about the host pieces needed to mount, not about libfuse itself.
+/// FUSE 2 is only reported as a compatibility problem for older AppImages.
+fn fuse_notice() -> Option<gtk::Widget> {
+    let report = FuseReport::detect();
+    let problem = report.problem()?;
+
+    let (class, icon_class, icon_name, title, explanation, install_lead, command) = match problem {
+        FuseProblem::MissingDevice => {
+            let tools_missing = !report.has_fuse2_helper() && !report.has_fuse3_helper();
+            let install = if tools_missing {
+                FuseComponent::All.install_command()
+            } else {
+                None
+            };
+            let (lead, command) = match install {
+                Some(install) => (
+                    t("Load the fuse kernel module and install FUSE with:"),
+                    format!("sudo modprobe fuse\n{install}"),
+                ),
+                None => (
+                    t("Load the fuse kernel module with:"),
+                    "sudo modprobe fuse".to_owned(),
+                ),
+            };
+
+            (
+                "fuse-error",
+                "error",
+                "dialog-error-symbolic",
+                t("The FUSE device is not available"),
+                t(
+                    "Gear LeverR can still start by extracting itself, but AppImages that need FUSE will not run.",
+                ),
+                lead,
+                Some(command),
+            )
+        }
+        FuseProblem::MissingTools => (
+            "fuse-error",
+            "error",
+            "dialog-error-symbolic",
+            t("FUSE is not available"),
+            t(
+                "Gear LeverR can still start by extracting itself, but AppImages that need FUSE will not run.",
+            ),
+            t("Install FUSE with:"),
+            FuseComponent::All.install_command(),
+        ),
+        FuseProblem::MissingFuse2 => (
+            "fuse-warning",
+            "warning",
+            "dialog-warning-symbolic",
+            t("FUSE 2 support is not available"),
+            t(
+                "AppImages built with the older runtime may not start. Gear LeverR itself uses FUSE 3 and does not need it.",
+            ),
+            t("Install the FUSE 2 compatibility packages with:"),
+            FuseComponent::Legacy.install_command(),
+        ),
+        _ => return None,
+    };
+
+    let notice = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    notice.add_css_class(class);
+
+    let header = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    let icon = gtk::Image::from_icon_name(icon_name);
+    icon.set_pixel_size(24);
+    icon.add_css_class(icon_class);
+    let title = gtk::Label::new(Some(&title));
+    title.add_css_class("heading");
+    title.add_css_class(icon_class);
+    title.set_halign(gtk::Align::Start);
+    title.set_hexpand(true);
+    title.set_wrap(true);
+    header.append(&icon);
+    header.append(&title);
+    notice.append(&header);
+
+    let explanation = gtk::Label::new(Some(&explanation));
+    explanation.set_xalign(0.0);
+    explanation.set_wrap(true);
+    notice.append(&explanation);
+
+    let install_lead = if command.is_some() {
+        install_lead
+    } else {
+        t("Install it with your distribution's package manager.")
+    };
+    let lead = gtk::Label::new(Some(&install_lead));
+    lead.set_xalign(0.0);
+    lead.set_wrap(true);
+    notice.append(&lead);
+
+    if let Some(command) = command {
+        let command = gtk::Label::new(Some(&command));
+        command.add_css_class("monospace");
+        command.set_selectable(true);
+        command.set_wrap(true);
+        command.set_xalign(0.0);
+        notice.append(&command);
+    }
+
+    let link = gtk::LinkButton::with_label(FUSE_DOCS_URL, &t("Learn more"));
+    link.set_halign(gtk::Align::Start);
+    notice.append(&link);
+
+    Some(notice.upcast())
 }
 
 /// Returns the application icon when the theme can find it.
