@@ -4684,6 +4684,17 @@ impl AppModel {
     /// Restarts the program that is running Gear LeverR.
     fn restart_self(&self, widgets: &Widgets) {
         let program = running_appimage()
+            .or_else(|| {
+                // Installing itself can rename the running image, so `$APPIMAGE`
+                // may point to a path that no longer exists. The desktop entry
+                // already points at the canonical copy.
+                std::env::var_os("APPIMAGE").and_then(|_| {
+                    self.apps
+                        .iter()
+                        .find(|app| app.self_entry)
+                        .map(|app| app.image_path.clone())
+                })
+            })
             .or_else(|| std::env::current_exe().ok())
             .or_else(|| {
                 self.apps
