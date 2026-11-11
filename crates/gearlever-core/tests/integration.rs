@@ -98,8 +98,21 @@ fn installs_itself_lists_itself_and_uninstalls_cleanly() {
     options.move_source = false;
     options.update_desktop_database = false;
 
+    let metadata = AppImage::open(&source)
+        .expect("fixture is a valid AppImage")
+        .metadata()
+        .expect("fixture has metadata");
+    let variant = self_install::detect_variant(&metadata, &source);
     let installation =
         self_install::install(&source, &options).expect("the self installation succeeds");
+    assert_eq!(
+        installation.image_path.file_name(),
+        Some(std::ffi::OsStr::new(&format!(
+            "{}.appimage",
+            variant.image_stem()
+        ))),
+        "the managed image follows the variant naming"
+    );
 
     assert!(installation.image_path.exists(), "the AppImage is copied");
     assert!(

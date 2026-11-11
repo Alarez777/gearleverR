@@ -202,6 +202,37 @@ impl Config {
         self.sections.remove(&format!("{section}.update_manager"));
     }
 
+    /// Moves the settings of an AppImage to a new path.
+    ///
+    /// Values already stored for the destination are kept unless the source
+    /// defines the same key. The update manager and `file_path` follow the
+    /// image, so replacing an integration under a new name does not lose its
+    /// configuration.
+    pub fn move_app(&mut self, from: &Path, to: &Path) {
+        if from == to {
+            return;
+        }
+
+        let from_section = app_section(from);
+        let to_section = app_section(to);
+        let source = self.sections.remove(&from_section).unwrap_or_default();
+        let manager = self.sections.remove(&update_section(from));
+
+        if source.is_empty() && manager.is_none() {
+            return;
+        }
+
+        let target = self.sections.entry(to_section).or_default();
+        for (key, value) in source {
+            target.insert(key, value);
+        }
+        target.insert("file_path".to_owned(), to.to_string_lossy().into_owned());
+
+        if let Some(manager) = manager {
+            self.sections.insert(update_section(to), manager);
+        }
+    }
+
     /// Returns whether update checks are disabled for `image`.
     #[must_use]
     pub fn updates_disabled(&self, image: &Path) -> bool {
@@ -621,6 +652,48 @@ mod tests {
         assert_eq!(
             loaded.update_manager(image).get("repo").map(String::as_str),
             Some("owner/repo")
+        );
+    }
+
+    #[test]
+    fn moves_the_settings_and_update_manager_to_a_new_path() {
+        let from = Path::new("/home/x/AppImages/GearLeverR.AppImage");
+        let to = Path::new("/home/x/AppImages/gear_leverr.appimage");
+
+        let mut config = Config::default();
+        config.set_app(
+            from,
+            BTreeMap::from([
+                ("name".to_owned(), "Gear LeverR".to_owned()),
+                ("file_path".to_owned(), from.to_string_lossy().into_owned()),
+                ("skip_updates".to_owned(), "true".to_owned()),
+            ]),
+        );
+        config.set_update_manager(
+            from,
+            "GithubUpdater",
+            BTreeMap::from([("repo".to_owned(), "owner/repo".to_owned())]),
+        );
+
+        config.move_app(from, to);
+
+        assert!(config.app(from).is_empty());
+        assert!(config.update_manager(from).is_empty());
+        assert_eq!(
+            config.app(to).get("skip_updates").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            config.app(to).get("file_path").map(String::as_str),
+            Some(to.to_string_lossy().as_ref())
+        );
+        assert_eq!(
+            config.update_manager(to).get("repo").map(String::as_str),
+            Some("owner/repo")
+        );
+        assert_eq!(
+            config.update_manager(to).get("manager").map(String::as_str),
+            Some("GithubUpdater")
         );
     }
 
