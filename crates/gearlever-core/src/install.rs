@@ -615,6 +615,23 @@ struct PreviousEntry {
     icon: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum ReplacedArtifact {
+    AppImage,
+    DesktopEntry,
+    Icon,
+}
+
+impl ReplacedArtifact {
+    const fn description(self) -> &'static str {
+        match self {
+            Self::AppImage => "AppImage",
+            Self::DesktopEntry => "desktop entry",
+            Self::Icon => "icon",
+        }
+    }
+}
+
 fn previous_entry(previous: &PreviousInstall) -> PreviousEntry {
     let Ok(contents) = fs::read_to_string(&previous.desktop_path) else {
         return PreviousEntry::default();
@@ -647,25 +664,26 @@ fn remove_replaced_self_artifacts(
             .parent()
             .is_some_and(|parent| same_path(parent, appimages_dir))
     {
-        remove_file_logged(&previous.image_path, "AppImage");
+        remove_file_logged(&previous.image_path, ReplacedArtifact::AppImage);
     }
 
     if previous.desktop_path != desktop_path {
-        remove_file_logged(&previous.desktop_path, "desktop entry");
+        remove_file_logged(&previous.desktop_path, ReplacedArtifact::DesktopEntry);
     }
 
     if let Some(old_icon) = &previous_entry.icon
         && icon_path != Some(old_icon.as_path())
     {
-        remove_file_logged(old_icon, "icon");
+        remove_file_logged(old_icon, ReplacedArtifact::Icon);
     }
 }
 
-fn remove_file_logged(path: &Path, kind: &str) {
+fn remove_file_logged(path: &Path, artifact: ReplacedArtifact) {
     match fs::remove_file(path) {
         Ok(()) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => {
+            let kind = artifact.description();
             tracing::warn!(path = %path.display(), %error, "cannot remove the old self {kind}");
         }
     }
