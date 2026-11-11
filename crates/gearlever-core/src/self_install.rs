@@ -1,8 +1,8 @@
 //! Integration of Gear LeverR itself into the desktop.
 //!
-//! Gear LeverR manages AppImages, but it does not manage its own desktop entry:
-//! the first-run window writes it once and [`crate::scan`] skips it thanks to the
-//! [`SELF_MARKER`] key, so the application cannot uninstall itself by accident.
+//! The first-run window and self-replacements write [`DESKTOP_ID`] with the
+//! [`SELF_MARKER`] key. [`crate::scan`] lists that entry like any other app, and
+//! the interface uses the marker to offer its dedicated self-removal flow.
 
 use std::ffi::OsStr;
 use std::fs;
@@ -12,11 +12,14 @@ use std::path::{Path, PathBuf};
 use crate::appimage::{AppImage, AppMetadata, PayloadKind, SquashfsImage, detect};
 use crate::args;
 use crate::desktop::DesktopFile;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::paths::Paths;
 
 /// Sizes tried when looking for a sharp icon, best first.
 const ICON_SIZES: [&str; 5] = ["scalable", "512x512", "256x256", "128x128", "96x96"];
+
+/// Stem of the desktop entry written for Gear LeverR.
+pub const DESKTOP_STEM: &str = "io.github.alarez777.GearLeverR";
 
 /// File name of the desktop entry written for Gear LeverR.
 pub const DESKTOP_ID: &str = "io.github.alarez777.GearLeverR.desktop";
@@ -24,8 +27,125 @@ pub const DESKTOP_ID: &str = "io.github.alarez777.GearLeverR.desktop";
 /// Icon name declared by the desktop entry, without an extension.
 pub const ICON_NAME: &str = "io.github.alarez777.GearLeverR";
 
-/// Desktop entry key that keeps Gear LeverR out of its own list.
+/// Desktop entry key that marks Gear LeverR's own integration.
 pub const SELF_MARKER: &str = "X-GearLeverR-Self";
+
+/// Desktop entry key that records which build variant an AppImage is.
+pub const VARIANT_KEY: &str = "X-GearLeverR-Variant";
+
+/// Build variant of Gear LeverR.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Variant {
+    /// Uses the GTK 4 and libadwaita provided by the host.
+    #[default]
+    Default,
+    /// Ships GTK 4 and libadwaita inside the AppImage.
+    GtkIncluded,
+}
+
+impl Variant {
+    /// Returns the value stored in [`VARIANT_KEY`].
+    #[must_use]
+    pub const fn as_key(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::GtkIncluded => "gtk-included",
+        }
+    }
+
+    /// Returns the stem used for the managed AppImage file.
+    #[must_use]
+    pub const fn image_stem(self) -> &'static str {
+        match self {
+            Self::Default => "gear_leverr",
+            Self::GtkIncluded => "gear_leverr_gtk_included",
+        }
+    }
+
+    /// Parses a value stored in [`VARIANT_KEY`].
+    fn from_key(value: &str) -> Option<Self> {
+        if value.eq_ignore_ascii_case("default") {
+            Some(Self::Default)
+        } else if value.eq_ignore_ascii_case("gtk-included")
+            || value.eq_ignore_ascii_case("gtk_included")
+        {
+            Some(Self::GtkIncluded)
+        } else {
+            None
+        }
+    }
+}
+
+/// Returns the build variant declared by an AppImage.
+///
+/// New builds record it in [`VARIANT_KEY`]. Older builds are recognised by
+/// the GTK library bundled inside the SquashFS payload, and by the release file
+/// name when the payload cannot be inspected.
+#[must_use]
+pub fn detect_variant(metadata: &AppMetadata, image: &Path) -> Variant {
+    if let Some(variant) = variant_from_metadata(metadata) {
+        return variant;
+    }
+
+    AppImage::open(image).map_or_else(
+        |_| variant_from_file_name(image),
+        |appimage| detect_variant_from_appimage(&appimage, image),
+    )
+}
+
+fn detect_variant_from_appimage(appimage: &AppImage, image: &Path) -> Variant {
+    match bundled_gtk(appimage) {
+        Some(true) => Variant::GtkIncluded,
+        Some(false) => Variant::Default,
+        None => variant_from_file_name(image),
+    }
+}
+
+fn variant_from_metadata(metadata: &AppMetadata) -> Option<Variant> {
+    if metadata.desktop_contents.trim().is_empty() {
+        return None;
+    }
+
+    let desktop = DesktopFile::parse(&metadata.desktop_contents);
+    desktop
+        .value("Desktop Entry", VARIANT_KEY)
+        .and_then(Variant::from_key)
+}
+
+fn variant_from_file_name(image: &Path) -> Variant {
+    let looks_bundled = image
+        .file_name()
+        .and_then(OsStr::to_str)
+        .is_some_and(|name| {
+            let name = name.to_ascii_lowercase();
+            name.contains("gtk-included") || name.contains("gtk_included")
+        });
+
+    if looks_bundled {
+        Variant::GtkIncluded
+    } else {
+        Variant::Default
+    }
+}
+
+fn bundled_gtk(appimage: &AppImage) -> Option<bool> {
+    if appimage.payload_kind() != PayloadKind::Squashfs {
+        return None;
+    }
+
+    let payload = SquashfsImage::open(appimage.path(), appimage.payload_offset()).ok()?;
+
+    Some(
+        [
+            "/usr/lib/libgtk-4.so.1",
+            "/usr/lib/x86_64-linux-gnu/libgtk-4.so.1",
+            "/lib/libgtk-4.so.1",
+        ]
+        .into_iter()
+        .any(|path| payload.contains(Path::new(path))),
+    )
+}
 
 /// Locations and policies used to install Gear LeverR itself.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -118,27 +238,40 @@ pub fn is_self_metadata(metadata: &AppMetadata) -> bool {
 ///
 /// # Errors
 ///
-/// Returns [`Error::Io`] when the files cannot be written and the errors
+/// Returns [`crate::Error::Io`] when the files cannot be written and the errors
 /// documented on [`AppImage::metadata`] when the image cannot be inspected.
 pub fn install(image: &Path, options: &InstallOptions) -> Result<Installation> {
     let appimage = AppImage::open(image)?;
     let metadata = appimage.metadata()?;
+    let variant = variant_from_metadata(&metadata)
+        .unwrap_or_else(|| detect_variant_from_appimage(&appimage, image));
 
     fs::create_dir_all(&options.appimages_dir)?;
     fs::create_dir_all(&options.applications_dir)?;
 
-    let image_path = place_image(image, &options.appimages_dir)?;
+    let file_name = crate::install::unique_image_name(
+        variant.image_stem(),
+        metadata.version.as_deref(),
+        &options.appimages_dir,
+        &[image],
+    );
+    let image_path = place_image(image, &options.appimages_dir, &file_name)?;
     let icon_path = write_icon(&appimage, &metadata, &options.icons_dir)?;
 
-    let desktop = desktop_entry(&metadata, &image_path, icon_path.as_deref());
+    let desktop = desktop_entry(&metadata, &image_path, icon_path.as_deref(), variant);
     let desktop_path = options.applications_dir.join(DESKTOP_ID);
     write_atomic(&desktop_path, desktop.to_string().as_bytes())?;
 
     if options.move_source && image_path != image {
         // Everything else already succeeded, so a failure here only leaves an
-        // extra copy behind.
-        if let Err(error) = fs::remove_file(image) {
-            tracing::warn!(path = %image.display(), %error, "cannot remove the original AppImage");
+        // extra copy behind. A source inside the managed folder was renamed in
+        // place, so its old path is already gone.
+        match fs::remove_file(image) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                tracing::warn!(path = %image.display(), %error, "cannot remove the original AppImage");
+            }
         }
     }
 
@@ -153,19 +286,23 @@ pub fn install(image: &Path, options: &InstallOptions) -> Result<Installation> {
     })
 }
 
-/// Copies the image into `directory`, keeping its file name when possible.
-fn place_image(source: &Path, directory: &Path) -> Result<PathBuf> {
+/// Moves or copies the image into `directory` under `file_name`.
+fn place_image(source: &Path, directory: &Path, file_name: &str) -> Result<PathBuf> {
     let source = fs::canonicalize(source)?;
     let directory = fs::canonicalize(directory)?;
+    let destination = directory.join(file_name);
 
-    if source.parent() == Some(directory.as_path()) {
+    if source == destination {
         return Ok(source);
     }
 
-    let name = source
-        .file_name()
-        .ok_or_else(|| Error::InvalidName(source.clone()))?;
-    let destination = unique_destination(&directory, name);
+    // The image already lives in the managed folder: renaming it in place keeps
+    // the library free of duplicate copies, even when the user chose to clone.
+    if source.parent() == Some(directory.as_path()) {
+        fs::rename(&source, &destination)?;
+        return Ok(destination);
+    }
+
     let temporary = temporary_path(&destination);
 
     let result = (|| -> Result<()> {
@@ -181,28 +318,6 @@ fn place_image(source: &Path, directory: &Path) -> Result<PathBuf> {
     result?;
 
     Ok(destination)
-}
-
-/// Finds a free file name, appending `-2`, `-3`… when the name is taken.
-fn unique_destination(directory: &Path, name: &OsStr) -> PathBuf {
-    let candidate = directory.join(name);
-    if !candidate.exists() {
-        return candidate;
-    }
-
-    let path = Path::new(name);
-    let stem = path.file_stem().map_or_else(
-        || "appimage".to_owned(),
-        |stem| stem.to_string_lossy().into_owned(),
-    );
-    let extension = path.extension().map_or_else(String::new, |extension| {
-        format!(".{}", extension.to_string_lossy())
-    });
-
-    (2..=9999)
-        .map(|index| directory.join(format!("{stem}-{index}{extension}")))
-        .find(|candidate| !candidate.exists())
-        .unwrap_or_else(|| directory.join(format!("{stem}-{}", std::process::id())))
 }
 
 /// Installs every icon size shipped by the AppImage into the `hicolor` theme.
@@ -268,7 +383,7 @@ fn write_icon(
 ///
 /// # Errors
 ///
-/// Returns [`Error::Io`] when the desktop entry or the icon cannot be written.
+/// Returns [`crate::Error::Io`] when the desktop entry or the icon cannot be written.
 pub fn refresh_entry(paths: &Paths) -> Result<()> {
     let desktop_path = paths.applications_dir().join(DESKTOP_ID);
     let Ok(contents) = fs::read_to_string(&desktop_path) else {
@@ -378,7 +493,12 @@ fn update_icon_cache(icons_dir: &Path) {
 }
 
 /// Builds the desktop entry, reusing the one shipped inside the AppImage.
-fn desktop_entry(metadata: &AppMetadata, image: &Path, icon_path: Option<&Path>) -> DesktopFile {
+fn desktop_entry(
+    metadata: &AppMetadata,
+    image: &Path,
+    icon_path: Option<&Path>,
+    variant: Variant,
+) -> DesktopFile {
     let mut desktop = if metadata.desktop_contents.trim().is_empty() {
         DesktopFile::default()
     } else {
@@ -413,6 +533,7 @@ fn desktop_entry(metadata: &AppMetadata, image: &Path, icon_path: Option<&Path>)
     // pointer is over the dock, so do not request it.
     desktop.set("Desktop Entry", "StartupNotify", "false");
     desktop.set("Desktop Entry", SELF_MARKER, "true");
+    desktop.set("Desktop Entry", VARIANT_KEY, variant.as_key());
     desktop.set("Desktop Entry", "X-AppImage-Name", &metadata.name);
     desktop.set(
         "Desktop Entry",
@@ -471,6 +592,47 @@ mod tests {
         magic[8..11].copy_from_slice(b"AI\x02");
         fs::write(path, magic).expect("write the fake AppImage");
         set_executable(path).expect("make it executable");
+    }
+
+    #[derive(Clone, Copy)]
+    enum Payload {
+        Bundled,
+        Default,
+    }
+
+    fn synthetic_appimage(path: &Path, payload: Payload) {
+        let header = backhand::NodeHeader {
+            permissions: 0o755,
+            ..Default::default()
+        };
+        let mut filesystem = backhand::FilesystemWriter::default();
+        filesystem
+            .push_dir_all("usr/lib", header)
+            .expect("create the payload directories");
+        if matches!(payload, Payload::Bundled) {
+            filesystem
+                .push_file(
+                    std::io::Cursor::new(b"gtk".to_vec()),
+                    "usr/lib/libgtk-4.so.1",
+                    header,
+                )
+                .expect("add the bundled GTK library");
+        }
+
+        let mut squashfs = std::io::Cursor::new(Vec::new());
+        filesystem
+            .write(&mut squashfs)
+            .expect("write the SquashFS payload");
+        let mut bytes = vec![0_u8; 64];
+        bytes[0..4].copy_from_slice(b"\x7fELF");
+        bytes[4] = 2; // 64-bit ELF
+        bytes[5] = 1; // little-endian
+        bytes[8..11].copy_from_slice(b"AI\x02");
+        bytes[0x12..0x14].copy_from_slice(&0x3e_u16.to_le_bytes());
+        bytes[0x28..0x30].copy_from_slice(&64_u64.to_le_bytes());
+        bytes[0x3a..0x3c].copy_from_slice(&64_u16.to_le_bytes());
+        bytes.extend_from_slice(&squashfs.into_inner());
+        fs::write(path, bytes).expect("write the synthetic AppImage");
     }
 
     fn metadata() -> AppMetadata {
@@ -656,13 +818,14 @@ mod tests {
     fn writes_an_absolute_exec_and_the_self_marker() {
         let image = Path::new("/home/tester/AppImages/Gear LeverR.AppImage");
         let icon = Path::new("/home/tester/.local/share/icons/hicolor/512x512/apps/icon.png");
-        let desktop = desktop_entry(&metadata(), image, Some(icon)).to_string();
+        let desktop = desktop_entry(&metadata(), image, Some(icon), Variant::Default).to_string();
 
         assert!(desktop.contains("TryExec=/home/tester/AppImages/Gear LeverR.AppImage"));
         assert!(desktop.contains("Exec='/home/tester/AppImages/Gear LeverR.AppImage' %U"));
         assert!(desktop.contains(&format!("{SELF_MARKER}=true")));
         assert!(desktop.contains("StartupNotify=false"));
         assert!(desktop.contains("X-AppImage-Version=0.1.0"));
+        assert!(desktop.contains(&format!("{VARIANT_KEY}=default")));
         assert!(desktop.contains(&format!("Icon={}", icon.display())));
     }
 
@@ -674,24 +837,95 @@ mod tests {
             &metadata,
             Path::new("/home/tester/AppImages/GearLeverR.AppImage"),
             None,
+            Variant::GtkIncluded,
         )
         .to_string();
 
         assert!(desktop.contains(&format!("X-AppImage-Version={}", env!("CARGO_PKG_VERSION"))));
+        assert!(desktop.contains(&format!("{VARIANT_KEY}=gtk-included")));
         assert!(desktop.contains(&format!("Icon={ICON_NAME}")));
     }
 
     #[test]
-    fn unique_names_keep_the_extension() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let name = OsStr::new("GearLeverR.AppImage");
-        fs::write(directory.path().join(name), b"first").expect("first file");
+    fn variant_stems_follow_the_release_names() {
+        assert_eq!(Variant::Default.image_stem(), "gear_leverr");
+        assert_eq!(
+            Variant::GtkIncluded.image_stem(),
+            "gear_leverr_gtk_included"
+        );
+    }
 
-        let destination = unique_destination(directory.path(), name);
+    #[test]
+    fn detects_the_variant_from_the_desktop_entry() {
+        let mut metadata = metadata();
+        metadata.desktop_contents =
+            format!("[Desktop Entry]\nName=Gear LeverR\n{VARIANT_KEY}=gtk-included\n");
+
+        assert_eq!(
+            detect_variant(&metadata, Path::new("/missing/GearLeverR.AppImage")),
+            Variant::GtkIncluded
+        );
+    }
+
+    #[test]
+    fn falls_back_to_the_release_file_name() {
+        let metadata = metadata();
+
+        assert_eq!(
+            detect_variant(
+                &metadata,
+                Path::new("/missing/GearLeverR-0.1.0-x86_64-gtk-included.AppImage")
+            ),
+            Variant::GtkIncluded
+        );
+        assert_eq!(
+            detect_variant(
+                &metadata,
+                Path::new("/missing/GearLeverR-0.1.0-x86_64.AppImage")
+            ),
+            Variant::Default
+        );
+    }
+
+    #[test]
+    fn detects_the_variant_from_the_squashfs_payload() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let metadata = metadata();
+
+        let bundled = directory.path().join("GearLeverR.AppImage");
+        synthetic_appimage(&bundled, Payload::Bundled);
+        assert_eq!(detect_variant(&metadata, &bundled), Variant::GtkIncluded);
+
+        let default = directory.path().join("GearLeverR-other.AppImage");
+        synthetic_appimage(&default, Payload::Default);
+        assert_eq!(detect_variant(&metadata, &default), Variant::Default);
+    }
+
+    #[test]
+    fn moves_a_managed_image_to_its_canonical_name() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let source = directory.path().join("GearLeverR-0.1.0-x86_64.AppImage");
+        fake_appimage(&source);
+
+        let destination = place_image(&source, directory.path(), "gear_leverr.appimage")
+            .expect("the image is renamed");
 
         assert_eq!(
             destination.file_name(),
-            Some(OsStr::new("GearLeverR-2.AppImage"))
+            Some(OsStr::new("gear_leverr.appimage"))
         );
+        assert!(!source.exists(), "the old name is gone");
+    }
+
+    #[test]
+    fn keeps_an_image_that_already_has_the_canonical_name() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let source = directory.path().join("gear_leverr.appimage");
+        fake_appimage(&source);
+
+        let destination = place_image(&source, directory.path(), "gear_leverr.appimage")
+            .expect("the image stays in place");
+
+        assert_eq!(destination, source);
     }
 }

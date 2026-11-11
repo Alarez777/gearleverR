@@ -876,6 +876,10 @@ impl Component for AppModel {
                             .find(|candidate| candidate.image_path == app.image_path)
                             .cloned();
 
+                        if installed.as_ref().is_some_and(|app| app.self_entry) {
+                            self.refresh_autostart();
+                        }
+
                         // Replacing the self entry means this process is still
                         // running the old version, so hand over to the image
                         // that was just installed.
@@ -906,6 +910,11 @@ impl Component for AppModel {
                         self.config = result.config;
                         let _ = self.config.save(&self.paths.config_file());
 
+                        let integrated_self = self.pending.iter().any(|candidate| {
+                            self_install::is_self_metadata(&candidate.metadata)
+                                && result.integrated.contains(&candidate.path)
+                        });
+
                         // Only failed and skipped AppImages stay on the batch
                         // page, so the user can retry them without adding the
                         // files again.
@@ -918,6 +927,9 @@ impl Component for AppModel {
                         self.reset_batch();
                         self.reloaded = None;
                         self.refresh_apps();
+                        if integrated_self {
+                            self.refresh_autostart();
+                        }
 
                         if remaining == 0 {
                             self.preview_window = false;
@@ -1800,6 +1812,7 @@ impl Component for AppModel {
                         "Gear LeverR installed"
                     );
                     self.refresh_apps();
+                    self.refresh_autostart();
                     Self::rebuild_list(self, widgets, &sender);
                     Self::toast(widgets, &t("Gear LeverR installed"));
                 }
@@ -1920,6 +1933,17 @@ impl AppModel {
         }
 
         self.remember_current_environment();
+    }
+
+    /// Rewrites the login update command after the self AppImage changed name.
+    fn refresh_autostart(&self) {
+        if !self.settings.values().fetch_in_background || !self_install::is_installed(&self.paths) {
+            return;
+        }
+
+        if let Err(error) = crate::autostart::apply(&self.paths, true) {
+            tracing::warn!(%error, "cannot refresh the Gear LeverR autostart entry");
+        }
     }
 
     /// Keeps the global history in sync with the variables currently in use.
@@ -4684,6 +4708,17 @@ impl AppModel {
     /// Restarts the program that is running Gear LeverR.
     fn restart_self(&self, widgets: &Widgets) {
         let program = running_appimage()
+            .or_else(|| {
+                // Installing itself can rename the running image, so `$APPIMAGE`
+                // may point to a path that no longer exists. The desktop entry
+                // already points at the canonical copy.
+                std::env::var_os("APPIMAGE").and_then(|_| {
+                    self.apps
+                        .iter()
+                        .find(|app| app.self_entry)
+                        .map(|app| app.image_path.clone())
+                })
+            })
             .or_else(|| std::env::current_exe().ok())
             .or_else(|| {
                 self.apps

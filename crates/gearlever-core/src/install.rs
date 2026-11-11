@@ -5,7 +5,7 @@
 //! `TryExec`, `Exec`, `Icon` and the `X-AppImage-*` keys, plus the per-app
 //! configuration used by the update managers.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -28,6 +28,9 @@ pub enum Conflict {
     /// Keep the new file under a unique name.
     KeepBoth,
     /// Reuse the file names of the application being replaced.
+    ///
+    /// Gear LeverR's own integration is named after its build variant instead,
+    /// so switching between the default and gtk-included builds updates the name.
     Replace,
 }
 
@@ -114,6 +117,10 @@ fn same_path(left: &Path, right: &Path) -> bool {
 /// Returns [`Error::Io`] when the AppImage, icon or desktop entry cannot be
 /// written, and [`Error::InvalidCommandLine`] when the embedded `Exec` line is
 /// malformed enough to prevent quoting.
+#[expect(
+    clippy::too_many_lines,
+    reason = "writing the image, desktop entry and configuration as one replacement reads better together"
+)]
 pub fn integrate(
     source: &Path,
     metadata: &AppMetadata,
@@ -124,7 +131,13 @@ pub fn integrate(
     fs::create_dir_all(&options.appimages_dir)?;
     fs::create_dir_all(&options.applications_dir)?;
 
-    let (file_name, prefix) = destination_names(source, metadata, previous, options)?;
+    let self_variant = crate::self_install::is_self_metadata(metadata)
+        .then(|| crate::self_install::detect_variant(metadata, source));
+    let previous_entry = previous
+        .filter(|_| options.conflict == Conflict::Replace)
+        .map(previous_entry);
+
+    let (file_name, prefix) = destination_names(source, metadata, previous, options, self_variant)?;
     let destination = options.appimages_dir.join(&file_name);
 
     if source != destination {
@@ -156,9 +169,24 @@ pub fn integrate(
     let mut desktop = DesktopFile::parse(&metadata.desktop_contents);
 
     // Gear LeverR can replace its own integration from the file list; keep the
-    // marker so `scan` and the self-removal dialog still recognise it.
-    if previous.is_some_and(previous_was_self) {
+    // marker so `scan` and the self-removal dialog still recognise it. A self
+    // build replacing a plain entry also becomes the canonical self entry.
+    let replaces_self =
+        options.conflict == Conflict::Replace && self_variant.is_some() && previous.is_some();
+    if replaces_self
+        || previous_entry
+            .as_ref()
+            .is_some_and(|entry| entry.self_entry)
+    {
         desktop.set("Desktop Entry", crate::self_install::SELF_MARKER, "true");
+    }
+
+    if let Some(variant) = self_variant {
+        desktop.set(
+            "Desktop Entry",
+            crate::self_install::VARIANT_KEY,
+            variant.as_key(),
+        );
     }
 
     if let Some(suffix) = &options.name_suffix {
@@ -205,6 +233,14 @@ pub fn integrate(
     let desktop_path = options.applications_dir.join(&desktop_id);
     fs::write(&desktop_path, desktop.to_string())?;
 
+    if options.conflict == Conflict::Replace
+        && self_variant.is_some()
+        && let Some(previous) = previous
+        && previous.image_path != destination
+    {
+        config.move_app(&previous.image_path, &destination);
+    }
+
     let mut app_config: BTreeMap<String, String> = config.app(&destination);
     app_config.insert("name".to_owned(), metadata.name.clone());
     app_config.insert("file_path".to_owned(), destination_text.into_owned());
@@ -217,6 +253,21 @@ pub fn integrate(
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
         }
+    }
+
+    if options.conflict == Conflict::Replace
+        && self_variant.is_some()
+        && let Some(previous) = previous
+        && let Some(previous_entry) = previous_entry.as_ref()
+    {
+        remove_replaced_self_artifacts(
+            previous,
+            previous_entry,
+            &destination,
+            &desktop_path,
+            icon_path.as_deref(),
+            &options.appimages_dir,
+        );
     }
 
     if options.update_desktop_database {
@@ -248,7 +299,22 @@ fn destination_names(
     metadata: &AppMetadata,
     previous: Option<&PreviousInstall>,
     options: &IntegrateOptions,
+    self_variant: Option<crate::self_install::Variant>,
 ) -> Result<(String, String)> {
+    if options.conflict == Conflict::Replace
+        && let Some(previous) = previous
+        && let Some(variant) = self_variant
+    {
+        let file_name = unique_image_name(
+            variant.image_stem(),
+            metadata.version.as_deref(),
+            &options.appimages_dir,
+            &[previous.image_path.as_path(), source],
+        );
+
+        return Ok((file_name, crate::self_install::DESKTOP_STEM.to_owned()));
+    }
+
     if options.conflict == Conflict::Replace
         && let Some(previous) = previous
     {
@@ -273,7 +339,9 @@ fn destination_names(
         |stem| stem.to_string_lossy().into_owned(),
     );
 
-    let mut base = if metadata.desktop_file.is_some() {
+    let mut base = if let Some(variant) = self_variant {
+        variant.image_stem().to_owned()
+    } else if metadata.desktop_file.is_some() {
         metadata.name.to_lowercase().replace(' ', "_")
     } else {
         format!("gearlever_{source_stem}")
@@ -294,16 +362,51 @@ fn destination_names(
     }
 
     let existing = directory_names(&options.appimages_dir);
-    let mut candidate = stem.clone();
+    let extension = extension.unwrap_or_default();
+    let candidate = unique_stem(&stem, metadata.version.as_deref(), extension, &existing);
+
+    Ok((format!("{candidate}{extension}"), candidate))
+}
+
+/// Returns a free image name for `stem`, excluding the paths being replaced.
+pub(crate) fn unique_image_name(
+    stem: &str,
+    version: Option<&str>,
+    directory: &Path,
+    excluded: &[&Path],
+) -> String {
+    let mut existing = directory_names(directory);
+
+    for path in excluded {
+        let path = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        if path
+            .parent()
+            .is_some_and(|parent| same_path(parent, directory))
+            && let Some(name) = path.file_name()
+        {
+            existing.remove(name.to_string_lossy().as_ref());
+        }
+    }
+
+    format!(
+        "{}.appimage",
+        unique_stem(stem, version, ".appimage", &existing)
+    )
+}
+
+/// Appends `_version`, `_0`, `_1`… until the name is free.
+fn unique_stem(
+    stem: &str,
+    version: Option<&str>,
+    extension: &str,
+    existing: &BTreeSet<String>,
+) -> String {
+    let mut candidate = stem.to_owned();
     let mut counter = 0_u32;
 
-    while existing.contains(&format!("{candidate}{}", extension.unwrap_or_default())) {
+    while existing.contains(&format!("{candidate}{extension}")) {
         candidate = if counter == 0 {
-            match metadata
-                .version
-                .as_deref()
-                .map(|version| version.replace('.', "_"))
-            {
+            match version.map(|version| version.replace('.', "_")) {
                 Some(version) => format!("{stem}_{version}"),
                 None => format!("{stem}_0"),
             }
@@ -313,10 +416,7 @@ fn destination_names(
         counter += 1;
     }
 
-    Ok((
-        format!("{candidate}{}", extension.unwrap_or_default()),
-        candidate,
-    ))
+    candidate
 }
 
 /// Returns the custom arguments kept from the previous integration.
@@ -509,20 +609,88 @@ pub(crate) fn temporary_path(path: &Path) -> PathBuf {
     )
 }
 
-fn previous_was_self(previous: &PreviousInstall) -> bool {
-    fs::read_to_string(&previous.desktop_path)
-        .ok()
-        .map(|contents| DesktopFile::parse(&contents))
-        .and_then(|desktop| {
-            desktop
-                .value("Desktop Entry", crate::self_install::SELF_MARKER)
-                .map(|value| value.eq_ignore_ascii_case("true"))
-        })
-        .unwrap_or(false)
+#[derive(Debug, Default)]
+struct PreviousEntry {
+    self_entry: bool,
+    icon: Option<PathBuf>,
 }
 
-fn directory_names(directory: &Path) -> std::collections::BTreeSet<String> {
-    let mut names = std::collections::BTreeSet::new();
+#[derive(Debug, Clone, Copy)]
+enum ReplacedArtifact {
+    AppImage,
+    DesktopEntry,
+    Icon,
+}
+
+impl ReplacedArtifact {
+    const fn description(self) -> &'static str {
+        match self {
+            Self::AppImage => "AppImage",
+            Self::DesktopEntry => "desktop entry",
+            Self::Icon => "icon",
+        }
+    }
+}
+
+fn previous_entry(previous: &PreviousInstall) -> PreviousEntry {
+    let Ok(contents) = fs::read_to_string(&previous.desktop_path) else {
+        return PreviousEntry::default();
+    };
+    let desktop = DesktopFile::parse(&contents);
+
+    let self_entry = desktop
+        .value("Desktop Entry", crate::self_install::SELF_MARKER)
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+    let icon = desktop
+        .value("Desktop Entry", "Icon")
+        .map(Path::new)
+        .filter(|path| path.is_absolute() && path.is_file())
+        .map(Path::to_path_buf);
+
+    PreviousEntry { self_entry, icon }
+}
+
+fn remove_replaced_self_artifacts(
+    previous: &PreviousInstall,
+    previous_entry: &PreviousEntry,
+    destination: &Path,
+    desktop_path: &Path,
+    icon_path: Option<&Path>,
+    appimages_dir: &Path,
+) {
+    if previous.image_path != destination
+        && previous
+            .image_path
+            .parent()
+            .is_some_and(|parent| same_path(parent, appimages_dir))
+    {
+        remove_file_logged(&previous.image_path, ReplacedArtifact::AppImage);
+    }
+
+    if previous.desktop_path != desktop_path {
+        remove_file_logged(&previous.desktop_path, ReplacedArtifact::DesktopEntry);
+    }
+
+    if let Some(old_icon) = &previous_entry.icon
+        && icon_path != Some(old_icon.as_path())
+    {
+        remove_file_logged(old_icon, ReplacedArtifact::Icon);
+    }
+}
+
+fn remove_file_logged(path: &Path, artifact: ReplacedArtifact) {
+    match fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            let kind = artifact.description();
+            tracing::warn!(path = %path.display(), %error, "cannot remove the old self {kind}");
+        }
+    }
+}
+
+fn directory_names(directory: &Path) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
 
     if let Ok(entries) = fs::read_dir(directory) {
         for entry in entries.flatten() {
@@ -594,7 +762,7 @@ Exec=AppRun --new-window %U
     }
 
     struct Fixture {
-        _dir: tempfile::TempDir,
+        dir: tempfile::TempDir,
         paths: crate::paths::Paths,
         source: PathBuf,
         options: IntegrateOptions,
@@ -614,10 +782,57 @@ Exec=AppRun --new-window %U
         options.update_desktop_database = false;
 
         Fixture {
-            _dir: dir,
+            dir,
             paths,
             source,
             options,
+        }
+    }
+
+    fn self_metadata(variant: crate::self_install::Variant) -> AppMetadata {
+        let mut metadata = metadata();
+        metadata.name = "Gear LeverR".to_owned();
+        metadata.desktop_file = Some(crate::self_install::DESKTOP_ID.to_owned());
+        metadata.version = Some("0.1.0".to_owned());
+        metadata.desktop_contents = format!(
+            "[Desktop Entry]\nName=Gear LeverR\nExec=gearlever-r %U\nIcon={}\n{}={}\n",
+            crate::self_install::ICON_NAME,
+            crate::self_install::VARIANT_KEY,
+            variant.as_key()
+        );
+        metadata.icon = Some(ExtractedIcon {
+            file_name: "gearlever.png".to_owned(),
+            bytes: vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+        });
+        metadata
+    }
+
+    fn self_previous(fixture: &Fixture, image: &Path, icon: &Path) -> PreviousInstall {
+        let desktop_path = fixture
+            .paths
+            .applications_dir()
+            .join(crate::self_install::DESKTOP_ID);
+        fs::create_dir_all(fixture.paths.applications_dir()).unwrap();
+        fs::write(
+            &desktop_path,
+            format!(
+                "[Desktop Entry]\nName=Gear LeverR\nTryExec={}\nExec={} %U\nIcon={}\n{}={}\n{}={}\n",
+                image.display(),
+                image.display(),
+                icon.display(),
+                crate::self_install::SELF_MARKER,
+                "true",
+                crate::self_install::VARIANT_KEY,
+                "gtk-included",
+            ),
+        )
+        .unwrap();
+
+        PreviousInstall {
+            image_path: image.to_path_buf(),
+            desktop_path,
+            exec_arguments: "%U".to_owned(),
+            env_variables: Vec::new(),
         }
     }
 
@@ -816,6 +1031,153 @@ Exec=AppRun --new-window %U
         assert!(
             exec.ends_with("--custom value"),
             "custom arguments win: {exec}"
+        );
+    }
+
+    #[test]
+    fn replacing_itself_uses_the_variant_name_and_cleans_the_old_copy() {
+        let fixture = fixture();
+        let mut config = Config::default();
+        let appimages = fixture.paths.default_appimages_dir();
+        let old_image = appimages.join("GearLeverR-0.1.0-x86_64-gtk-included.AppImage");
+        fake_appimage(&old_image);
+        let old_icon = fixture.dir.path().join("old-icon.png");
+        fs::write(&old_icon, b"icon").unwrap();
+        let previous = self_previous(&fixture, &old_image, &old_icon);
+
+        config.set_app(
+            &old_image,
+            BTreeMap::from([
+                ("name".to_owned(), "Gear LeverR".to_owned()),
+                ("default_exec_arguments".to_owned(), "%U".to_owned()),
+                ("skip_updates".to_owned(), "true".to_owned()),
+            ]),
+        );
+        config.set_update_manager(
+            &old_image,
+            "GithubUpdater",
+            BTreeMap::from([("repo".to_owned(), "owner/repo".to_owned())]),
+        );
+
+        let mut options = fixture.options.clone();
+        options.conflict = Conflict::Replace;
+        options.move_source = true;
+
+        let installed = integrate(
+            &fixture.source,
+            &self_metadata(crate::self_install::Variant::Default),
+            Some(&previous),
+            &options,
+            &mut config,
+        )
+        .unwrap();
+
+        let expected = appimages.join("gear_leverr.appimage");
+        assert_eq!(installed.image_path, expected);
+        assert!(!old_image.exists(), "the old AppImage is removed");
+        assert!(!old_icon.exists(), "the old icon is removed");
+        assert!(!fixture.source.exists(), "the downloaded image is moved");
+        assert_eq!(
+            installed.desktop_path,
+            fixture
+                .paths
+                .applications_dir()
+                .join(crate::self_install::DESKTOP_ID)
+        );
+
+        let desktop = DesktopFile::parse(&fs::read_to_string(&installed.desktop_path).unwrap());
+        assert_eq!(
+            desktop.value("Desktop Entry", crate::self_install::SELF_MARKER),
+            Some("true")
+        );
+        assert_eq!(
+            desktop.value("Desktop Entry", crate::self_install::VARIANT_KEY),
+            Some("default")
+        );
+
+        assert!(config.app(&old_image).is_empty());
+        assert_eq!(
+            config
+                .app(&expected)
+                .get("skip_updates")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            config
+                .update_manager(&expected)
+                .get("manager")
+                .map(String::as_str),
+            Some("GithubUpdater")
+        );
+        assert!(config.update_manager(&old_image).is_empty());
+    }
+
+    #[test]
+    fn switching_self_variants_uses_the_new_name() {
+        let fixture = fixture();
+        let mut config = Config::default();
+        let appimages = fixture.paths.default_appimages_dir();
+        let old_image = appimages.join("gear_leverr.appimage");
+        fake_appimage(&old_image);
+        let old_icon = fixture.dir.path().join("old-icon.png");
+        fs::write(&old_icon, b"icon").unwrap();
+        let previous = self_previous(&fixture, &old_image, &old_icon);
+
+        let mut options = fixture.options.clone();
+        options.conflict = Conflict::Replace;
+        options.move_source = true;
+
+        let installed = integrate(
+            &fixture.source,
+            &self_metadata(crate::self_install::Variant::GtkIncluded),
+            Some(&previous),
+            &options,
+            &mut config,
+        )
+        .unwrap();
+
+        assert_eq!(
+            installed.image_path,
+            appimages.join("gear_leverr_gtk_included.appimage")
+        );
+        assert!(!old_image.exists(), "the previous variant is removed");
+    }
+
+    #[test]
+    fn keeping_both_self_variants_leaves_the_existing_entry_untouched() {
+        let fixture = fixture();
+        let mut config = Config::default();
+        let appimages = fixture.paths.default_appimages_dir();
+        let old_image = appimages.join("gear_leverr.appimage");
+        fake_appimage(&old_image);
+
+        let installed = integrate(
+            &fixture.source,
+            &self_metadata(crate::self_install::Variant::GtkIncluded),
+            None,
+            &fixture.options,
+            &mut config,
+        )
+        .unwrap();
+
+        assert_eq!(
+            installed.image_path,
+            appimages.join("gear_leverr_gtk_included.appimage")
+        );
+        assert!(old_image.exists(), "the existing self entry is untouched");
+        assert_eq!(
+            installed.desktop_path,
+            fixture
+                .paths
+                .applications_dir()
+                .join("gear_leverr_gtk_included.desktop")
+        );
+
+        let desktop = DesktopFile::parse(&fs::read_to_string(&installed.desktop_path).unwrap());
+        assert_eq!(
+            desktop.value("Desktop Entry", crate::self_install::SELF_MARKER),
+            None
         );
     }
 

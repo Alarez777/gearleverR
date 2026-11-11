@@ -48,9 +48,12 @@ fi
 
 install_common() {
     local appdir=$1
+    local variant=$2
 
     install -Dm644 "$ROOT/data/io.github.alarez777.GearLeverR.desktop" \
         "$appdir/io.github.alarez777.GearLeverR.desktop"
+    printf '\nX-GearLeverR-Variant=%s\nX-AppImage-Version=%s\n' "$variant" "$VERSION" \
+        >>"$appdir/io.github.alarez777.GearLeverR.desktop"
     install -Dm644 "$ROOT/data/icons/io.github.alarez777.GearLeverR.png" \
         "$appdir/io.github.alarez777.GearLeverR.png"
     ln -sf io.github.alarez777.GearLeverR.png "$appdir/.DirIcon"
@@ -135,7 +138,7 @@ build_system() {
     echo ":: assembling the default variant (system GTK)"
     rm -rf "$SYSTEM_APPDIR"
     install -Dm755 "$BINARY" "$SYSTEM_APPDIR/gearlever-r"
-    install_common "$SYSTEM_APPDIR"
+    install_common "$SYSTEM_APPDIR" "default"
     package_appimage "$SYSTEM_APPDIR" "$SYSTEM_OUTPUT" "default"
 }
 
@@ -194,7 +197,7 @@ build_bundled() {
         fi
     done
 
-    install_common "$BUNDLED_APPDIR"
+    install_common "$BUNDLED_APPDIR" "gtk-included"
     install_bundled_resources "$BUNDLED_APPDIR"
     package_appimage "$BUNDLED_APPDIR" "$BUNDLED_OUTPUT" "gtk-included"
 }

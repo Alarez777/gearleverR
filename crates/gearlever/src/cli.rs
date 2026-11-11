@@ -34,6 +34,7 @@ use gearlever_core::install::{
 };
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
+use gearlever_core::self_install;
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{self, ManagerKind, UpdateOptions};
 
@@ -341,6 +342,10 @@ impl Cli {
 
         context.save()?;
 
+        if self_install::is_self_metadata(&metadata) {
+            Self::refresh_autostart(context);
+        }
+
         println!(
             "{} was integrated successfully",
             installed.image_path.display()
@@ -587,6 +592,19 @@ impl Cli {
         Ok(())
     }
 
+    /// Rewrites the login update command after the self AppImage changed name.
+    fn refresh_autostart(context: &CommandContext) {
+        if !context.settings.values().fetch_in_background
+            || !self_install::is_installed(&context.paths)
+        {
+            return;
+        }
+
+        if let Err(error) = crate::autostart::apply(&context.paths, true) {
+            eprintln!("warning: cannot refresh the autostart entry: {error}");
+        }
+    }
+
     fn install_update(
         context: &mut CommandContext,
         app: &InstalledApp,
@@ -612,6 +630,10 @@ impl Cli {
         context.save()?;
         let _ = fs::remove_dir(&download_dir);
 
+        if app.self_entry {
+            Self::refresh_autostart(context);
+        }
+
         println!("\n{} updated successfully", updated.image_path.display());
 
         Ok(())
@@ -621,6 +643,7 @@ impl Cli {
         context: &mut CommandContext,
         jobs: &[update::UpdateJob],
     ) -> Result<()> {
+        let touches_self = jobs.iter().any(|job| job.app.self_entry);
         let options = context.update_options();
         let download_dir = options.staging_dir();
         let cancel = Arc::new(AtomicBool::new(false));
@@ -650,6 +673,10 @@ impl Cli {
 
         context.save()?;
         let _ = fs::remove_dir(&download_dir);
+
+        if touches_self {
+            Self::refresh_autostart(context);
+        }
 
         if report.cancelled {
             println!("\nUpdate cancelled");

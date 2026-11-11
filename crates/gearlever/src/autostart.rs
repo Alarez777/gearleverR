@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use gearlever_core::args;
 use gearlever_core::desktop::DesktopFile;
 use gearlever_core::paths::Paths;
+use gearlever_core::self_install;
 use relm4::gtk::gio;
 use relm4::gtk::glib;
 use relm4::gtk::glib::prelude::ToVariant;
@@ -25,7 +26,7 @@ use relm4::gtk::glib::prelude::ToVariant;
     reason = "the setting is a boolean switch"
 )]
 pub(crate) fn apply(paths: &Paths, enabled: bool) -> Result<(), String> {
-    let command = commandline()?;
+    let command = commandline(paths)?;
 
     if request_background(enabled, &command).is_ok() {
         remove(&paths.autostart_file());
@@ -44,11 +45,14 @@ pub(crate) fn apply(paths: &Paths, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn commandline() -> Result<Vec<String>, String> {
-    let executable = std::env::var_os("APPIMAGE")
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_exe().ok())
-        .ok_or_else(|| "cannot determine the executable path".to_owned())?;
+fn commandline(paths: &Paths) -> Result<Vec<String>, String> {
+    // Prefer the integrated copy: it survives replacing the image that is
+    // currently running and is the version the desktop entry launches.
+    let executable =
+        self_install::installed_image(&paths.applications_dir().join(self_install::DESKTOP_ID))
+            .or_else(|| std::env::var_os("APPIMAGE").map(PathBuf::from))
+            .or_else(|| std::env::current_exe().ok())
+            .ok_or_else(|| "cannot determine the executable path".to_owned())?;
 
     Ok(vec![
         executable.to_string_lossy().into_owned(),
@@ -159,5 +163,36 @@ mod tests {
         let command = vec!["/opt/app.AppImage".to_owned(), "--fetch-updates".to_owned()];
 
         assert_eq!(command.to_variant().type_().as_str(), "as");
+    }
+
+    #[test]
+    fn prefers_the_integrated_copy() {
+        let directory = tempfile::tempdir().unwrap();
+        let paths = Paths::with_home(directory.path());
+        fs::create_dir_all(paths.default_appimages_dir()).unwrap();
+        fs::create_dir_all(paths.applications_dir()).unwrap();
+
+        let image = paths.default_appimages_dir().join("gear_leverr.appimage");
+        let mut magic = vec![0_u8; 11];
+        magic[0..8].copy_from_slice(b"\x7fELF\x02\x01\x01\x00");
+        magic[8..11].copy_from_slice(b"AI\x02");
+        fs::write(&image, magic).unwrap();
+
+        fs::write(
+            paths.applications_dir().join(self_install::DESKTOP_ID),
+            format!(
+                "[Desktop Entry]\nName=Gear LeverR\nTryExec={}\n",
+                image.display()
+            ),
+        )
+        .unwrap();
+
+        let command = commandline(&paths).unwrap();
+
+        assert_eq!(
+            command.first().map(String::as_str),
+            Some(image.to_string_lossy().as_ref())
+        );
+        assert_eq!(command.get(1).map(String::as_str), Some("--fetch-updates"));
     }
 }
