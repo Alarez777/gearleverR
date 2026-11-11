@@ -103,6 +103,13 @@ cargo test --workspace --all-features
   `feat/...`, `chore/...`). Never commit directly to `develop` or `main`.
 - Do not merge until it is tested: the quality commands above and, for UI or
   packaging changes, `scripts/ui-smoke.sh` in the Debian 12 container.
+- Before asking for the merge, load the `rust-review` skill and review the
+  branch diff (`git diff develop...HEAD`). The writing rules come from
+  `rust-best-practices`, which is loaded while the branch is written; when a
+  finding needs the exact rule, read the matching file under
+  `.agents/skills/rust-best-practices/references/`. Fix every Must fix finding
+  and report the remaining Should fix and Consider items in the hand-back.
+  Branches with no Rust changes skip the review.
 - Never merge into `develop` on your own. Leave the branch implemented and
   tested, then wait for the user's explicit confirmation. Once confirmed, merge
   it into `develop`, then into `main`, and push both.
