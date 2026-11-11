@@ -61,6 +61,8 @@ updates from six sources, a compatible CLI and the full interface. See
   `fusermount3` helper. Without them the AppImage extracts itself to a
   temporary directory. `libfuse2` is only needed by AppImages built with the
   older runtime.
+- The first-run window keeps **Install** disabled until those requirements are
+  met. Press **Recheck** after installing them.
 - Tested on Debian 12 and Debian 13. Ubuntu 23.04+, Fedora 38+ and Arch ship
   compatible versions. **Ubuntu 22.04 does not** (GTK 4.6 / Adw 1.1).
 - DwarFS or ISO9660 payloads need `dwarfsextract`/`7zz`; without them the app shows a

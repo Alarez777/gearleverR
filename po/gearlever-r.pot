@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gearlever-r 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-11 21:04+0000\n"
+"POT-Creation-Date: 2026-11-11 22:04+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -65,7 +65,7 @@ msgstr ""
 msgid "AppImage default location"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:511
+#: crates/gearlever/src/ui/welcome.rs:520
 msgid "AppImage dependencies"
 msgstr ""
 
@@ -77,11 +77,11 @@ msgstr ""
 msgid "AppImage manager written in Rust"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:445
+#: crates/gearlever/src/ui/welcome.rs:454
 msgid "AppImages built with the newer runtime may not start. Gear LeverR can still use FUSE 2."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:434
+#: crates/gearlever/src/ui/welcome.rs:443
 msgid "AppImages built with the older runtime may not start. Gear LeverR itself uses FUSE 3 and does not need it."
 msgstr ""
 
@@ -251,7 +251,7 @@ msgid "Dependencies are ready"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4448
-#: crates/gearlever/src/ui/welcome.rs:566
+#: crates/gearlever/src/ui/welcome.rs:581
 msgid "Detected"
 msgstr ""
 
@@ -301,24 +301,33 @@ msgid "Extracted"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4397
-#: crates/gearlever/src/ui/welcome.rs:532
+#: crates/gearlever/src/ui/welcome.rs:547
 msgid "FUSE 2"
 msgstr ""
 
+#: crates/gearlever/src/ui/welcome.rs:422
+msgid "FUSE 2 and FUSE 3 are not available"
+msgstr ""
+
 #: crates/gearlever/src/ui/welcome.rs:433
+msgid "FUSE 2 and FUSE 3 support is incomplete"
+msgstr ""
+
+#: crates/gearlever/src/ui/welcome.rs:442
 msgid "FUSE 2 support is not available"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4391
-#: crates/gearlever/src/ui/welcome.rs:531
+#: crates/gearlever/src/ui/welcome.rs:546
 msgid "FUSE 3"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:444
+#: crates/gearlever/src/ui/welcome.rs:453
 msgid "FUSE 3 support is not available"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4385
+#: crates/gearlever/src/ui/welcome.rs:545
 msgid "FUSE device"
 msgstr ""
 
@@ -326,11 +335,7 @@ msgstr ""
 msgid "FUSE documentation"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:422
-msgid "FUSE is not available"
-msgstr ""
-
-#: crates/gearlever/src/ui/welcome.rs:507
+#: crates/gearlever/src/ui/welcome.rs:516
 msgid "FUSE lets AppImages run without extracting them. FUSE 2 is only needed by older AppImages."
 msgstr ""
 
@@ -428,12 +433,13 @@ msgstr ""
 msgid "Increases log verbosity, occupying more disk space and potentially impacting performance.\nRequires a restart."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:448
-msgid "Install FUSE 3 with:"
+#: crates/gearlever/src/ui/welcome.rs:426
+#: crates/gearlever/src/ui/welcome.rs:435
+msgid "Install FUSE 2 and FUSE 3 with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:426
-msgid "Install FUSE with:"
+#: crates/gearlever/src/ui/welcome.rs:457
+msgid "Install FUSE 3 with:"
 msgstr ""
 
 #: crates/gearlever/src/ui/welcome.rs:65
@@ -441,11 +447,11 @@ msgstr ""
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:479
+#: crates/gearlever/src/ui/welcome.rs:488
 msgid "Install it with your distribution's package manager."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:437
+#: crates/gearlever/src/ui/welcome.rs:446
 msgid "Install the FUSE 2 compatibility packages with:"
 msgstr ""
 
@@ -500,7 +506,7 @@ msgstr ""
 msgid "Launch"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:495
+#: crates/gearlever/src/ui/welcome.rs:504
 msgid "Learn more"
 msgstr ""
 
@@ -601,7 +607,7 @@ msgid "Not an AppImage"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4450
-#: crates/gearlever/src/ui/welcome.rs:568
+#: crates/gearlever/src/ui/welcome.rs:583
 msgid "Not detected"
 msgstr ""
 
@@ -703,11 +709,11 @@ msgstr ""
 msgid "Receive a notification when a new update is detected; updates will not be installed automatically"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:534
+#: crates/gearlever/src/ui/welcome.rs:549
 msgid "Recheck"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:537
+#: crates/gearlever/src/ui/welcome.rs:552
 msgid "Recheck dependencies"
 msgstr ""
 
@@ -828,6 +834,10 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4682
 msgid "Skip"
+msgstr ""
+
+#: crates/gearlever/src/ui/welcome.rs:434
+msgid "Some AppImages may not start until both FUSE versions are installed."
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:978

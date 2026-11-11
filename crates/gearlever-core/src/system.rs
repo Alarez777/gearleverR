@@ -94,14 +94,16 @@ impl FuseReport {
 
     /// Returns the most important problem found on the host, if any.
     ///
-    /// A missing device takes precedence over missing helpers, then over the
-    /// FUSE 2 compatibility layer, and finally over the optional FUSE 3 helper.
+    /// A missing device takes precedence over missing helpers, then over both
+    /// incomplete FUSE generations, then over one incomplete generation.
     #[must_use]
     pub const fn problem(self) -> Option<FuseProblem> {
         if !self.device {
             Some(FuseProblem::MissingDevice)
         } else if !self.fusermount && !self.fusermount3 {
             Some(FuseProblem::MissingTools)
+        } else if !self.fusermount3 && !self.legacy_ready() {
+            Some(FuseProblem::MissingBoth)
         } else if !self.legacy_ready() {
             Some(FuseProblem::MissingFuse2)
         } else if !self.fusermount3 {
@@ -120,6 +122,10 @@ pub enum FuseProblem {
     MissingDevice,
     /// Neither `fusermount` nor `fusermount3` is available.
     MissingTools,
+    /// Both FUSE 2 and FUSE 3 are incomplete.
+    ///
+    /// At least one helper exists, but neither generation is fully ready.
+    MissingBoth,
     /// The FUSE 2 compatibility layer is incomplete.
     ///
     /// Only AppImages built with the classic runtime need it.
@@ -449,8 +455,17 @@ mod tests {
         );
         assert_eq!(
             report(true, true, false, false).problem(),
-            Some(FuseProblem::MissingFuse2)
+            Some(FuseProblem::MissingBoth)
         );
+    }
+
+    #[test]
+    fn missing_both_fuse_generations_with_a_partial_helper() {
+        let report = report(true, true, false, false);
+
+        assert!(report.can_mount());
+        assert!(!report.legacy_ready());
+        assert_eq!(report.problem(), Some(FuseProblem::MissingBoth));
     }
 
     #[test]

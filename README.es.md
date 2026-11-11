@@ -56,6 +56,8 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
   `fusermount3` con setuid root. Sin ellos, el AppImage se extrae a un
   directorio temporal. `libfuse2` solo lo necesitan las AppImages creadas con
   el runtime antiguo.
+- La ventana de bienvenida mantiene **Install** deshabilitado hasta cumplir
+  esos requisitos. Pulsa **Revisar** después de instalarlos.
 - Probado en Debian 12 y Debian 13. Ubuntu 23.04+, Fedora 38+ y Arch incluyen
   versiones compatibles. **Ubuntu 22.04 no** (GTK 4.6 / Adw 1.1).
 - Para payloads DwarFS o ISO9660 hacen falta `dwarfsextract`/`7zz`; sin ellos la

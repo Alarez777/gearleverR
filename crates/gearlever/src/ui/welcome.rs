@@ -419,11 +419,20 @@ fn fuse_notice(report: FuseReport) -> Option<gtk::Widget> {
             "fuse-error",
             "error",
             "dialog-error-symbolic",
-            t("FUSE is not available"),
+            t("FUSE 2 and FUSE 3 are not available"),
             t(
                 "Gear LeverR can still start by extracting itself, but AppImages that need FUSE will not run.",
             ),
-            t("Install FUSE with:"),
+            t("Install FUSE 2 and FUSE 3 with:"),
+            FuseComponent::All.install_command(),
+        ),
+        FuseProblem::MissingBoth => (
+            "fuse-warning",
+            "warning",
+            "dialog-warning-symbolic",
+            t("FUSE 2 and FUSE 3 support is incomplete"),
+            t("Some AppImages may not start until both FUSE versions are installed."),
+            t("Install FUSE 2 and FUSE 3 with:"),
             FuseComponent::All.install_command(),
         ),
         FuseProblem::MissingFuse2 => (
@@ -527,7 +536,13 @@ fn fuse_dependencies(report: FuseReport, sender: &relm4::ComponentSender<AppMode
     } else {
         FusePresence::Missing
     };
+    let device = if report.has_device() {
+        FusePresence::Installed
+    } else {
+        FusePresence::Missing
+    };
 
+    card.append(&fuse_status_item(&t("FUSE device"), device));
     card.append(&fuse_status_item(&t("FUSE 3"), fuse3));
     card.append(&fuse_status_item(&t("FUSE 2"), fuse2));
 

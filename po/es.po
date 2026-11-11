@@ -601,11 +601,19 @@ msgstr ""
 "Carga el módulo del kernel de FUSE e instala FUSE con el gestor de paquetes "
 "de tu distribución."
 
-msgid "FUSE is not available"
-msgstr "FUSE no está disponible"
+msgid "FUSE 2 and FUSE 3 are not available"
+msgstr "FUSE 2 y FUSE 3 no están disponibles"
 
-msgid "Install FUSE with:"
-msgstr "Instala FUSE con:"
+msgid "FUSE 2 and FUSE 3 support is incomplete"
+msgstr "El soporte de FUSE 2 y FUSE 3 está incompleto"
+
+msgid "Install FUSE 2 and FUSE 3 with:"
+msgstr "Instala FUSE 2 y FUSE 3 con:"
+
+msgid "Some AppImages may not start until both FUSE versions are installed."
+msgstr ""
+"Algunas AppImages pueden no iniciarse hasta que se instalen ambas versiones "
+"de FUSE."
 
 msgid "FUSE 2 support is not available"
 msgstr "El soporte de FUSE 2 no está disponible"
