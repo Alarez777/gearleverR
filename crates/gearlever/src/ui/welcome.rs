@@ -19,6 +19,19 @@ use crate::settings::Settings;
 
 use super::{AppModel, FUSE_DOCS_URL, Msg};
 
+/// Maximum width of the first-run content inside the window.
+const WELCOME_MAX_CONTENT_WIDTH: i32 = 720;
+/// Maximum width of the first-run window.
+const WELCOME_MAX_WINDOW_WIDTH: i32 = 1000;
+/// Maximum height of the first-run window.
+const WELCOME_MAX_HEIGHT: i32 = 860;
+/// Minimum width of the first-run window; it must fit the content plus margins.
+const WELCOME_MIN_WIDTH: i32 = 720;
+/// Minimum height of the first-run window.
+const WELCOME_MIN_HEIGHT: i32 = 680;
+/// Horizontal margin of the first-run window body.
+const WELCOME_BODY_MARGIN: i32 = 18;
+
 /// Widgets of the first-run window that the model keeps updating.
 pub(crate) struct Welcome {
     pub window: adw::Window,
@@ -86,12 +99,17 @@ pub(crate) fn present(
     settings: &Settings,
     sender: &relm4::ComponentSender<AppModel>,
 ) -> Welcome {
+    let parent_width = parent.width().max(settings.values().window_width);
+    let parent_height = parent.height().max(settings.values().window_height);
+    let width = parent_width.clamp(WELCOME_MIN_WIDTH, WELCOME_MAX_WINDOW_WIDTH);
+    let height = parent_height.clamp(WELCOME_MIN_HEIGHT, WELCOME_MAX_HEIGHT);
+
     let window = adw::Window::builder()
         .title(t("Welcome to Gear LeverR"))
         .transient_for(parent)
         .modal(true)
-        .default_width(620)
-        .default_height(680)
+        .default_width(width)
+        .default_height(height)
         .build();
 
     let header = adw::HeaderBar::new();
@@ -119,7 +137,7 @@ pub(crate) fn present(
     intro_text.add_css_class("dim-label");
     intro_text.set_justify(gtk::Justification::Center);
     intro_text.set_wrap(true);
-    intro_text.set_max_width_chars(48);
+    intro_text.set_max_width_chars(60);
 
     let intro = gtk::Box::new(gtk::Orientation::Vertical, 8);
     intro.set_halign(gtk::Align::Center);
@@ -219,20 +237,27 @@ pub(crate) fn present(
     });
 
     let body = gtk::Box::new(gtk::Orientation::Vertical, 18);
+    body.set_hexpand(true);
+    body.set_width_request(WELCOME_MAX_CONTENT_WIDTH - 2 * WELCOME_BODY_MARGIN);
     body.set_margin_top(12);
     body.set_margin_bottom(24);
-    body.set_margin_start(18);
-    body.set_margin_end(18);
+    body.set_margin_start(WELCOME_BODY_MARGIN);
+    body.set_margin_end(WELCOME_BODY_MARGIN);
     body.append(&intro);
     let fuse = FuseReport::detect();
     if let Some(notice) = fuse_notice(fuse) {
         body.append(&notice);
     }
+    body.append(&fuse_dependencies(fuse));
     body.append(&location);
     body.append(&files);
     body.append(&updates);
 
-    let clamp = adw::Clamp::builder().maximum_size(560).child(&body).build();
+    let clamp = adw::Clamp::builder()
+        .maximum_size(WELCOME_MAX_CONTENT_WIDTH)
+        .hexpand(true)
+        .child(&body)
+        .build();
     let scroll = gtk::ScrolledWindow::builder()
         .vexpand(true)
         .child(&clamp)
@@ -252,14 +277,11 @@ pub(crate) fn present(
     spinner.set_visible(false);
 
     let footer = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    footer.set_halign(gtk::Align::Fill);
+    footer.set_halign(gtk::Align::End);
     footer.set_margin_top(12);
     footer.set_margin_bottom(18);
     footer.set_margin_start(18);
     footer.set_margin_end(18);
-    let fuse_status = fuse_status_bar(fuse);
-    fuse_status.set_hexpand(true);
-    footer.append(&fuse_status);
     footer.append(&skip_button);
     footer.append(&spinner);
     footer.append(&install_button);
@@ -423,10 +445,23 @@ fn fuse_notice(report: FuseReport) -> Option<gtk::Widget> {
     Some(notice.upcast())
 }
 
-/// Builds the compact FUSE status shown at the bottom of the welcome window.
-fn fuse_status_bar(report: FuseReport) -> gtk::Box {
-    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 16);
-    bar.set_valign(gtk::Align::Center);
+/// Builds the AppImage dependency card shown before the location settings.
+fn fuse_dependencies(report: FuseReport) -> gtk::Box {
+    let card = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    card.add_css_class("fuse-status-bar");
+    card.set_valign(gtk::Align::Center);
+    card.set_tooltip_text(Some(&t(
+        "FUSE lets AppImages run without extracting them. FUSE 2 is only needed by older AppImages.",
+    )));
+
+    let title = gtk::Label::new(Some(&t("AppImage dependencies")));
+    title.add_css_class("heading");
+    title.set_xalign(0.0);
+    card.append(&title);
+
+    let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    spacer.set_hexpand(true);
+    card.append(&spacer);
 
     let fuse3 = if report.has_fuse3_helper() {
         FusePresence::Installed
@@ -439,25 +474,23 @@ fn fuse_status_bar(report: FuseReport) -> gtk::Box {
         FusePresence::Missing
     };
 
-    bar.append(&fuse_status_item(&t("FUSE 3"), fuse3));
-    bar.append(&fuse_status_item(&t("FUSE 2"), fuse2));
-    bar
+    card.append(&fuse_status_item(&t("FUSE 3"), fuse3));
+    card.append(&fuse_status_item(&t("FUSE 2"), fuse2));
+    card
 }
 
-/// Builds one FUSE status item with a green check or a warning icon.
+/// Builds one FUSE status item with a text check mark or a warning sign.
 fn fuse_status_item(label: &str, presence: FusePresence) -> gtk::Box {
     let item = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     item.set_valign(gtk::Align::Center);
 
     let installed = presence == FusePresence::Installed;
-    let icon = gtk::Image::from_icon_name(if installed {
-        "emblem-ok-symbolic"
-    } else {
-        "dialog-warning-symbolic"
-    });
-    icon.set_pixel_size(14);
-    icon.add_css_class(if installed { "fuse-ok" } else { "fuse-missing" });
-    item.append(&icon);
+    let mark = gtk::Label::new(Some(if installed { "✓" } else { "!" }));
+    mark.add_css_class("fuse-mark");
+    mark.add_css_class(if installed { "fuse-ok" } else { "fuse-missing" });
+    mark.set_width_chars(1);
+    mark.set_xalign(0.5);
+    item.append(&mark);
 
     let label = gtk::Label::new(Some(label));
     label.add_css_class("dim-label");

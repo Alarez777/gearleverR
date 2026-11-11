@@ -277,6 +277,27 @@ const STYLE: &str = r"
     .fuse-missing {
         color: @warning_color;
     }
+    .fuse-mark {
+        border-radius: 9999px;
+        font-size: 1.15em;
+        font-weight: bold;
+        min-height: 18px;
+        min-width: 18px;
+        padding: 0;
+    }
+    .fuse-mark.fuse-ok {
+        background-color: @success_color;
+        color: #ffffff;
+    }
+    .fuse-mark.fuse-missing {
+        background-color: @warning_color;
+        color: #ffffff;
+    }
+    .fuse-status-bar {
+        background-color: alpha(@theme_fg_color, 0.06);
+        border-radius: 10px;
+        padding: 8px 12px;
+    }
     .multi-progress {
         margin: 0;
         padding: 0;

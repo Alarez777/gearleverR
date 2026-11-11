@@ -635,3 +635,9 @@ msgstr "Desconocido"
 
 msgid "Could not check how Gear LeverR was started."
 msgstr "No se pudo comprobar cómo se inició Gear LeverR."
+
+msgid "AppImage dependencies"
+msgstr "Dependencias para AppImages"
+
+msgid "FUSE lets AppImages run without extracting them. FUSE 2 is only needed by older AppImages."
+msgstr "FUSE permite ejecutar las AppImages sin extraerlas. FUSE 2 solo lo necesitan las AppImages antiguas."

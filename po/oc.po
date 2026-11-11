@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-11 18:37+0000\n"
+"POT-Creation-Date: 2026-11-11 18:48+0000\n"
 "PO-Revision-Date: 2024-12-08 13:05+0100\n"
 "Last-Translator: Quentin PAGÈS\n"
 "Language-Team: \n"
@@ -71,9 +71,13 @@ msgstr ""
 msgid "App details"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3850 crates/gearlever/src/ui/welcome.rs:135
+#: crates/gearlever/src/ui/mod.rs:3850 crates/gearlever/src/ui/welcome.rs:140
 msgid "AppImage default location"
 msgstr "Emplaçament per defaut dels AppImages"
+
+#: crates/gearlever/src/ui/welcome.rs:438
+msgid "AppImage dependencies"
+msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:919
 msgid "AppImage integrated"
@@ -83,7 +87,7 @@ msgstr ""
 msgid "AppImage manager written in Rust"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:369
+#: crates/gearlever/src/ui/welcome.rs:372
 msgid ""
 "AppImages built with the older runtime may not start. Gear LeverR itself "
 "uses FUSE 3 and does not need it."
@@ -148,7 +152,7 @@ msgstr ""
 #: crates/gearlever/src/ui/mod.rs:2589 crates/gearlever/src/ui/mod.rs:2622
 #: crates/gearlever/src/ui/mod.rs:3871 crates/gearlever/src/ui/mod.rs:4628
 #: crates/gearlever/src/ui/mod.rs:4675 crates/gearlever/src/ui/mod.rs:4816
-#: crates/gearlever/src/ui/mod.rs:4854 crates/gearlever/src/ui/welcome.rs:158
+#: crates/gearlever/src/ui/mod.rs:4854 crates/gearlever/src/ui/welcome.rs:163
 msgid "Cancel"
 msgstr "Anullar"
 
@@ -185,7 +189,7 @@ msgstr ""
 msgid "Check for updates"
 msgstr "Recercar de mesas a jorn"
 
-#: crates/gearlever/src/ui/mod.rs:4073 crates/gearlever/src/ui/welcome.rs:202
+#: crates/gearlever/src/ui/mod.rs:4073 crates/gearlever/src/ui/welcome.rs:207
 msgid "Check updates on system startup"
 msgstr "Verificar las mesas a jorn al lançament"
 
@@ -201,7 +205,7 @@ msgstr ""
 msgid "Clone AppImages into the destination folder"
 msgstr "Clonar los AppImages al dossièr de destinacion"
 
-#: crates/gearlever/src/ui/mod.rs:3777 crates/gearlever/src/ui/welcome.rs:102
+#: crates/gearlever/src/ui/mod.rs:3777 crates/gearlever/src/ui/welcome.rs:107
 msgid "Close"
 msgstr "Tampar"
 
@@ -245,7 +249,7 @@ msgstr "Desbugatge"
 msgid "Default"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4442 crates/gearlever/src/ui/welcome.rs:467
+#: crates/gearlever/src/ui/mod.rs:4442 crates/gearlever/src/ui/welcome.rs:480
 msgid "Detected"
 msgstr ""
 
@@ -296,15 +300,15 @@ msgstr "Variablas d'environament"
 msgid "Extracted"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4391 crates/gearlever/src/ui/welcome.rs:443
+#: crates/gearlever/src/ui/mod.rs:4391 crates/gearlever/src/ui/welcome.rs:459
 msgid "FUSE 2"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:368
+#: crates/gearlever/src/ui/welcome.rs:371
 msgid "FUSE 2 support is not available"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4385 crates/gearlever/src/ui/welcome.rs:442
+#: crates/gearlever/src/ui/mod.rs:4385 crates/gearlever/src/ui/welcome.rs:458
 msgid "FUSE 3"
 msgstr ""
 
@@ -316,11 +320,17 @@ msgstr ""
 msgid "FUSE documentation"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:357
+#: crates/gearlever/src/ui/welcome.rs:360
 msgid "FUSE is not available"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4250 crates/gearlever/src/ui/welcome.rs:178
+#: crates/gearlever/src/ui/welcome.rs:434
+msgid ""
+"FUSE lets AppImages run without extracting them. FUSE 2 is only needed by "
+"older AppImages."
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:4250 crates/gearlever/src/ui/welcome.rs:183
 msgid "File management"
 msgstr "Gestion dels fichièrs"
 
@@ -332,8 +342,8 @@ msgstr "Filtrar las aplicacions installadas"
 msgid "Fine-grained token with read-only public repo access is sufficient"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:346
-#: crates/gearlever/src/ui/welcome.rs:358
+#: crates/gearlever/src/ui/welcome.rs:349
+#: crates/gearlever/src/ui/welcome.rs:361
 msgid ""
 "Gear LeverR can still start by extracting itself, but AppImages that need "
 "FUSE will not run."
@@ -347,7 +357,7 @@ msgstr ""
 msgid "Gear LeverR installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:116
+#: crates/gearlever/src/ui/welcome.rs:121
 msgid ""
 "Gear LeverR is not integrated into your desktop yet. Choose how it should be "
 "installed and where to keep your AppImages."
@@ -442,19 +452,19 @@ msgstr ""
 "potencialament tocant las performanças.\n"
 "Requerís una reaviada."
 
-#: crates/gearlever/src/ui/welcome.rs:361
+#: crates/gearlever/src/ui/welcome.rs:364
 msgid "Install FUSE with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:50 crates/gearlever/src/ui/welcome.rs:241
+#: crates/gearlever/src/ui/welcome.rs:50 crates/gearlever/src/ui/welcome.rs:247
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:403
+#: crates/gearlever/src/ui/welcome.rs:406
 msgid "Install it with your distribution's package manager."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:372
+#: crates/gearlever/src/ui/welcome.rs:375
 msgid "Install the FUSE 2 compatibility packages with:"
 msgstr ""
 
@@ -507,7 +517,7 @@ msgstr ""
 msgid "Launch"
 msgstr "Lançar"
 
-#: crates/gearlever/src/ui/welcome.rs:419
+#: crates/gearlever/src/ui/welcome.rs:422
 msgid "Learn more"
 msgstr ""
 
@@ -519,17 +529,17 @@ msgstr ""
 "Listar los AppImages que foguèron integrats al menú sistèma mas que se "
 "tròban defòra del dossièr per defaut"
 
-#: crates/gearlever/src/ui/welcome.rs:330
+#: crates/gearlever/src/ui/welcome.rs:333
 msgid ""
 "Load the fuse kernel module and install FUSE with your distribution's "
 "package manager."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:326
+#: crates/gearlever/src/ui/welcome.rs:329
 msgid "Load the fuse kernel module and install FUSE with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:336
+#: crates/gearlever/src/ui/welcome.rs:339
 msgid "Load the fuse kernel module with:"
 msgstr ""
 
@@ -557,7 +567,7 @@ msgstr ""
 msgid "Mounting"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4275 crates/gearlever/src/ui/welcome.rs:181
+#: crates/gearlever/src/ui/mod.rs:4275 crates/gearlever/src/ui/welcome.rs:186
 msgid "Move AppImages into the destination folder"
 msgstr "Desplaçar los AppImages al dossièr de destinacion"
 
@@ -611,11 +621,11 @@ msgstr ""
 msgid "Not an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4444 crates/gearlever/src/ui/welcome.rs:469
+#: crates/gearlever/src/ui/mod.rs:4444 crates/gearlever/src/ui/welcome.rs:482
 msgid "Not detected"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:247
+#: crates/gearlever/src/ui/welcome.rs:253
 msgid "Not now"
 msgstr ""
 
@@ -797,13 +807,13 @@ msgstr "Enregistrar"
 msgid "Search"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3872 crates/gearlever/src/ui/welcome.rs:159
+#: crates/gearlever/src/ui/mod.rs:3872 crates/gearlever/src/ui/welcome.rs:164
 msgid "Select"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3858 crates/gearlever/src/ui/mod.rs:3866
-#: crates/gearlever/src/ui/welcome.rs:148
 #: crates/gearlever/src/ui/welcome.rs:153
+#: crates/gearlever/src/ui/welcome.rs:158
 msgid "Select a folder"
 msgstr "Seleccionar un dossièr"
 
@@ -811,7 +821,7 @@ msgstr "Seleccionar un dossièr"
 msgid "Select the source type"
 msgstr "Seleccionar lo tipe de font"
 
-#: crates/gearlever/src/ui/welcome.rs:132
+#: crates/gearlever/src/ui/welcome.rs:137
 msgid "Set the AppImage location"
 msgstr "Definir l’emplaçament de l’AppImage"
 
@@ -855,7 +865,7 @@ msgstr ""
 msgid "The AppImage filesystem is mounted through FUSE."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:345
+#: crates/gearlever/src/ui/welcome.rs:348
 msgid "The FUSE device is not available"
 msgstr ""
 
@@ -951,7 +961,7 @@ msgid ""
 "{expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:182
+#: crates/gearlever/src/ui/welcome.rs:187
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
@@ -1018,7 +1028,7 @@ msgstr ""
 msgid "Updates installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4071 crates/gearlever/src/ui/welcome.rs:199
+#: crates/gearlever/src/ui/mod.rs:4071 crates/gearlever/src/ui/welcome.rs:204
 msgid "Updates management"
 msgstr "Gestion de las mesas a jorn"
 
@@ -1060,7 +1070,7 @@ msgstr ""
 msgid "Website"
 msgstr "Site Web"
 
-#: crates/gearlever/src/ui/welcome.rs:90 crates/gearlever/src/ui/welcome.rs:111
+#: crates/gearlever/src/ui/welcome.rs:95 crates/gearlever/src/ui/welcome.rs:116
 msgid "Welcome to Gear LeverR"
 msgstr ""
 
