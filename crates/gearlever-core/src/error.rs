@@ -72,10 +72,6 @@ pub enum Error {
     #[error("invalid ELF header: {0}")]
     InvalidElf(&'static str),
 
-    /// The embedded payload is a format this build cannot read yet.
-    #[error("{0}: unsupported AppImage payload")]
-    UnsupportedPayload(PathBuf),
-
     /// The SquashFS payload could not be parsed.
     #[error("cannot read the embedded SquashFS image: {0}")]
     Squashfs(#[from] backhand::BackhandError),

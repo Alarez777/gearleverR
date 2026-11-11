@@ -53,8 +53,9 @@ impl AppImage {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::NotAnAppImage`] for other file types, [`Error::InvalidElf`]
-    /// for a corrupt runtime, and [`Error::Io`] when the file cannot be read.
+    /// Returns [`crate::Error::NotAnAppImage`] for other file types,
+    /// [`crate::Error::InvalidElf`] for a corrupt runtime, and
+    /// [`crate::Error::Io`] when the file cannot be read.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
         let image_type = detect::image_type(&path)?;
@@ -103,13 +104,12 @@ impl AppImage {
 
     /// Reads the desktop entry and icon embedded in the AppImage.
     ///
-    /// Payloads that are not SquashFS return [`Error::UnsupportedPayload`]; use
-    /// [`AppImage::metadata_with`] to let an external extractor handle them.
+    /// Payloads that are not SquashFS are extracted with an external tool when
+    /// one is available.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::UnsupportedPayload`] for non-SquashFS payloads, plus the
-    /// errors documented on [`metadata::read`].
+    /// Returns the errors documented on [`AppImage::metadata_with`].
     pub fn metadata(&self) -> Result<AppMetadata> {
         self.metadata_with(&MetadataOptions::default())
     }
@@ -118,9 +118,9 @@ impl AppImage {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::MissingExtractor`] when a DwarFS or ISO9660 payload
-    /// needs a tool that is not installed, plus the errors documented on
-    /// [`metadata::read`] and [`metadata::read_from_directory`].
+    /// Returns [`crate::Error::MissingExtractor`] when a DwarFS or ISO9660
+    /// payload needs a tool that is not installed, plus the errors documented
+    /// on [`metadata::read`] and [`metadata::read_from_directory`].
     pub fn metadata_with(&self, options: &MetadataOptions) -> Result<AppMetadata> {
         match self.payload_kind {
             PayloadKind::Squashfs => metadata::read(&self.path, self.payload_offset),
