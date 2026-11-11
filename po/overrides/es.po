@@ -540,6 +540,9 @@ msgstr "Carga el módulo del kernel de FUSE con:"
 msgid "Load the fuse kernel module and install FUSE with:"
 msgstr "Carga el módulo del kernel de FUSE e instala FUSE con:"
 
+msgid "Load the fuse kernel module and install FUSE with your distribution's package manager."
+msgstr "Carga el módulo del kernel de FUSE e instala FUSE con el gestor de paquetes de tu distribución."
+
 msgid "FUSE is not available"
 msgstr "FUSE no está disponible"
 

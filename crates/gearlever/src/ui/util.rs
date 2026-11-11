@@ -271,6 +271,12 @@ const STYLE: &str = r"
         border-radius: 12px;
         padding: 12px;
     }
+    .fuse-ok {
+        color: @success_color;
+    }
+    .fuse-missing {
+        color: @warning_color;
+    }
     .multi-progress {
         margin: 0;
         padding: 0;

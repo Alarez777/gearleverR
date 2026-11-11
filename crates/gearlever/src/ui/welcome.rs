@@ -224,7 +224,8 @@ pub(crate) fn present(
     body.set_margin_start(18);
     body.set_margin_end(18);
     body.append(&intro);
-    if let Some(notice) = fuse_notice() {
+    let fuse = FuseReport::detect();
+    if let Some(notice) = fuse_notice(fuse) {
         body.append(&notice);
     }
     body.append(&location);
@@ -251,11 +252,14 @@ pub(crate) fn present(
     spinner.set_visible(false);
 
     let footer = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    footer.set_halign(gtk::Align::End);
+    footer.set_halign(gtk::Align::Fill);
     footer.set_margin_top(12);
     footer.set_margin_bottom(18);
     footer.set_margin_start(18);
     footer.set_margin_end(18);
+    let fuse_status = fuse_status_bar(fuse);
+    fuse_status.set_hexpand(true);
+    footer.append(&fuse_status);
     footer.append(&skip_button);
     footer.append(&spinner);
     footer.append(&install_button);
@@ -290,13 +294,23 @@ pub(crate) fn present(
     }
 }
 
+/// Whether a FUSE component is present, for the welcome status strip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FusePresence {
+    Installed,
+    Missing,
+}
+
 /// Builds the FUSE notice shown when the host cannot mount AppImages.
 ///
 /// The current AppImage runtime is statically linked with FUSE 3, so the red
 /// notice is about the host pieces needed to mount, not about libfuse itself.
 /// FUSE 2 is only reported as a compatibility problem for older AppImages.
-fn fuse_notice() -> Option<gtk::Widget> {
-    let report = FuseReport::detect();
+#[expect(
+    clippy::too_many_lines,
+    reason = "the notice variants share one widget layout"
+)]
+fn fuse_notice(report: FuseReport) -> Option<gtk::Widget> {
     let problem = report.problem()?;
 
     let (class, icon_class, icon_name, title, explanation, install_lead, command) = match problem {
@@ -307,12 +321,18 @@ fn fuse_notice() -> Option<gtk::Widget> {
             } else {
                 None
             };
-            let (lead, command) = match install {
-                Some(install) => (
+            let (lead, command) = match (tools_missing, install) {
+                (true, Some(install)) => (
                     t("Load the fuse kernel module and install FUSE with:"),
                     format!("sudo modprobe fuse\n{install}"),
                 ),
-                None => (
+                (true, None) => (
+                    t(
+                        "Load the fuse kernel module and install FUSE with your distribution's package manager.",
+                    ),
+                    "sudo modprobe fuse".to_owned(),
+                ),
+                (false, _) => (
                     t("Load the fuse kernel module with:"),
                     "sudo modprobe fuse".to_owned(),
                 ),
@@ -401,6 +421,56 @@ fn fuse_notice() -> Option<gtk::Widget> {
     notice.append(&link);
 
     Some(notice.upcast())
+}
+
+/// Builds the compact FUSE status shown at the bottom of the welcome window.
+fn fuse_status_bar(report: FuseReport) -> gtk::Box {
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 16);
+    bar.set_valign(gtk::Align::Center);
+
+    let fuse3 = if report.has_fuse3_helper() {
+        FusePresence::Installed
+    } else {
+        FusePresence::Missing
+    };
+    let fuse2 = if report.has_libfuse2() && report.has_fuse2_helper() {
+        FusePresence::Installed
+    } else {
+        FusePresence::Missing
+    };
+
+    bar.append(&fuse_status_item(&t("FUSE 3"), fuse3));
+    bar.append(&fuse_status_item(&t("FUSE 2"), fuse2));
+    bar
+}
+
+/// Builds one FUSE status item with a green check or a warning icon.
+fn fuse_status_item(label: &str, presence: FusePresence) -> gtk::Box {
+    let item = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    item.set_valign(gtk::Align::Center);
+
+    let installed = presence == FusePresence::Installed;
+    let icon = gtk::Image::from_icon_name(if installed {
+        "emblem-ok-symbolic"
+    } else {
+        "dialog-warning-symbolic"
+    });
+    icon.set_pixel_size(14);
+    icon.add_css_class(if installed { "fuse-ok" } else { "fuse-missing" });
+    item.append(&icon);
+
+    let label = gtk::Label::new(Some(label));
+    label.add_css_class("dim-label");
+    item.append(&label);
+
+    let tooltip = if installed {
+        t("Detected")
+    } else {
+        t("Not detected")
+    };
+    item.set_tooltip_text(Some(&tooltip));
+
+    item
 }
 
 /// Returns the application icon when the theme can find it.
