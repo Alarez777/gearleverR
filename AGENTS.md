@@ -89,6 +89,7 @@ headless.
 cargo fmt --all
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
 ```
 
 - Lints live in `[workspace.lints]` (from BeautifulRust) and `clippy.toml` at the root.
