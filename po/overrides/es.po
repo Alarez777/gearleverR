@@ -552,6 +552,15 @@ msgstr "Instala FUSE con:"
 msgid "FUSE 2 support is not available"
 msgstr "El soporte de FUSE 2 no está disponible"
 
+msgid "FUSE 3 support is not available"
+msgstr "El soporte de FUSE 3 no está disponible"
+
+msgid "AppImages built with the newer runtime may not start. Gear LeverR can still use FUSE 2."
+msgstr "Las AppImages creadas con el runtime más reciente pueden no iniciarse. Gear LeverR puede seguir usando FUSE 2."
+
+msgid "Install FUSE 3 with:"
+msgstr "Instala FUSE 3 con:"
+
 msgid "AppImages built with the older runtime may not start. Gear LeverR itself uses FUSE 3 and does not need it."
 msgstr "Las AppImages creadas con el runtime antiguo pueden no iniciarse. Gear LeverR usa FUSE 3 y no lo necesita."
 

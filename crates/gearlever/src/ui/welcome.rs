@@ -394,6 +394,17 @@ fn fuse_notice(report: FuseReport) -> Option<gtk::Widget> {
             t("Install the FUSE 2 compatibility packages with:"),
             FuseComponent::Legacy.install_command(),
         ),
+        FuseProblem::MissingFuse3 => (
+            "fuse-warning",
+            "warning",
+            "dialog-warning-symbolic",
+            t("FUSE 3 support is not available"),
+            t(
+                "AppImages built with the newer runtime may not start. Gear LeverR can still use FUSE 2.",
+            ),
+            t("Install FUSE 3 with:"),
+            FuseComponent::Mount.install_command(),
+        ),
         _ => return None,
     };
 

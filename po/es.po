@@ -610,6 +610,19 @@ msgstr "Instala FUSE con:"
 msgid "FUSE 2 support is not available"
 msgstr "El soporte de FUSE 2 no está disponible"
 
+msgid "FUSE 3 support is not available"
+msgstr "El soporte de FUSE 3 no está disponible"
+
+msgid ""
+"AppImages built with the newer runtime may not start. Gear LeverR can still "
+"use FUSE 2."
+msgstr ""
+"Las AppImages creadas con el runtime más reciente pueden no iniciarse. Gear "
+"LeverR puede seguir usando FUSE 2."
+
+msgid "Install FUSE 3 with:"
+msgstr "Instala FUSE 3 con:"
+
 msgid ""
 "AppImages built with the older runtime may not start. Gear LeverR itself "
 "uses FUSE 3 and does not need it."
@@ -724,14 +737,14 @@ msgstr "Agregar un sitio web"
 msgid "Add or customize environment for this application"
 msgstr "Añadir o personalizar el entorno para esta aplicación"
 
-#: crates/gearlever/src/ui/mod.rs:3850 crates/gearlever/src/ui/welcome.rs:140
+#: crates/gearlever/src/ui/mod.rs:3850 crates/gearlever/src/ui/welcome.rs:153
 msgid "AppImage default location"
 msgstr "Ubicación por defecto de la AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:2589 crates/gearlever/src/ui/mod.rs:2622
 #: crates/gearlever/src/ui/mod.rs:3871 crates/gearlever/src/ui/mod.rs:4628
 #: crates/gearlever/src/ui/mod.rs:4675 crates/gearlever/src/ui/mod.rs:4816
-#: crates/gearlever/src/ui/mod.rs:4854 crates/gearlever/src/ui/welcome.rs:163
+#: crates/gearlever/src/ui/mod.rs:4854 crates/gearlever/src/ui/welcome.rs:176
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -744,7 +757,7 @@ msgstr "Cancelar actualización"
 msgid "Check for updates"
 msgstr "Buscar actualizaciones"
 
-#: crates/gearlever/src/ui/mod.rs:4073 crates/gearlever/src/ui/welcome.rs:207
+#: crates/gearlever/src/ui/mod.rs:4073 crates/gearlever/src/ui/welcome.rs:220
 msgid "Check updates on system startup"
 msgstr "Comprobar actualizaciones al iniciar el sistema"
 
@@ -756,7 +769,7 @@ msgstr "Comprobando actualizaciones..."
 msgid "Clone AppImages into the destination folder"
 msgstr "Clonar AppImages hacia la carpeta destinada"
 
-#: crates/gearlever/src/ui/mod.rs:3777 crates/gearlever/src/ui/welcome.rs:107
+#: crates/gearlever/src/ui/mod.rs:3777 crates/gearlever/src/ui/welcome.rs:120
 msgid "Close"
 msgstr "Cerrar"
 
@@ -796,7 +809,7 @@ msgstr "Habilitar registros de depuración"
 msgid "Environment variables"
 msgstr "Variables de entorno"
 
-#: crates/gearlever/src/ui/mod.rs:4250 crates/gearlever/src/ui/welcome.rs:183
+#: crates/gearlever/src/ui/mod.rs:4250 crates/gearlever/src/ui/welcome.rs:196
 msgid "File management"
 msgstr "Gestión de archivos"
 
@@ -824,7 +837,7 @@ msgstr ""
 msgid "Installed applications"
 msgstr "Aplicaciones instaladas"
 
-#: crates/gearlever/src/ui/welcome.rs:41
+#: crates/gearlever/src/ui/welcome.rs:54
 msgid "Installing..."
 msgstr "Instalando..."
 
@@ -852,7 +865,7 @@ msgstr "Lanzar"
 msgid "Manage update details for this application"
 msgstr "Gestionar los datos de actualización de esta aplicación"
 
-#: crates/gearlever/src/ui/mod.rs:4275 crates/gearlever/src/ui/welcome.rs:186
+#: crates/gearlever/src/ui/mod.rs:4275 crates/gearlever/src/ui/welcome.rs:199
 msgid "Move AppImages into the destination folder"
 msgstr "Mueve las AppImages a la carpeta destinada"
 
@@ -918,8 +931,8 @@ msgid "Save"
 msgstr "Guardar"
 
 #: crates/gearlever/src/ui/mod.rs:3858 crates/gearlever/src/ui/mod.rs:3866
-#: crates/gearlever/src/ui/welcome.rs:153
-#: crates/gearlever/src/ui/welcome.rs:158
+#: crates/gearlever/src/ui/welcome.rs:166
+#: crates/gearlever/src/ui/welcome.rs:171
 msgid "Select a folder"
 msgstr "Selecciona una carpeta"
 
@@ -927,7 +940,7 @@ msgstr "Selecciona una carpeta"
 msgid "Select the source type"
 msgstr "Seleccione el tipo de fuente"
 
-#: crates/gearlever/src/ui/welcome.rs:137
+#: crates/gearlever/src/ui/welcome.rs:150
 msgid "Set the AppImage location"
 msgstr "Selecciona la ubicación de la AppImage"
 
@@ -976,7 +989,7 @@ msgstr ""
 msgid "Update management"
 msgstr "Gestión de la actualización"
 
-#: crates/gearlever/src/ui/mod.rs:4071 crates/gearlever/src/ui/welcome.rs:204
+#: crates/gearlever/src/ui/mod.rs:4071 crates/gearlever/src/ui/welcome.rs:217
 msgid "Updates management"
 msgstr "Gestión de actualizaciones"
 

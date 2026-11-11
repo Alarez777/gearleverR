@@ -82,8 +82,8 @@ impl FuseReport {
 
     /// Returns the most important problem found on the host, if any.
     ///
-    /// A missing device takes precedence over missing helpers, which in turn
-    /// takes precedence over the optional FUSE 2 compatibility layer.
+    /// A missing device takes precedence over missing helpers, then over the
+    /// FUSE 2 compatibility layer, and finally over the optional FUSE 3 helper.
     #[must_use]
     pub const fn problem(self) -> Option<FuseProblem> {
         if !self.device {
@@ -92,6 +92,8 @@ impl FuseReport {
             Some(FuseProblem::MissingTools)
         } else if !self.legacy_ready() {
             Some(FuseProblem::MissingFuse2)
+        } else if !self.fusermount3 {
+            Some(FuseProblem::MissingFuse3)
         } else {
             None
         }
@@ -110,6 +112,11 @@ pub enum FuseProblem {
     ///
     /// Only AppImages built with the classic runtime need it.
     MissingFuse2,
+    /// FUSE 2 is ready, but the FUSE 3 helper is missing.
+    ///
+    /// Gear LeverR can still mount with FUSE 2, but newer AppImages may need
+    /// the FUSE 3 helper.
+    MissingFuse3,
 }
 
 /// The package set needed to fix a FUSE-related problem.
@@ -413,6 +420,15 @@ mod tests {
             report(true, true, false, false).problem(),
             Some(FuseProblem::MissingFuse2)
         );
+    }
+
+    #[test]
+    fn missing_fuse_three_with_fuse_two_ready() {
+        let report = report(true, true, false, true);
+
+        assert!(report.can_mount());
+        assert!(report.legacy_ready());
+        assert_eq!(report.problem(), Some(FuseProblem::MissingFuse3));
     }
 
     #[test]
