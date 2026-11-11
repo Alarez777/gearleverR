@@ -594,6 +594,47 @@ mod tests {
         set_executable(path).expect("make it executable");
     }
 
+    #[derive(Clone, Copy)]
+    enum Payload {
+        Bundled,
+        Default,
+    }
+
+    fn synthetic_appimage(path: &Path, payload: Payload) {
+        let header = backhand::NodeHeader {
+            permissions: 0o755,
+            ..Default::default()
+        };
+        let mut filesystem = backhand::FilesystemWriter::default();
+        filesystem
+            .push_dir_all("usr/lib", header)
+            .expect("create the payload directories");
+        if matches!(payload, Payload::Bundled) {
+            filesystem
+                .push_file(
+                    std::io::Cursor::new(b"gtk".to_vec()),
+                    "usr/lib/libgtk-4.so.1",
+                    header,
+                )
+                .expect("add the bundled GTK library");
+        }
+
+        let mut squashfs = std::io::Cursor::new(Vec::new());
+        filesystem
+            .write(&mut squashfs)
+            .expect("write the SquashFS payload");
+        let mut bytes = vec![0_u8; 64];
+        bytes[0..4].copy_from_slice(b"\x7fELF");
+        bytes[4] = 2; // 64-bit ELF
+        bytes[5] = 1; // little-endian
+        bytes[8..11].copy_from_slice(b"AI\x02");
+        bytes[0x12..0x14].copy_from_slice(&0x3e_u16.to_le_bytes());
+        bytes[0x28..0x30].copy_from_slice(&64_u64.to_le_bytes());
+        bytes[0x3a..0x3c].copy_from_slice(&64_u16.to_le_bytes());
+        bytes.extend_from_slice(&squashfs.into_inner());
+        fs::write(path, bytes).expect("write the synthetic AppImage");
+    }
+
     fn metadata() -> AppMetadata {
         AppMetadata {
             name: "Gear LeverR".to_owned(),
@@ -844,6 +885,20 @@ mod tests {
             ),
             Variant::Default
         );
+    }
+
+    #[test]
+    fn detects_the_variant_from_the_squashfs_payload() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let metadata = metadata();
+
+        let bundled = directory.path().join("GearLeverR.AppImage");
+        synthetic_appimage(&bundled, Payload::Bundled);
+        assert_eq!(detect_variant(&metadata, &bundled), Variant::GtkIncluded);
+
+        let default = directory.path().join("GearLeverR-other.AppImage");
+        synthetic_appimage(&default, Payload::Default);
+        assert_eq!(detect_variant(&metadata, &default), Variant::Default);
     }
 
     #[test]
