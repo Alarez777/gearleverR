@@ -18,8 +18,8 @@ reference only** and must not be modified. That directory has its own `AGENTS.md
 
 ## Required Rust skills (BeautifulRust)
 
-Installed in `~/.config/opencode/skills/`. **Always use them**, without waiting to
-be asked:
+Vendored in `.agents/skills/` (upstream v1.5.0, MIT; see
+`.agents/skills/README.md`). **Always use them**, without waiting to be asked:
 
 | Skill | When |
 | --- | --- |
@@ -64,6 +64,7 @@ po/                      upstream catalogs, overrides and compiled translations
 packaging/appimage/      AppRun, build scripts and CI recipe
 scripts/                 benchmarks, translation tooling, UI smoke test
 docs/                    performance notes
+.agents/skills/          vendored BeautifulRust agent skills
 ```
 
 The core **does not** depend on GTK: the CLI runs without a display and the tests are
@@ -102,6 +103,13 @@ cargo test --workspace --all-features
   `feat/...`, `chore/...`). Never commit directly to `develop` or `main`.
 - Do not merge until it is tested: the quality commands above and, for UI or
   packaging changes, `scripts/ui-smoke.sh` in the Debian 12 container.
+- Before asking for the merge, load the `rust-review` skill and review the
+  branch diff (`git diff develop...HEAD`). The writing rules come from
+  `rust-best-practices`, which is loaded while the branch is written; when a
+  finding needs the exact rule, read the matching file under
+  `.agents/skills/rust-best-practices/references/`. Fix every Must fix finding
+  and report the remaining Should fix and Consider items in the hand-back.
+  Branches with no Rust changes skip the review.
 - Never merge into `develop` on your own. Leave the branch implemented and
   tested, then wait for the user's explicit confirmation. Once confirmed, merge
   it into `develop`, then into `main`, and push both.
