@@ -650,3 +650,18 @@ msgstr "Dependencias para AppImages"
 
 msgid "FUSE lets AppImages run without extracting them. FUSE 2 is only needed by older AppImages."
 msgstr "FUSE permite ejecutar las AppImages sin extraerlas. FUSE 2 solo lo necesitan las AppImages antiguas."
+
+msgid "Recheck"
+msgstr "Revisar"
+
+msgid "Recheck dependencies"
+msgstr "Volver a comprobar las dependencias"
+
+msgid "Resolve the FUSE issues first"
+msgstr "Resuelve primero los problemas de FUSE"
+
+msgid "Dependencies are ready"
+msgstr "Las dependencias están listas"
+
+msgid "Some dependencies are still missing"
+msgstr "Todavía faltan algunas dependencias"

@@ -41,6 +41,8 @@ pub(crate) struct Welcome {
     pub skip_button: gtk::Button,
     pub close_button: gtk::Button,
     pub spinner: gtk::Spinner,
+    fuse_section: gtk::Box,
+    fuse: Cell<FuseReport>,
     fetch_switch: gtk::Switch,
     fetch_guard: Rc<Cell<bool>>,
 }
@@ -64,15 +66,50 @@ impl Welcome {
     }
 
     fn enable_controls(&self) {
-        self.install_button.set_sensitive(true);
+        self.update_install_button();
         self.skip_button.set_sensitive(true);
         self.close_button.set_sensitive(true);
+        self.fuse_section.set_sensitive(true);
     }
 
     fn disable_controls(&self) {
         self.install_button.set_sensitive(false);
         self.skip_button.set_sensitive(false);
         self.close_button.set_sensitive(false);
+        self.fuse_section.set_sensitive(false);
+    }
+
+    /// Updates the install button from the latest FUSE report.
+    fn update_install_button(&self) {
+        let ready = self.fuse.get().all_ready();
+        self.install_button.set_sensitive(ready);
+        let tooltip = (!ready).then(|| t("Resolve the FUSE issues first"));
+        self.install_button.set_tooltip_text(tooltip.as_deref());
+    }
+
+    /// Rechecks FUSE, rebuilds the notice and updates the install button.
+    pub fn recheck_dependencies(&self, sender: &relm4::ComponentSender<AppModel>) {
+        if !self.fuse_section.is_sensitive() {
+            return;
+        }
+
+        let report = FuseReport::detect();
+        self.fuse.set(report);
+
+        while let Some(child) = self.fuse_section.first_child() {
+            self.fuse_section.remove(&child);
+        }
+        if let Some(notice) = fuse_notice(report) {
+            self.fuse_section.append(&notice);
+        }
+        self.fuse_section.append(&fuse_dependencies(report, sender));
+
+        self.update_install_button();
+        if report.all_ready() {
+            self.toast(&t("Dependencies are ready"));
+        } else {
+            self.toast(&t("Some dependencies are still missing"));
+        }
     }
 
     /// Puts the login switch back when the autostart entry cannot be written.
@@ -245,10 +282,12 @@ pub(crate) fn present(
     body.set_margin_end(WELCOME_BODY_MARGIN);
     body.append(&intro);
     let fuse = FuseReport::detect();
+    let fuse_section = gtk::Box::new(gtk::Orientation::Vertical, 12);
     if let Some(notice) = fuse_notice(fuse) {
-        body.append(&notice);
+        fuse_section.append(&notice);
     }
-    body.append(&fuse_dependencies(fuse));
+    fuse_section.append(&fuse_dependencies(fuse, sender));
+    body.append(&fuse_section);
     body.append(&location);
     body.append(&files);
     body.append(&updates);
@@ -303,7 +342,7 @@ pub(crate) fn present(
 
     window.present();
 
-    Welcome {
+    let welcome = Welcome {
         window,
         toast,
         folder_row,
@@ -311,9 +350,13 @@ pub(crate) fn present(
         skip_button,
         close_button,
         spinner,
+        fuse_section,
+        fuse: Cell::new(fuse),
         fetch_switch,
         fetch_guard,
-    }
+    };
+    welcome.update_install_button();
+    welcome
 }
 
 /// Whether a FUSE component is present, for the welcome status strip.
@@ -457,7 +500,7 @@ fn fuse_notice(report: FuseReport) -> Option<gtk::Widget> {
 }
 
 /// Builds the AppImage dependency card shown before the location settings.
-fn fuse_dependencies(report: FuseReport) -> gtk::Box {
+fn fuse_dependencies(report: FuseReport, sender: &relm4::ComponentSender<AppModel>) -> gtk::Box {
     let card = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     card.add_css_class("fuse-status-bar");
     card.set_valign(gtk::Align::Center);
@@ -487,6 +530,15 @@ fn fuse_dependencies(report: FuseReport) -> gtk::Box {
 
     card.append(&fuse_status_item(&t("FUSE 3"), fuse3));
     card.append(&fuse_status_item(&t("FUSE 2"), fuse2));
+
+    let refresh = gtk::Button::with_label(&t("Recheck"));
+    refresh.set_valign(gtk::Align::Center);
+    refresh.add_css_class("flat");
+    refresh.set_tooltip_text(Some(&t("Recheck dependencies")));
+    let sender_refresh = sender.clone();
+    refresh.connect_clicked(move |_| sender_refresh.input(Msg::WelcomeRecheckDependencies));
+    card.append(&refresh);
+
     card
 }
 

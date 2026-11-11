@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
-"POT-Creation-Date: 2026-11-11 20:49+0000\n"
+"POT-Creation-Date: 2026-11-11 21:04+0000\n"
 "PO-Revision-Date: 2026-02-26 12:54-0300\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -17,11 +17,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 3.8\n"
 
-#: crates/gearlever/src/ui/mod.rs:3609
+#: crates/gearlever/src/ui/mod.rs:3615
 msgid "1 update failed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4614
+#: crates/gearlever/src/ui/mod.rs:4620
 msgid ""
 "<b>About</b>\n"
 "An AppImage manager inspired by Gear Lever, but an independent project: it "
@@ -31,376 +31,380 @@ msgid ""
 "Rust, GTK 4, libadwaita, Relm4, backhand, ureq and zsync-rs (MIT)."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4615
+#: crates/gearlever/src/ui/mod.rs:4621
 msgid ""
 "<b>GPL-3.0-or-later</b>\n"
 "Free software: you can redistribute it and/or modify it under the terms of "
 "the GNU General Public License, version 3 or later."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6006
+#: crates/gearlever/src/ui/mod.rs:6012
 msgid "Access forbidden — token lacks required permissions"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3116
+#: crates/gearlever/src/ui/mod.rs:3122
 msgid "Add a website"
 msgstr "Adicionar página web"
 
-#: crates/gearlever/src/ui/mod.rs:3351
+#: crates/gearlever/src/ui/mod.rs:3357
 msgid "Add or customize environment for this application"
 msgstr "Adicionar ou personalizar o ambiente desta aplicação"
 
-#: crates/gearlever/src/ui/mod.rs:3567
+#: crates/gearlever/src/ui/mod.rs:3573
 msgid "Already integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:765 crates/gearlever/src/ui/mod.rs:793
-#: crates/gearlever/src/ui/mod.rs:806 crates/gearlever/src/ui/mod.rs:1119
-#: crates/gearlever/src/ui/mod.rs:1203 crates/gearlever/src/ui/mod.rs:2246
-#: crates/gearlever/src/ui/mod.rs:2286
+#: crates/gearlever/src/ui/mod.rs:766 crates/gearlever/src/ui/mod.rs:794
+#: crates/gearlever/src/ui/mod.rs:807 crates/gearlever/src/ui/mod.rs:1120
+#: crates/gearlever/src/ui/mod.rs:1204 crates/gearlever/src/ui/mod.rs:2252
+#: crates/gearlever/src/ui/mod.rs:2292
 msgid "An installation is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:769 crates/gearlever/src/ui/mod.rs:810
-#: crates/gearlever/src/ui/mod.rs:1115 crates/gearlever/src/ui/mod.rs:1199
-#: crates/gearlever/src/ui/mod.rs:2250 crates/gearlever/src/ui/mod.rs:2290
+#: crates/gearlever/src/ui/mod.rs:770 crates/gearlever/src/ui/mod.rs:811
+#: crates/gearlever/src/ui/mod.rs:1116 crates/gearlever/src/ui/mod.rs:1200
+#: crates/gearlever/src/ui/mod.rs:2256 crates/gearlever/src/ui/mod.rs:2296
 msgid "An update is already running"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2640
+#: crates/gearlever/src/ui/mod.rs:2646
 msgid "App details"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3850 crates/gearlever/src/ui/welcome.rs:153
+#: crates/gearlever/src/ui/mod.rs:3856 crates/gearlever/src/ui/welcome.rs:190
 msgid "AppImage default location"
 msgstr "Localização padrão das AppImage"
 
-#: crates/gearlever/src/ui/welcome.rs:468
+#: crates/gearlever/src/ui/welcome.rs:511
 msgid "AppImage dependencies"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:919
+#: crates/gearlever/src/ui/mod.rs:920
 msgid "AppImage integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4611
+#: crates/gearlever/src/ui/mod.rs:4617
 msgid "AppImage manager written in Rust"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:402
+#: crates/gearlever/src/ui/welcome.rs:445
 msgid ""
 "AppImages built with the newer runtime may not start. Gear LeverR can still "
 "use FUSE 2."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:391
+#: crates/gearlever/src/ui/welcome.rs:434
 msgid ""
 "AppImages built with the older runtime may not start. Gear LeverR itself "
 "uses FUSE 3 and does not need it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:958
+#: crates/gearlever/src/ui/mod.rs:959
 msgid "AppImages integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1091
+#: crates/gearlever/src/ui/mod.rs:1092
 msgid "AppImages removed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3919
+#: crates/gearlever/src/ui/mod.rs:3925
 msgid "Appearance"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2749
+#: crates/gearlever/src/ui/mod.rs:2755
 msgid "Applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3306
+#: crates/gearlever/src/ui/mod.rs:3312
 msgid "Apply changes"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4155
+#: crates/gearlever/src/ui/mod.rs:4161
 msgid "Apply token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4102
+#: crates/gearlever/src/ui/mod.rs:4108
 msgid ""
 "Apps checked for updates at the same time. Lower it when the update source "
 "limits concurrent requests."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3452
+#: crates/gearlever/src/ui/mod.rs:3458
 msgid "Apps to integrate"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4758
+#: crates/gearlever/src/ui/mod.rs:4764
 msgid "Ask for each"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4113
+#: crates/gearlever/src/ui/mod.rs:4119
 msgid ""
 "Authenticate with GitHub to raise the API rate limit from 60 to 5,000 "
 "requests per hour"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6005
+#: crates/gearlever/src/ui/mod.rs:6011
 msgid "Authentication failed — token is invalid or expired"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2672
+#: crates/gearlever/src/ui/mod.rs:2678
 msgid "Back"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3543
+#: crates/gearlever/src/ui/mod.rs:3549
 msgid "Built for {arch}; it will not be integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2589 crates/gearlever/src/ui/mod.rs:2622
-#: crates/gearlever/src/ui/mod.rs:3871 crates/gearlever/src/ui/mod.rs:4628
-#: crates/gearlever/src/ui/mod.rs:4675 crates/gearlever/src/ui/mod.rs:4816
-#: crates/gearlever/src/ui/mod.rs:4854 crates/gearlever/src/ui/welcome.rs:176
+#: crates/gearlever/src/ui/mod.rs:2595 crates/gearlever/src/ui/mod.rs:2628
+#: crates/gearlever/src/ui/mod.rs:3877 crates/gearlever/src/ui/mod.rs:4634
+#: crates/gearlever/src/ui/mod.rs:4681 crates/gearlever/src/ui/mod.rs:4822
+#: crates/gearlever/src/ui/mod.rs:4860 crates/gearlever/src/ui/welcome.rs:213
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: crates/gearlever/src/ui/mod.rs:4762
+#: crates/gearlever/src/ui/mod.rs:4768
 msgid "Cancel all"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3632
+#: crates/gearlever/src/ui/mod.rs:3638
 msgid "Cancel update"
 msgstr "Cancelar atualização"
 
-#: crates/gearlever/src/ui/mod.rs:3630
+#: crates/gearlever/src/ui/mod.rs:3636
 msgid "Cancelling..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1806
+#: crates/gearlever/src/ui/mod.rs:1812
 msgid "Cannot determine the running AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:774 crates/gearlever/src/ui/mod.rs:2255
+#: crates/gearlever/src/ui/mod.rs:775 crates/gearlever/src/ui/mod.rs:2261
 msgid "Cannot read the AppImage metadata"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4927 crates/gearlever/src/ui/mod.rs:4959
+#: crates/gearlever/src/ui/mod.rs:4933 crates/gearlever/src/ui/mod.rs:4965
 msgid "Cannot restart Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1770
+#: crates/gearlever/src/ui/mod.rs:1771
 msgid "Check FUSE"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:728 crates/gearlever/src/ui/mod.rs:2176
-#: crates/gearlever/src/ui/mod.rs:5090
+#: crates/gearlever/src/ui/mod.rs:729 crates/gearlever/src/ui/mod.rs:2182
+#: crates/gearlever/src/ui/mod.rs:5096
 msgid "Check for updates"
 msgstr "Procurar atualizações"
 
 # This is another option which I don't see it anywhere.
-#: crates/gearlever/src/ui/mod.rs:4073 crates/gearlever/src/ui/welcome.rs:220
+#: crates/gearlever/src/ui/mod.rs:4079 crates/gearlever/src/ui/welcome.rs:257
 msgid "Check updates on system startup"
 msgstr "Verificar atualizações ao iniciar o sistema"
 
-#: crates/gearlever/src/ui/mod.rs:2051
+#: crates/gearlever/src/ui/mod.rs:2057
 msgid "Checking updates..."
 msgstr "Verificando atualizações..."
 
-#: crates/gearlever/src/ui/mod.rs:4160
+#: crates/gearlever/src/ui/mod.rs:4166
 msgid "Clear token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4280
+#: crates/gearlever/src/ui/mod.rs:4286
 msgid "Clone AppImages into the destination folder"
 msgstr "Clonar AppImages para a pasta de destino"
 
-#: crates/gearlever/src/ui/mod.rs:3777 crates/gearlever/src/ui/welcome.rs:120
+#: crates/gearlever/src/ui/mod.rs:3783 crates/gearlever/src/ui/welcome.rs:157
 msgid "Close"
 msgstr "Fechar"
 
-#: crates/gearlever/src/ui/mod.rs:3071
+#: crates/gearlever/src/ui/mod.rs:3077
 msgid "Command line arguments"
 msgstr "Parâmetros da linha de comandos"
 
-#: crates/gearlever/src/ui/mod.rs:4653
+#: crates/gearlever/src/ui/mod.rs:4659
 msgid "Conflict with \"{app_name}\""
 msgstr "Conflito com \"{app_name}\""
 
-#: crates/gearlever/src/ui/mod.rs:6012
+#: crates/gearlever/src/ui/mod.rs:6018
 msgid "Connection error: {error}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2623
+#: crates/gearlever/src/ui/mod.rs:2629
 msgid "Continue"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4471
+#: crates/gearlever/src/ui/mod.rs:4477
 msgid "Could not check how Gear LeverR was started."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5894
+#: crates/gearlever/src/ui/mod.rs:5900
 msgid "Could not clear the token: {error}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5876
+#: crates/gearlever/src/ui/mod.rs:5882
 msgid "Could not save the token: {error}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4230
+#: crates/gearlever/src/ui/mod.rs:4236
 msgid "Create a token on GitHub"
 msgstr ""
 
 # I think this is the right term...
-#: crates/gearlever/src/ui/mod.rs:4300
+#: crates/gearlever/src/ui/mod.rs:4306
 msgid "Debugging"
 msgstr "Depuração"
 
-#: crates/gearlever/src/ui/mod.rs:3236
+#: crates/gearlever/src/ui/mod.rs:3242
 msgid "Default"
 msgstr "Padrão"
 
-#: crates/gearlever/src/ui/mod.rs:4442 crates/gearlever/src/ui/welcome.rs:514
+#: crates/gearlever/src/ui/welcome.rs:109
+msgid "Dependencies are ready"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:4448 crates/gearlever/src/ui/welcome.rs:566
 msgid "Detected"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4626
+#: crates/gearlever/src/ui/mod.rs:4632
 msgid "Do you really want to remove this app?"
 msgstr "Deseja realmente remover esse aplicativo?"
 
-#: crates/gearlever/src/ui/mod.rs:4083
+#: crates/gearlever/src/ui/mod.rs:4089
 msgid ""
 "Download only changed blocks when the source provides zsync data.\n"
 "On very low-resource computers you may prefer to disable it: updates then "
 "download the full AppImage and skip block checksum scanning."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5145
+#: crates/gearlever/src/ui/mod.rs:5151
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "Arraste e solte uma AppImage aqui ou clique no ícone \"+\"."
 
-#: crates/gearlever/src/ui/mod.rs:5224
+#: crates/gearlever/src/ui/mod.rs:5230
 msgid "Drop your file here"
 msgstr "Solte o arquivo aqui"
 
-#: crates/gearlever/src/ui/mod.rs:4302
+#: crates/gearlever/src/ui/mod.rs:4308
 msgid "Enable debug logs"
 msgstr "Ativar registos de depuração"
 
-#: crates/gearlever/src/ui/mod.rs:5375
+#: crates/gearlever/src/ui/mod.rs:5381
 msgid "Enable or disable this environment variable"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5860
+#: crates/gearlever/src/ui/mod.rs:5866
 msgid "Enter a token first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4202
+#: crates/gearlever/src/ui/mod.rs:4208
 msgid "Enter a valid token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3361 crates/gearlever/src/ui/mod.rs:5577
+#: crates/gearlever/src/ui/mod.rs:3367 crates/gearlever/src/ui/mod.rs:5583
 msgid "Environment variable history"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3350
+#: crates/gearlever/src/ui/mod.rs:3356
 msgid "Environment variables"
 msgstr "Variáveis de ambiente"
 
-#: crates/gearlever/src/ui/mod.rs:4462
+#: crates/gearlever/src/ui/mod.rs:4468
 msgid "Extracted"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4391 crates/gearlever/src/ui/welcome.rs:489
+#: crates/gearlever/src/ui/mod.rs:4397 crates/gearlever/src/ui/welcome.rs:532
 msgid "FUSE 2"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:390
+#: crates/gearlever/src/ui/welcome.rs:433
 msgid "FUSE 2 support is not available"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4385 crates/gearlever/src/ui/welcome.rs:488
+#: crates/gearlever/src/ui/mod.rs:4391 crates/gearlever/src/ui/welcome.rs:531
 msgid "FUSE 3"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:401
+#: crates/gearlever/src/ui/welcome.rs:444
 msgid "FUSE 3 support is not available"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4379
+#: crates/gearlever/src/ui/mod.rs:4385
 msgid "FUSE device"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4399
+#: crates/gearlever/src/ui/mod.rs:4405
 msgid "FUSE documentation"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:379
+#: crates/gearlever/src/ui/welcome.rs:422
 msgid "FUSE is not available"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:464
+#: crates/gearlever/src/ui/welcome.rs:507
 msgid ""
 "FUSE lets AppImages run without extracting them. FUSE 2 is only needed by "
 "older AppImages."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4250 crates/gearlever/src/ui/welcome.rs:196
+#: crates/gearlever/src/ui/mod.rs:4256 crates/gearlever/src/ui/welcome.rs:233
 msgid "File management"
 msgstr "Gerenciamento de arquivos"
 
-#: crates/gearlever/src/ui/mod.rs:5072
+#: crates/gearlever/src/ui/mod.rs:5078
 msgid "Filter installed applications"
 msgstr "Filtrar aplicações instaladas"
 
-#: crates/gearlever/src/ui/mod.rs:4231
+#: crates/gearlever/src/ui/mod.rs:4237
 msgid "Fine-grained token with read-only public repo access is sufficient"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:368
-#: crates/gearlever/src/ui/welcome.rs:380
+#: crates/gearlever/src/ui/welcome.rs:411
+#: crates/gearlever/src/ui/welcome.rs:423
 msgid ""
 "Gear LeverR can still start by extracting itself, but AppImages that need "
 "FUSE will not run."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4463
+#: crates/gearlever/src/ui/mod.rs:4469
 msgid "Gear LeverR extracted the AppImage to a temporary directory."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1842
+#: crates/gearlever/src/ui/mod.rs:1848
 msgid "Gear LeverR installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/welcome.rs:171
 msgid ""
 "Gear LeverR is not integrated into your desktop yet. Choose how it should be "
 "installed and where to keep your AppImages."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4467
+#: crates/gearlever/src/ui/mod.rs:4473
 msgid "Gear LeverR is not running from an AppImage."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4843
+#: crates/gearlever/src/ui/mod.rs:4849
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4374
+#: crates/gearlever/src/ui/mod.rs:4380
 msgid "Gear LeverR needs FUSE to mount the AppImage instead of extracting it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4812
+#: crates/gearlever/src/ui/mod.rs:4818
 msgid ""
 "Gear LeverR will be removed together with its desktop entry and the "
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5144
+#: crates/gearlever/src/ui/mod.rs:5150
 msgid "Get started"
 msgstr "Começar"
 
-#: crates/gearlever/src/ui/mod.rs:4112
+#: crates/gearlever/src/ui/mod.rs:4118
 msgid "GitHub"
 msgstr ""
 
@@ -409,23 +413,23 @@ msgid ""
 "GitHub authentication failed (401). Check your token in Preferences → GitHub."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5890
+#: crates/gearlever/src/ui/mod.rs:5896
 msgid "GitHub token cleared"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:752
+#: crates/gearlever/src/ui/mod.rs:753
 msgid "GitHub token expired or invalid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5871
+#: crates/gearlever/src/ui/mod.rs:5877
 msgid "GitHub token saved. Use Test to verify it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4400
+#: crates/gearlever/src/ui/mod.rs:4406
 msgid "How to install FUSE on your distribution"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4289
+#: crates/gearlever/src/ui/mod.rs:4295
 msgid ""
 "If enabled, apps that run in the terminal are renamed as their executable.\n"
 "You would need to add the aforementioned folder to your $PATH manually.\n"
@@ -438,7 +442,7 @@ msgstr ""
 "\n"
 "Por exemplo, \"golang_x86_64.appimage\" será guardado como \"go\""
 
-#: crates/gearlever/src/ui/mod.rs:3910
+#: crates/gearlever/src/ui/mod.rs:3916
 msgid ""
 "If enabled, the app will try to load an Appimage without using the built-in "
 "appimage-extract command.\n"
@@ -450,15 +454,15 @@ msgstr ""
 "Desative somente se você confiar na fonte, pois aplicativos maliciosos podem "
 "executar código ao carregar os metadados."
 
-#: crates/gearlever/src/ui/mod.rs:3542
+#: crates/gearlever/src/ui/mod.rs:3548
 msgid "Incompatible architecture"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3923
+#: crates/gearlever/src/ui/mod.rs:3929
 msgid "Increase the size of text and buttons"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4303
+#: crates/gearlever/src/ui/mod.rs:4309
 msgid ""
 "Increases log verbosity, occupying more disk space and potentially impacting "
 "performance.\n"
@@ -468,79 +472,79 @@ msgstr ""
 "um potencial impacto na performance.\n"
 "Requer uma reinicialização."
 
-#: crates/gearlever/src/ui/welcome.rs:405
+#: crates/gearlever/src/ui/welcome.rs:448
 msgid "Install FUSE 3 with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:383
+#: crates/gearlever/src/ui/welcome.rs:426
 msgid "Install FUSE with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:63 crates/gearlever/src/ui/welcome.rs:266
+#: crates/gearlever/src/ui/welcome.rs:65 crates/gearlever/src/ui/welcome.rs:305
 msgid "Install and open Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:436
+#: crates/gearlever/src/ui/welcome.rs:479
 msgid "Install it with your distribution's package manager."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:394
+#: crates/gearlever/src/ui/welcome.rs:437
 msgid "Install the FUSE 2 compatibility packages with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5131
+#: crates/gearlever/src/ui/mod.rs:5137
 msgid "Installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2751 crates/gearlever/src/ui/mod.rs:5084
+#: crates/gearlever/src/ui/mod.rs:2757 crates/gearlever/src/ui/mod.rs:5090
 msgid "Installed applications"
 msgstr "Aplicações instaladas"
 
-#: crates/gearlever/src/ui/welcome.rs:54
+#: crates/gearlever/src/ui/welcome.rs:56
 msgid "Installing..."
 msgstr "Instalando..."
 
-#: crates/gearlever/src/ui/mod.rs:2347
+#: crates/gearlever/src/ui/mod.rs:2353
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2269 crates/gearlever/src/ui/mod.rs:2313
+#: crates/gearlever/src/ui/mod.rs:2275 crates/gearlever/src/ui/mod.rs:2319
 msgid "Integrating..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3922
+#: crates/gearlever/src/ui/mod.rs:3928
 msgid "Interface scale"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4755
+#: crates/gearlever/src/ui/mod.rs:4761
 msgid "Keep all"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4671
+#: crates/gearlever/src/ui/mod.rs:4677
 msgid "Keep both"
 msgstr "Manter ambos"
 
-#: crates/gearlever/src/ui/mod.rs:4281
+#: crates/gearlever/src/ui/mod.rs:4287
 msgid "Keep the original file and create a copy in the destination folder"
 msgstr "Manter o arquivo original e criar uma cópia na pasta de destino"
 
-#: crates/gearlever/src/ui/mod.rs:5358
+#: crates/gearlever/src/ui/mod.rs:5364
 msgid "Key"
 msgstr "Chave"
 
-#: crates/gearlever/src/ui/mod.rs:3816
+#: crates/gearlever/src/ui/mod.rs:3822
 msgid "Later"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2984 crates/gearlever/src/ui/mod.rs:3188
+#: crates/gearlever/src/ui/mod.rs:2990 crates/gearlever/src/ui/mod.rs:3194
 msgid "Launch"
 msgstr "Executar"
 
-#: crates/gearlever/src/ui/welcome.rs:452
+#: crates/gearlever/src/ui/welcome.rs:495
 msgid "Learn more"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3894
+#: crates/gearlever/src/ui/mod.rs:3900
 msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
@@ -548,167 +552,167 @@ msgstr ""
 "Liste AppImages que foram integradas ao menu do sistema, mas que estão "
 "localizadas fora da pasta padrão"
 
-#: crates/gearlever/src/ui/welcome.rs:352
+#: crates/gearlever/src/ui/welcome.rs:395
 msgid ""
 "Load the fuse kernel module and install FUSE with your distribution's "
 "package manager."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:348
+#: crates/gearlever/src/ui/welcome.rs:391
 msgid "Load the fuse kernel module and install FUSE with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:358
+#: crates/gearlever/src/ui/welcome.rs:401
 msgid "Load the fuse kernel module with:"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2177
+#: crates/gearlever/src/ui/mod.rs:2183
 msgid "Look for new versions of this application"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3232
+#: crates/gearlever/src/ui/mod.rs:3238
 msgid "Manage update details for this application"
 msgstr "Gerenciar os detalhes da atualização desta aplicação"
 
-#: crates/gearlever/src/ui/mod.rs:5037
+#: crates/gearlever/src/ui/mod.rs:5043
 msgid "Menu"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1722
+#: crates/gearlever/src/ui/mod.rs:1723
 msgid "Metadata reloaded"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4458
+#: crates/gearlever/src/ui/mod.rs:4464
 msgid "Mounted"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4373
+#: crates/gearlever/src/ui/mod.rs:4379
 msgid "Mounting"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4275 crates/gearlever/src/ui/welcome.rs:199
+#: crates/gearlever/src/ui/mod.rs:4281 crates/gearlever/src/ui/welcome.rs:236
 msgid "Move AppImages into the destination folder"
 msgstr "Mover AppImages para a pasta de destino"
 
-#: crates/gearlever/src/ui/mod.rs:2643 crates/gearlever/src/ui/mod.rs:3496
+#: crates/gearlever/src/ui/mod.rs:2649 crates/gearlever/src/ui/mod.rs:3502
 msgid "Move all to the app menu"
 msgstr ""
 
 # Where do I find this option on the app?
 # Not sure if it's related to the OS' apps menu or Gear Level app menu...
-#: crates/gearlever/src/ui/mod.rs:3195
+#: crates/gearlever/src/ui/mod.rs:3201
 msgid "Move to the app menu"
 msgstr "Mover para o menu das aplicações"
 
-#: crates/gearlever/src/ui/mod.rs:3517
+#: crates/gearlever/src/ui/mod.rs:3523
 msgid "Name conflict"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4286
+#: crates/gearlever/src/ui/mod.rs:4292
 msgid "Naming conventions"
 msgstr "Convenções de nomenclatura"
 
-#: crates/gearlever/src/ui/mod.rs:4392
+#: crates/gearlever/src/ui/mod.rs:4398
 msgid ""
 "Needed by AppImages built with the older runtime. Gear LeverR does not use "
 "it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:975
+#: crates/gearlever/src/ui/mod.rs:976
 msgid "No AppImage could be integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5582
+#: crates/gearlever/src/ui/mod.rs:5588
 msgid "No environment variables yet"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1164 crates/gearlever/src/ui/mod.rs:1268
+#: crates/gearlever/src/ui/mod.rs:1165 crates/gearlever/src/ui/mod.rs:1269
 msgid "No update method was found for this AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1215
+#: crates/gearlever/src/ui/mod.rs:1216
 msgid "No updates available"
 msgstr "Nenhuma atualização disponível"
 
-#: crates/gearlever/src/ui/mod.rs:730
+#: crates/gearlever/src/ui/mod.rs:731
 msgid "No updates found"
 msgstr "Nenhuma atualização disponível"
 
-#: crates/gearlever/src/ui/mod.rs:816 crates/gearlever/src/ui/mod.rs:3489
+#: crates/gearlever/src/ui/mod.rs:817 crates/gearlever/src/ui/mod.rs:3495
 msgid "None of the selected AppImages can be integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4466
+#: crates/gearlever/src/ui/mod.rs:4472
 msgid "Not an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4444 crates/gearlever/src/ui/welcome.rs:516
+#: crates/gearlever/src/ui/mod.rs:4450 crates/gearlever/src/ui/welcome.rs:568
 msgid "Not detected"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:272
+#: crates/gearlever/src/ui/welcome.rs:311
 msgid "Not now"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2590 crates/gearlever/src/ui/mod.rs:2825
+#: crates/gearlever/src/ui/mod.rs:2596 crates/gearlever/src/ui/mod.rs:2831
 msgid "Open"
 msgstr "Abrir"
 
-#: crates/gearlever/src/ui/mod.rs:3061
+#: crates/gearlever/src/ui/mod.rs:3067
 msgid "Open Folder"
 msgstr "Abrir Pasta"
 
-#: crates/gearlever/src/ui/mod.rs:753 crates/gearlever/src/ui/mod.rs:759
-#: crates/gearlever/src/ui/mod.rs:5150
+#: crates/gearlever/src/ui/mod.rs:754 crates/gearlever/src/ui/mod.rs:760
+#: crates/gearlever/src/ui/mod.rs:5156
 msgid "Open Preferences"
 msgstr "Abrir preferências"
 
-#: crates/gearlever/src/ui/mod.rs:3125
+#: crates/gearlever/src/ui/mod.rs:3131
 msgid "Open URL"
 msgstr "Abrir URL"
 
-#: crates/gearlever/src/ui/mod.rs:2670 crates/gearlever/src/ui/mod.rs:5026
+#: crates/gearlever/src/ui/mod.rs:2676 crates/gearlever/src/ui/mod.rs:5032
 msgid "Open a new AppImage"
 msgstr "Abrir uma nova AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:2584
+#: crates/gearlever/src/ui/mod.rs:2590
 msgid "Open an AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4091
+#: crates/gearlever/src/ui/mod.rs:4097
 msgid "Parallel downloads"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4101
+#: crates/gearlever/src/ui/mod.rs:4107
 msgid "Parallel update checks"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3055
+#: crates/gearlever/src/ui/mod.rs:3061
 msgid "Path"
 msgstr "Localização"
 
-#: crates/gearlever/src/ui/mod.rs:4144 crates/gearlever/src/ui/mod.rs:5870
-#: crates/gearlever/src/ui/mod.rs:5889
+#: crates/gearlever/src/ui/mod.rs:4150 crates/gearlever/src/ui/mod.rs:5876
+#: crates/gearlever/src/ui/mod.rs:5895
 msgid "Personal access token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4142
+#: crates/gearlever/src/ui/mod.rs:4148
 msgid "Personal access token (configured)"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3840
+#: crates/gearlever/src/ui/mod.rs:3846
 msgid "Preferences"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3902
+#: crates/gearlever/src/ui/mod.rs:3908
 msgid "Preview new apps in a minimal UI"
 msgstr "Prever aplicativos novos numa interface simples"
 
-#: crates/gearlever/src/ui/mod.rs:5044
+#: crates/gearlever/src/ui/mod.rs:5050
 msgid "Quit"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6007
+#: crates/gearlever/src/ui/mod.rs:6013
 msgid "Rate limit exceeded — try again later"
 msgstr ""
 
@@ -736,7 +740,7 @@ msgstr ""
 msgid "Rate limit: unlock the keyring or retry in {wait}."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4074
+#: crates/gearlever/src/ui/mod.rs:4080
 msgid ""
 "Receive a notification when a new update is detected; updates will not be "
 "installed automatically"
@@ -744,274 +748,290 @@ msgstr ""
 "Receber uma notificação quando uma nova atualização estiver disponível; "
 "atualizações não serão instaladas automaticamente"
 
-#: crates/gearlever/src/ui/mod.rs:4276
+#: crates/gearlever/src/ui/welcome.rs:534
+msgid "Recheck"
+msgstr ""
+
+#: crates/gearlever/src/ui/welcome.rs:537
+msgid "Recheck dependencies"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:4282
 msgid "Reduce disk usage"
 msgstr "Reduzir utilização do espaço"
 
-#: crates/gearlever/src/ui/mod.rs:5225
+#: crates/gearlever/src/ui/mod.rs:5231
 msgid "Release to open the AppImage"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3032
+#: crates/gearlever/src/ui/mod.rs:3038
 msgid "Reload metadata"
 msgstr "Recarregar metadata"
 
-#: crates/gearlever/src/ui/mod.rs:2992 crates/gearlever/src/ui/mod.rs:4629
+#: crates/gearlever/src/ui/mod.rs:2998 crates/gearlever/src/ui/mod.rs:4635
 msgid "Remove"
 msgstr "Remover"
 
-#: crates/gearlever/src/ui/mod.rs:4818
+#: crates/gearlever/src/ui/mod.rs:4824
 msgid "Remove Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4811
+#: crates/gearlever/src/ui/mod.rs:4817
 msgid "Remove Gear LeverR?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4817 crates/gearlever/src/ui/mod.rs:4855
+#: crates/gearlever/src/ui/mod.rs:4823 crates/gearlever/src/ui/mod.rs:4861
 msgid "Remove all AppImages"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4853
+#: crates/gearlever/src/ui/mod.rs:4859
 msgid "Remove all AppImages?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4625
+#: crates/gearlever/src/ui/mod.rs:4631
 msgid "Remove application?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5622
+#: crates/gearlever/src/ui/mod.rs:5628
 msgid "Remove from history"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1049
+#: crates/gearlever/src/ui/mod.rs:1050
 msgid "Removed {path}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4667
+#: crates/gearlever/src/ui/mod.rs:4673
 msgid "Replace"
 msgstr "Substituir"
 
-#: crates/gearlever/src/ui/mod.rs:4752
+#: crates/gearlever/src/ui/mod.rs:4758
 msgid "Replace all"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3817
+#: crates/gearlever/src/ui/welcome.rs:86
+msgid "Resolve the FUSE issues first"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:3823
 msgid "Restart"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3814
+#: crates/gearlever/src/ui/mod.rs:3820
 msgid "Restart Gear LeverR to apply the new interface scale."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3813
+#: crates/gearlever/src/ui/mod.rs:3819
 msgid "Restart required"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:705
+#: crates/gearlever/src/ui/mod.rs:706
 msgid "Retrying failed checks..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4476
+#: crates/gearlever/src/ui/mod.rs:4482
 msgid "Running from"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1769
+#: crates/gearlever/src/ui/mod.rs:1770
 msgid "Running in extraction mode"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3304 crates/gearlever/src/ui/mod.rs:3368
+#: crates/gearlever/src/ui/mod.rs:3310 crates/gearlever/src/ui/mod.rs:3374
 msgid "Save"
 msgstr "Salvar"
 
-#: crates/gearlever/src/ui/mod.rs:5031
+#: crates/gearlever/src/ui/mod.rs:5037
 msgid "Search"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3872 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:3878 crates/gearlever/src/ui/welcome.rs:214
 msgid "Select"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3858 crates/gearlever/src/ui/mod.rs:3866
-#: crates/gearlever/src/ui/welcome.rs:166
-#: crates/gearlever/src/ui/welcome.rs:171
+#: crates/gearlever/src/ui/mod.rs:3864 crates/gearlever/src/ui/mod.rs:3872
+#: crates/gearlever/src/ui/welcome.rs:203
+#: crates/gearlever/src/ui/welcome.rs:208
 msgid "Select a folder"
 msgstr "Selecione uma pasta"
 
-#: crates/gearlever/src/ui/mod.rs:3243
+#: crates/gearlever/src/ui/mod.rs:3249
 msgid "Select the source type"
 msgstr "Selecione o tipo da origem"
 
-#: crates/gearlever/src/ui/welcome.rs:150
+#: crates/gearlever/src/ui/welcome.rs:187
 msgid "Set the AppImage location"
 msgstr "Definir localização da AppImage"
 
 # Have some doubts about the original meaning of the sentence.
-#: crates/gearlever/src/ui/mod.rs:3893
+#: crates/gearlever/src/ui/mod.rs:3899
 msgid "Show integrated AppImages outside the default folder"
 msgstr "Mostrar AppImages integradas fora da pasta padrão"
 
-#: crates/gearlever/src/ui/mod.rs:4676
+#: crates/gearlever/src/ui/mod.rs:4682
 msgid "Skip"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:977 crates/gearlever/src/ui/mod.rs:2304
+#: crates/gearlever/src/ui/mod.rs:978 crates/gearlever/src/ui/mod.rs:2310
 msgid "Some AppImages were skipped"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4742
+#: crates/gearlever/src/ui/mod.rs:4748
 msgid "Some apps are already installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3242
+#: crates/gearlever/src/ui/welcome.rs:111
+msgid "Some dependencies are still missing"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:3248
 msgid "Source"
 msgstr "Origem"
 
-#: crates/gearlever/src/ui/mod.rs:4327
+#: crates/gearlever/src/ui/mod.rs:4333
 msgid "System"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4168
+#: crates/gearlever/src/ui/mod.rs:4174
 msgid "Test"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4162
+#: crates/gearlever/src/ui/mod.rs:4168
 msgid "Test token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5948
+#: crates/gearlever/src/ui/mod.rs:5954
 msgid "Testing..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4459
+#: crates/gearlever/src/ui/mod.rs:4465
 msgid "The AppImage filesystem is mounted through FUSE."
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:367
+#: crates/gearlever/src/ui/welcome.rs:410
 msgid "The FUSE device is not available"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1128
+#: crates/gearlever/src/ui/mod.rs:1129
 msgid "The application is running, close it first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4386
+#: crates/gearlever/src/ui/mod.rs:4392
 msgid "The fusermount3 helper. Gear LeverR can use it or fusermount."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4380
+#: crates/gearlever/src/ui/mod.rs:4386
 msgid "The kernel device AppImages use to mount their filesystem."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5864
+#: crates/gearlever/src/ui/mod.rs:5870
 msgid "The token contains invalid characters"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3514 crates/gearlever/src/ui/mod.rs:4657
+#: crates/gearlever/src/ui/mod.rs:3520 crates/gearlever/src/ui/mod.rs:4663
 msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr "Já existe uma aplicação com o mesmo nome, como pretende prosseguir?"
 
-#: crates/gearlever/src/ui/mod.rs:3557
+#: crates/gearlever/src/ui/mod.rs:3563
 msgid "This AppImage is already integrated"
 msgstr ""
 
-#: crates/gearlever/src/cli.rs:364 crates/gearlever/src/ui/mod.rs:2617
-#: crates/gearlever/src/ui/mod.rs:6211
+#: crates/gearlever/src/cli.rs:364 crates/gearlever/src/ui/mod.rs:2623
+#: crates/gearlever/src/ui/mod.rs:6217
 msgid "This app might not be compatible with your system architecture"
 msgstr ""
 "Esta aplicação pode não ser compatível com a arquitetura do seu sistema"
 
-#: crates/gearlever/src/ui/mod.rs:3228
+#: crates/gearlever/src/ui/mod.rs:3234
 msgid "This application includes update information provided by the developer"
 msgstr ""
 "Esta aplicação inclui informações de atualização fornecidas pelo "
 "desenvolvedor"
 
-#: crates/gearlever/src/ui/mod.rs:4847
+#: crates/gearlever/src/ui/mod.rs:4853
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5933
+#: crates/gearlever/src/ui/mod.rs:5939
 msgid "Token configured · invalid or expired"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5929
+#: crates/gearlever/src/ui/mod.rs:5935
 msgid "Token configured · invalid or expired · expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5926
+#: crates/gearlever/src/ui/mod.rs:5932
 msgid "Token configured · valid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5922
+#: crates/gearlever/src/ui/mod.rs:5928
 msgid "Token configured · valid · expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5913
+#: crates/gearlever/src/ui/mod.rs:5919
 msgid ""
 "Token configured, but it could not be loaded. Unlock the system keyring or "
 "enter a new token."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5905
+#: crates/gearlever/src/ui/mod.rs:5911
 msgid ""
 "Token configured, but the keyring is locked. Unlock it or enter a new token."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5935
+#: crates/gearlever/src/ui/mod.rs:5941
 msgid "Token configured. Use Test to verify it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6003
+#: crates/gearlever/src/ui/mod.rs:6009
 msgid "Token is valid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5999
+#: crates/gearlever/src/ui/mod.rs:6005
 msgid "Token is valid — expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5994
+#: crates/gearlever/src/ui/mod.rs:6000
 msgid "Token is valid — {remaining} / {limit} requests remaining"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5982
+#: crates/gearlever/src/ui/mod.rs:5988
 msgid ""
 "Token is valid — {remaining} / {limit} requests remaining · expires "
 "{expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/welcome.rs:200
+#: crates/gearlever/src/ui/welcome.rs:237
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6013
+#: crates/gearlever/src/ui/mod.rs:6019
 msgid "Unexpected response"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6010
+#: crates/gearlever/src/ui/mod.rs:6016
 msgid "Unexpected response ({status})"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4470
+#: crates/gearlever/src/ui/mod.rs:4476
 msgid "Unknown"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:2824 crates/gearlever/src/ui/mod.rs:3013
+#: crates/gearlever/src/ui/mod.rs:2830 crates/gearlever/src/ui/mod.rs:3019
 msgid "Update"
 msgstr "Atualizar"
 
-#: crates/gearlever/src/ui/mod.rs:5105
+#: crates/gearlever/src/ui/mod.rs:5111
 msgid "Update all"
 msgstr "Atualizar tudo"
 
-#: crates/gearlever/src/ui/mod.rs:1392 crates/gearlever/src/ui/mod.rs:1499
-#: crates/gearlever/src/ui/mod.rs:3750
+#: crates/gearlever/src/ui/mod.rs:1393 crates/gearlever/src/ui/mod.rs:1500
+#: crates/gearlever/src/ui/mod.rs:3756
 msgid "Update cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3033
+#: crates/gearlever/src/ui/mod.rs:3039
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -1019,107 +1039,107 @@ msgstr ""
 "Atualize informações como ícone, versão e descrição.\n"
 "Útil caso a aplicação tenha sido atualizada automaticamente."
 
-#: crates/gearlever/src/ui/mod.rs:3214
+#: crates/gearlever/src/ui/mod.rs:3220
 msgid "Update management"
 msgstr "Gerenciamento de atualizações"
 
-#: crates/gearlever/src/ui/mod.rs:3587
+#: crates/gearlever/src/ui/mod.rs:3593
 msgid "Update results"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1691
+#: crates/gearlever/src/ui/mod.rs:1692
 msgid "Update source saved"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5127
+#: crates/gearlever/src/ui/mod.rs:5133
 msgid "Updates"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1547 crates/gearlever/src/ui/mod.rs:3599
+#: crates/gearlever/src/ui/mod.rs:1548 crates/gearlever/src/ui/mod.rs:3605
 msgid "Updates cancelled"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4092
+#: crates/gearlever/src/ui/mod.rs:4098
 msgid ""
 "Updates downloaded at the same time. Set it to 1 on slow or metered "
 "connections; installing updates is always sequential."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1536
+#: crates/gearlever/src/ui/mod.rs:1537
 msgid "Updates installed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4071 crates/gearlever/src/ui/welcome.rs:217
+#: crates/gearlever/src/ui/mod.rs:4077 crates/gearlever/src/ui/welcome.rs:254
 msgid "Updates management"
 msgstr "Gerenciamento de atualizações"
 
-#: crates/gearlever/src/ui/mod.rs:2646
+#: crates/gearlever/src/ui/mod.rs:2652
 msgid "Updating applications"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1472 crates/gearlever/src/ui/mod.rs:2873
-#: crates/gearlever/src/ui/mod.rs:3755
+#: crates/gearlever/src/ui/mod.rs:1473 crates/gearlever/src/ui/mod.rs:2879
+#: crates/gearlever/src/ui/mod.rs:3761
 msgid "Updating {name}..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4288
+#: crates/gearlever/src/ui/mod.rs:4294
 msgid "Use executable name for integrated terminal apps"
 msgstr "Utilizar nome do executável para aplicações do terminal integradas"
 
-#: crates/gearlever/src/ui/mod.rs:3909
+#: crates/gearlever/src/ui/mod.rs:3915
 msgid "Use safe mechanisms to load metadata"
 msgstr "Usar mecanismos seguros para carregar os metadados"
 
-#: crates/gearlever/src/ui/mod.rs:4082
+#: crates/gearlever/src/ui/mod.rs:4088
 msgid "Use zsync delta updates"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5363
+#: crates/gearlever/src/ui/mod.rs:5369
 msgid "Value"
 msgstr "Valor"
 
-#: crates/gearlever/src/ui/mod.rs:5910
+#: crates/gearlever/src/ui/mod.rs:5916
 msgid "Verify your token works and check rate limit status"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3559
+#: crates/gearlever/src/ui/mod.rs:3565
 msgid "Version {version} is already integrated"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3118
+#: crates/gearlever/src/ui/mod.rs:3124
 msgid "Website"
 msgstr "Página web"
 
-#: crates/gearlever/src/ui/welcome.rs:108
-#: crates/gearlever/src/ui/welcome.rs:129
+#: crates/gearlever/src/ui/welcome.rs:145
+#: crates/gearlever/src/ui/welcome.rs:166
 msgid "Welcome to Gear LeverR"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5043
+#: crates/gearlever/src/ui/mod.rs:5049
 msgid "_About Gear LeverR"
 msgstr ""
 
 # Is it supposed to be translated?
-#: crates/gearlever/src/ui/mod.rs:5042
+#: crates/gearlever/src/ui/mod.rs:5048
 msgid "_Open Log File"
 msgstr "_Abrir registro de depuração"
 
 # Is it supposed to be translated?
-#: crates/gearlever/src/ui/mod.rs:5041
+#: crates/gearlever/src/ui/mod.rs:5047
 msgid "_Preferences"
 msgstr "_Preferências"
 
-#: crates/gearlever/src/ui/mod.rs:3463 crates/gearlever/src/ui/mod.rs:4743
+#: crates/gearlever/src/ui/mod.rs:3469 crates/gearlever/src/ui/mod.rs:4749
 msgid ""
 "{count} of the selected AppImages have the same name as an app that is "
 "already integrated."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3611
+#: crates/gearlever/src/ui/mod.rs:3617
 msgid "{count} updates failed"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:966
+#: crates/gearlever/src/ui/mod.rs:967
 msgid "{done} integrated; {remaining} pending"
 msgstr ""
 
@@ -1127,7 +1147,7 @@ msgstr ""
 msgid "{minutes} min"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:1423
+#: crates/gearlever/src/ui/mod.rs:1424
 msgid "{name} updated"
 msgstr ""
 

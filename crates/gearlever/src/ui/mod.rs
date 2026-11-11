@@ -387,6 +387,7 @@ enum Msg {
     Toast(String),
     ExtractionNotice,
     Welcome,
+    WelcomeRecheckDependencies,
     WelcomeFolder(PathBuf),
     WelcomeMove(bool),
     WelcomeFetchUpdates(bool),
@@ -1774,6 +1775,11 @@ impl Component for AppModel {
             Msg::Welcome => {
                 widgets.window.present();
                 widgets.welcome = Some(welcome::present(&widgets.window, &self.settings, &sender));
+            }
+            Msg::WelcomeRecheckDependencies => {
+                if let Some(welcome) = &widgets.welcome {
+                    welcome.recheck_dependencies(&sender);
+                }
             }
             Msg::WelcomeFolder(path) => {
                 self.settings.set_appimages_dir(&path);

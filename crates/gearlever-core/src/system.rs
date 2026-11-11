@@ -80,6 +80,16 @@ impl FuseReport {
         self.device && self.fusermount && self.libfuse2
     }
 
+    /// Returns whether both FUSE 2 and FUSE 3 are ready for AppImages.
+    ///
+    /// Gear LeverR itself can run with either generation, but an AppImage
+    /// manager should not install until both the legacy and the current helper
+    /// are available.
+    #[must_use]
+    pub const fn all_ready(self) -> bool {
+        self.can_mount() && self.fusermount3 && self.legacy_ready()
+    }
+
     /// Returns the most important problem found on the host, if any.
     ///
     /// A missing device takes precedence over missing helpers, then over the
@@ -420,6 +430,15 @@ mod tests {
             report(true, true, false, false).problem(),
             Some(FuseProblem::MissingFuse2)
         );
+    }
+
+    #[test]
+    fn all_ready_requires_both_fuse_generations() {
+        assert!(report(true, true, true, true).all_ready());
+        assert!(!report(true, true, false, true).all_ready());
+        assert!(!report(true, false, true, true).all_ready());
+        assert!(!report(false, true, true, true).all_ready());
+        assert!(!report(true, true, true, false).all_ready());
     }
 
     #[test]
