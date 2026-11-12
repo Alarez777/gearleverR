@@ -498,13 +498,10 @@ impl Component for AppModel {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let mut model = Self::new();
-        let (mut width, height) = fit_window_size(
+        let (width, height) = fit_window_size(
             model.settings.values().window_width,
             model.settings.values().window_height,
         );
-        if !opened_from_file && model.should_show_welcome() {
-            width = width.max(welcome::WELCOME_MAIN_MIN_WIDTH);
-        }
         root.set_default_size(width, height);
         util::install_css(model.applied_ui_scale);
         model.opened_from_file = opened_from_file;
@@ -1776,6 +1773,9 @@ impl Component for AppModel {
                 widgets.toast.add_toast(toast);
             }
             Msg::Welcome => {
+                widgets
+                    .window
+                    .set_size_request(welcome::WELCOME_MAIN_MIN_WIDTH, -1);
                 widgets.window.present();
                 widgets.welcome = Some(welcome::present(&widgets.window, &self.settings, &sender));
             }
@@ -1840,6 +1840,7 @@ impl Component for AppModel {
                     if let Some(welcome) = widgets.welcome.take() {
                         welcome.window.close();
                     }
+                    widgets.window.set_size_request(-1, -1);
                     tracing::info!(
                         image = %installation.image_path.display(),
                         desktop = %installation.desktop_path.display(),
@@ -1861,8 +1862,10 @@ impl Component for AppModel {
                 if let Some(welcome) = widgets.welcome.take() {
                     welcome.window.close();
                 }
+                widgets.window.set_size_request(-1, -1);
             }
             Msg::WelcomeClosed => {
+                widgets.window.set_size_request(-1, -1);
                 widgets.welcome = None;
             }
         }

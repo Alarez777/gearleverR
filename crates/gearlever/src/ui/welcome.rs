@@ -518,21 +518,28 @@ fn fuse_notice(report: FuseReport) -> Option<gtk::Widget> {
 
 /// Builds the AppImage dependency card shown before the location settings.
 fn fuse_dependencies(report: FuseReport, sender: &relm4::ComponentSender<AppModel>) -> gtk::Box {
-    let card = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    let card = gtk::Box::new(gtk::Orientation::Vertical, 6);
     card.add_css_class("fuse-status-bar");
     card.set_valign(gtk::Align::Center);
     card.set_tooltip_text(Some(&t(
         "FUSE lets AppImages run without extracting them. FUSE 2 is only needed by older AppImages.",
     )));
 
+    let header = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     let title = gtk::Label::new(Some(&t("AppImage dependencies")));
     title.add_css_class("heading");
     title.set_xalign(0.0);
-    card.append(&title);
+    title.set_hexpand(true);
+    header.append(&title);
 
-    let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    spacer.set_hexpand(true);
-    card.append(&spacer);
+    let refresh = gtk::Button::with_label(&t("Recheck"));
+    refresh.set_valign(gtk::Align::Center);
+    refresh.add_css_class("flat");
+    refresh.set_tooltip_text(Some(&t("Recheck dependencies")));
+    let sender_refresh = sender.clone();
+    refresh.connect_clicked(move |_| sender_refresh.input(Msg::WelcomeRecheckDependencies));
+    header.append(&refresh);
+    card.append(&header);
 
     let fuse3 = if report.has_fuse3_helper() {
         FusePresence::Installed
@@ -550,17 +557,13 @@ fn fuse_dependencies(report: FuseReport, sender: &relm4::ComponentSender<AppMode
         FusePresence::Missing
     };
 
-    card.append(&fuse_status_item(&t("FUSE device"), device));
-    card.append(&fuse_status_item(&t("FUSE 3"), fuse3));
-    card.append(&fuse_status_item(&t("FUSE 2"), fuse2));
-
-    let refresh = gtk::Button::with_label(&t("Recheck"));
-    refresh.set_valign(gtk::Align::Center);
-    refresh.add_css_class("flat");
-    refresh.set_tooltip_text(Some(&t("Recheck dependencies")));
-    let sender_refresh = sender.clone();
-    refresh.connect_clicked(move |_| sender_refresh.input(Msg::WelcomeRecheckDependencies));
-    card.append(&refresh);
+    let statuses = gtk::Box::new(gtk::Orientation::Horizontal, 16);
+    statuses.set_halign(gtk::Align::Start);
+    statuses.set_valign(gtk::Align::Center);
+    statuses.append(&fuse_status_item(&t("FUSE device"), device));
+    statuses.append(&fuse_status_item(&t("FUSE 3"), fuse3));
+    statuses.append(&fuse_status_item(&t("FUSE 2"), fuse2));
+    card.append(&statuses);
 
     card
 }
