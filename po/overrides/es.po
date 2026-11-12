@@ -671,3 +671,12 @@ msgstr "Las dependencias están listas"
 
 msgid "Some dependencies are still missing"
 msgstr "Todavía faltan algunas dependencias"
+
+msgid "No extractor is available to read this AppImage. Install dwarfsextract or 7zz."
+msgstr "No hay extractor para leer este AppImage. Instala dwarfsextract o 7zz."
+
+msgid "The AppImage does not contain a .desktop file."
+msgstr "La AppImage no contiene ningún archivo .desktop."
+
+msgid "The desktop entry is not valid UTF-8."
+msgstr "La entrada de escritorio no es UTF-8 válida."

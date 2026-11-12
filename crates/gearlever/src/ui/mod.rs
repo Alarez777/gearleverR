@@ -60,6 +60,9 @@ const RETRY_BUDGET: Duration = update::DEFAULT_RETRY_BUDGET;
 /// How long the green check stays visible before the row moves to the installed list.
 const SINGLE_UPDATE_CHECK_DURATION: Duration = Duration::from_secs(1);
 
+/// How long an error toast stays visible, in seconds.
+const ERROR_TOAST_TIMEOUT_SECS: u32 = 10;
+
 /// Application name used by the main window and its header.
 const APP_NAME: &str = "Gear LeverR";
 
@@ -606,8 +609,14 @@ impl Component for AppModel {
                 self.files_chosen(widgets, &sender, paths, LoadSource::Chosen);
             }
             Msg::FilesLoaded(loaded, errors) => {
-                for error in errors {
-                    Self::toast(widgets, &error);
+                // Only the first error gets the longer timeout; queueing one
+                // long toast per file would keep the overlay busy for minutes.
+                for (index, error) in errors.into_iter().enumerate() {
+                    if index == 0 {
+                        Self::error_toast(widgets, &error);
+                    } else {
+                        Self::toast(widgets, &error);
+                    }
                 }
 
                 let foreign: Vec<String> = if loaded.len() == 1 {
@@ -2579,11 +2588,24 @@ impl AppModel {
                                 } else {
                                     format!(" ({arch})")
                                 };
-                                errors.push(format!("{}: {error}{suffix}", path.display()));
+                                tracing::warn!(
+                                    path = %path.display(),
+                                    %error,
+                                    "cannot read the AppImage metadata"
+                                );
+                                errors
+                                    .push(format!("{}{suffix}", load_error_message(&path, &error)));
                             }
                         }
                     }
-                    Err(error) => errors.push(format!("{}: {error}", path.display())),
+                    Err(error) => {
+                        tracing::warn!(
+                            path = %path.display(),
+                            %error,
+                            "cannot open the AppImage"
+                        );
+                        errors.push(load_error_message(&path, &error));
+                    }
                 }
             }
 
@@ -5024,6 +5046,13 @@ impl AppModel {
         widgets.toast.add_toast(adw::Toast::new(message));
     }
 
+    /// Shows an error toast long enough to read it.
+    fn error_toast(widgets: &Widgets, message: &str) {
+        let toast = adw::Toast::new(message);
+        toast.set_timeout(ERROR_TOAST_TIMEOUT_SECS);
+        widgets.toast.add_toast(toast);
+    }
+
     #[expect(
         clippy::too_many_lines,
         reason = "the shell is assembled once, in one place"
@@ -6272,6 +6301,31 @@ fn details_header(
     header.upcast()
 }
 
+/// Builds a short, readable message for an AppImage that failed to load.
+///
+/// The toast is narrow, so the full path is left out and only the file name is
+/// shown. Errors that carry their own path are reduced to their cause; the
+/// caller logs the detailed error with the full path.
+#[must_use]
+fn load_error_message(path: &Path, error: &CoreError) -> String {
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    );
+
+    let detail = match error {
+        CoreError::MissingExtractor(_) => {
+            t("No extractor is available to read this AppImage. Install dwarfsextract or 7zz.")
+        }
+        CoreError::NotAnAppImage { .. } => t("Not an AppImage"),
+        CoreError::MissingDesktopEntry(_) => t("The AppImage does not contain a .desktop file."),
+        CoreError::DesktopEntryNotUtf8(_) => t("The desktop entry is not valid UTF-8."),
+        _ => error.to_string(),
+    };
+
+    format!("{detail} — {name}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -6334,6 +6388,39 @@ mod tests {
             },
             installed: None,
         }
+    }
+
+    #[test]
+    fn puts_the_load_error_before_the_file_name() {
+        let path = Path::new("/home/tester/Descargas/Programs/Ghostty-1.4.0-x86_64.AppImage");
+        let error = CoreError::MissingExtractor(path.to_path_buf());
+
+        let message = load_error_message(path, &error);
+
+        assert!(
+            message.starts_with(&t(
+                "No extractor is available to read this AppImage. Install dwarfsextract or 7zz."
+            )),
+            "{message}"
+        );
+        assert!(
+            message.ends_with("— Ghostty-1.4.0-x86_64.AppImage"),
+            "{message}"
+        );
+        assert!(!message.contains("/home/tester/Descargas"), "{message}");
+    }
+
+    #[test]
+    fn falls_back_to_the_path_when_it_has_no_file_name() {
+        let path = Path::new("/");
+        let error = CoreError::NotAnAppImage {
+            path: path.to_path_buf(),
+            magic: [0, 0, 0],
+        };
+
+        let message = load_error_message(path, &error);
+
+        assert_eq!(message, format!("{} — /", t("Not an AppImage")));
     }
 
     #[test]
