@@ -398,8 +398,8 @@ fn install_command_for(component: FuseComponent, release: &OsRelease) -> Option<
     if release.is_family("suse") {
         return Some(match component {
             FuseComponent::Mount => "sudo zypper install fuse3".to_owned(),
-            FuseComponent::Legacy => "sudo zypper install fuse".to_owned(),
-            FuseComponent::All => "sudo zypper install fuse3 fuse".to_owned(),
+            FuseComponent::Legacy => "sudo zypper install fuse libfuse2".to_owned(),
+            FuseComponent::All => "sudo zypper install fuse3 fuse libfuse2".to_owned(),
         });
     }
 
@@ -618,8 +618,12 @@ mod tests {
             Some("sudo pacman -S fuse3 fuse2")
         );
         assert_eq!(
+            install_command_for(FuseComponent::Legacy, &suse).as_deref(),
+            Some("sudo zypper install fuse libfuse2")
+        );
+        assert_eq!(
             install_command_for(FuseComponent::All, &suse).as_deref(),
-            Some("sudo zypper install fuse3 fuse")
+            Some("sudo zypper install fuse3 fuse libfuse2")
         );
         assert_eq!(
             install_command_for(FuseComponent::All, &alpine).as_deref(),
