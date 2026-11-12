@@ -280,6 +280,12 @@ struct SingleUpdateRow {
     ring: util::CircularProgress,
 }
 
+/// Widgets and update facts produced while building a details page.
+struct DetailsBuild {
+    single_row: Option<SingleUpdateRow>,
+    can_check_updates: bool,
+}
+
 /// Action shown at the end of a row of the list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RowAction {
@@ -308,6 +314,7 @@ enum Msg {
     ArchDecision(bool),
     DragActive(bool),
     CheckUpdates,
+    /// Checks one app whose update source was validated by the caller.
     CheckAppUpdates(PathBuf),
     UpdateCheckStarted(usize),
     UpdateChecked(PathBuf, bool, Option<Arc<dyn update::UpdateManager>>),
@@ -428,6 +435,8 @@ struct AppModel {
     page: Page,
     details: Option<DetailsItem>,
     details_source: Option<ManagerKind>,
+    /// Whether the open details page has a usable update source.
+    details_can_check_updates: bool,
     search: String,
     updates: HashSet<PathBuf>,
     managers: HashMap<PathBuf, Arc<dyn update::UpdateManager>>,
@@ -688,11 +697,6 @@ impl Component for AppModel {
             }
             Msg::CheckUpdates => Self::start_update_check(self, widgets, &sender, None),
             Msg::CheckAppUpdates(path) => {
-                if self.config.updates_disabled(&path)
-                    || !has_update_source(&path, &self.config.update_manager(&path))
-                {
-                    return;
-                }
                 if self.checking {
                     if self
                         .check_target
@@ -1716,7 +1720,7 @@ impl Component for AppModel {
                             Self::rebuild_list(self, widgets, &sender);
                         }
 
-                        if enabled {
+                        if enabled && has_update_source(&path, &self.config.update_manager(&path)) {
                             sender.input(Msg::CheckAppUpdates(path));
                         }
                     }
@@ -1939,6 +1943,7 @@ impl AppModel {
             page: Page::List,
             details: None,
             details_source: None,
+            details_can_check_updates: false,
             search: String::new(),
             updates: HashSet::new(),
             managers: HashMap::new(),
@@ -1996,7 +2001,7 @@ impl AppModel {
 
     /// Requests an update check for the installed app whose details are open.
     fn request_details_update_check(&self, sender: &ComponentSender<Self>) {
-        if self.details_uses_minimal_ui() {
+        if !self.details_can_check_updates {
             return;
         }
 
@@ -2979,6 +2984,7 @@ impl AppModel {
         if self.page == Page::Details {
             self.single_row = None;
         }
+        self.details_can_check_updates = false;
 
         let Some(item) = &self.details else {
             return;
@@ -3007,18 +3013,22 @@ impl AppModel {
         content.set_margin_start(24);
         content.set_margin_end(24);
 
-        let single_row = match item {
+        let build = match item {
             DetailsItem::Installed(app) => {
                 self.build_installed_details(app, appimage.as_ref(), &content, sender)
             }
             DetailsItem::Candidate(candidate) => {
                 Self::build_candidate_details(candidate, &content, sender);
-                None
+                DetailsBuild {
+                    single_row: None,
+                    can_check_updates: false,
+                }
             }
         };
         if self.page == Page::Details {
-            self.single_row = single_row;
+            self.single_row = build.single_row;
         }
+        self.details_can_check_updates = build.can_check_updates;
 
         let clamp = adw::Clamp::builder()
             .maximum_size(600)
@@ -3037,7 +3047,7 @@ impl AppModel {
         appimage: Option<&AppImage>,
         content: &gtk::Box,
         sender: &ComponentSender<Self>,
-    ) -> Option<SingleUpdateRow> {
+    ) -> DetailsBuild {
         let reloaded = self
             .reloaded
             .as_ref()
@@ -3068,6 +3078,10 @@ impl AppModel {
                 &self.config.update_manager(&app.image_path),
             ))
         };
+        let can_check_updates = !self.config.updates_disabled(&app.image_path)
+            && update_source
+                .as_ref()
+                .is_some_and(source_allows_update_check);
         let mut pills = Vec::new();
         if !minimal {
             if let Some(version) = version {
@@ -3144,7 +3158,10 @@ impl AppModel {
         content.append(&actions);
 
         if minimal {
-            return single_row;
+            return DetailsBuild {
+                single_row,
+                can_check_updates,
+            };
         }
 
         let reload = adw::ActionRow::builder()
@@ -3286,7 +3303,10 @@ impl AppModel {
             current_arguments,
         ));
 
-        single_row
+        DetailsBuild {
+            single_row,
+            can_check_updates,
+        }
     }
 
     fn build_candidate_details(
@@ -6452,6 +6472,11 @@ fn update_source_pills(source: &Result<Option<update::SourceInfo>, CoreError>) -
     }
 }
 
+/// Returns whether an update source is complete enough to check.
+fn source_allows_update_check(source: &Result<Option<update::SourceInfo>, CoreError>) -> bool {
+    matches!(source, Ok(Some(info)) if info.valid)
+}
+
 /// Returns whether an AppImage has a complete update source to check.
 fn has_update_source(image: &Path, manager: &BTreeMap<String, String>) -> bool {
     match update::source_info(image, manager) {
@@ -6675,15 +6700,30 @@ mod tests {
 
     #[test]
     fn only_checks_complete_update_sources() {
-        let valid = BTreeMap::from([
+        let valid_config = BTreeMap::from([
             ("manager".to_owned(), "GithubUpdater".to_owned()),
             ("repo".to_owned(), "owner/repo".to_owned()),
             ("repo_filename".to_owned(), "App.AppImage".to_owned()),
         ]);
-        assert!(has_update_source(Path::new("/missing"), &valid));
+        assert!(has_update_source(Path::new("/missing"), &valid_config));
+        let valid =
+            update::source_info(Path::new("/missing"), &valid_config).expect("configured source");
+        assert!(source_allows_update_check(&Ok(valid)));
 
-        let incomplete = BTreeMap::from([("manager".to_owned(), "GithubUpdater".to_owned())]);
-        assert!(!has_update_source(Path::new("/missing"), &incomplete));
+        let incomplete_config =
+            BTreeMap::from([("manager".to_owned(), "GithubUpdater".to_owned())]);
+        assert!(!has_update_source(
+            Path::new("/missing"),
+            &incomplete_config
+        ));
+        let incomplete = update::source_info(Path::new("/missing"), &incomplete_config)
+            .expect("configured source");
+        assert!(!source_allows_update_check(&Ok(incomplete)));
+
+        assert!(!source_allows_update_check(&Ok(None)));
+        assert!(!source_allows_update_check(&Err(CoreError::InvalidElf(
+            "bad header"
+        ))));
     }
 
     #[test]
