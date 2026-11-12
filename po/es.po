@@ -578,100 +578,273 @@ msgstr "1 actualización falló"
 msgid "{count} updates failed"
 msgstr "{count} actualizaciones fallaron"
 
-#: crates/gearlever/src/ui/mod.rs:2889
+msgid "The FUSE device is not available"
+msgstr "El dispositivo FUSE no está disponible"
+
+msgid ""
+"Gear LeverR can still start by extracting itself, but AppImages that need "
+"FUSE will not run."
+msgstr ""
+"Gear LeverR puede seguir iniciándose extrayéndose a sí mismo, pero las "
+"AppImages que necesitan FUSE no se ejecutarán."
+
+msgid "Load the fuse kernel module with:"
+msgstr "Carga el módulo del kernel de FUSE con:"
+
+msgid "Load the fuse kernel module and install FUSE with:"
+msgstr "Carga el módulo del kernel de FUSE e instala FUSE con:"
+
+msgid ""
+"Load the fuse kernel module and install FUSE with your distribution's "
+"package manager."
+msgstr ""
+"Carga el módulo del kernel de FUSE e instala FUSE con el gestor de paquetes "
+"de tu distribución."
+
+msgid "FUSE 2 and FUSE 3 are not available"
+msgstr "FUSE 2 y FUSE 3 no están disponibles"
+
+msgid "FUSE 2 and FUSE 3 support is incomplete"
+msgstr "El soporte de FUSE 2 y FUSE 3 está incompleto"
+
+msgid "Install FUSE 2 and FUSE 3 with:"
+msgstr "Instala FUSE 2 y FUSE 3 con:"
+
+msgid "Some AppImages may not start until both FUSE versions are installed."
+msgstr ""
+"Algunas AppImages pueden no iniciarse hasta que se instalen ambas versiones "
+"de FUSE."
+
+msgid "FUSE 2 support is not available"
+msgstr "El soporte de FUSE 2 no está disponible"
+
+msgid "FUSE 3 support is not available"
+msgstr "El soporte de FUSE 3 no está disponible"
+
+msgid ""
+"AppImages built with the newer runtime may not start. Gear LeverR can still "
+"use FUSE 2."
+msgstr ""
+"Las AppImages creadas con el runtime más reciente pueden no iniciarse. Gear "
+"LeverR puede seguir usando FUSE 2."
+
+msgid "Install FUSE 3 with:"
+msgstr "Instala FUSE 3 con:"
+
+msgid ""
+"AppImages built with the older runtime may not start. Gear LeverR itself "
+"uses FUSE 3 and does not need it."
+msgstr ""
+"Las AppImages creadas con el runtime antiguo pueden no iniciarse. Gear "
+"LeverR usa FUSE 3 y no lo necesita."
+
+msgid "Install the FUSE 2 compatibility packages with:"
+msgstr "Instala los paquetes de compatibilidad con FUSE 2 con:"
+
+msgid "Install it with your distribution's package manager."
+msgstr "Instálalo con el gestor de paquetes de tu distribución."
+
+msgid "Learn more"
+msgstr "Más información"
+
+msgid "Running in extraction mode"
+msgstr "Ejecutándose en modo extracción"
+
+msgid "Check FUSE"
+msgstr "Comprobar FUSE"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Mounting"
+msgstr "Montaje"
+
+msgid "Gear LeverR needs FUSE to mount the AppImage instead of extracting it."
+msgstr ""
+"Gear LeverR necesita FUSE para montar la AppImage en lugar de extraerla."
+
+msgid "FUSE device"
+msgstr "Dispositivo FUSE"
+
+msgid "The kernel device AppImages use to mount their filesystem."
+msgstr ""
+"El dispositivo del kernel que usan las AppImages para montar su sistema de "
+"archivos."
+
+msgid "FUSE 3"
+msgstr "FUSE 3"
+
+msgid "The fusermount3 helper. Gear LeverR can use it or fusermount."
+msgstr ""
+"La herramienta fusermount3. Gear LeverR puede usarla o usar fusermount."
+
+msgid "FUSE 2"
+msgstr "FUSE 2"
+
+msgid ""
+"Needed by AppImages built with the older runtime. Gear LeverR does not use "
+"it."
+msgstr ""
+"Lo necesitan las AppImages creadas con el runtime antiguo. Gear LeverR no lo "
+"usa."
+
+msgid "FUSE documentation"
+msgstr "Documentación de FUSE"
+
+msgid "How to install FUSE on your distribution"
+msgstr "Cómo instalar FUSE en tu distribución"
+
+msgid "Detected"
+msgstr "Detectado"
+
+msgid "Not detected"
+msgstr "No detectado"
+
+msgid "Running from"
+msgstr "Ejecutándose desde"
+
+msgid "Mounted"
+msgstr "Montada"
+
+msgid "The AppImage filesystem is mounted through FUSE."
+msgstr "El sistema de archivos de la AppImage está montado mediante FUSE."
+
+msgid "Extracted"
+msgstr "Extraída"
+
+msgid "Gear LeverR extracted the AppImage to a temporary directory."
+msgstr "Gear LeverR extrajo la AppImage a un directorio temporal."
+
+msgid "Not an AppImage"
+msgstr "No es una AppImage"
+
+msgid "Gear LeverR is not running from an AppImage."
+msgstr "Gear LeverR no se está ejecutando desde una AppImage."
+
+msgid "Unknown"
+msgstr "Desconocido"
+
+msgid "Could not check how Gear LeverR was started."
+msgstr "No se pudo comprobar cómo se inició Gear LeverR."
+
+msgid "AppImage dependencies"
+msgstr "Dependencias para AppImages"
+
+msgid ""
+"FUSE lets AppImages run without extracting them. FUSE 2 is only needed by "
+"older AppImages."
+msgstr ""
+"FUSE permite ejecutar las AppImages sin extraerlas. FUSE 2 solo lo necesitan "
+"las AppImages antiguas."
+
+msgid "Recheck"
+msgstr "Revisar"
+
+msgid "Recheck dependencies"
+msgstr "Volver a comprobar las dependencias"
+
+msgid "Resolve the FUSE issues first"
+msgstr "Resuelve primero los problemas de FUSE"
+
+msgid "Dependencies are ready"
+msgstr "Las dependencias están listas"
+
+msgid "Some dependencies are still missing"
+msgstr "Todavía faltan algunas dependencias"
+
+#: crates/gearlever/src/ui/mod.rs:3122
 msgid "Add a website"
 msgstr "Agregar un sitio web"
 
-#: crates/gearlever/src/ui/mod.rs:3122
+#: crates/gearlever/src/ui/mod.rs:3357
 msgid "Add or customize environment for this application"
 msgstr "Añadir o personalizar el entorno para esta aplicación"
 
-#: crates/gearlever/src/ui/mod.rs:3621 crates/gearlever/src/ui/welcome.rs:134
+#: crates/gearlever/src/ui/mod.rs:3856 crates/gearlever/src/ui/welcome.rs:190
 msgid "AppImage default location"
 msgstr "Ubicación por defecto de la AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:2442 crates/gearlever/src/ui/mod.rs:2475
-#: crates/gearlever/src/ui/mod.rs:3642 crates/gearlever/src/ui/mod.rs:4228
-#: crates/gearlever/src/ui/mod.rs:4275 crates/gearlever/src/ui/mod.rs:4416
-#: crates/gearlever/src/ui/mod.rs:4454 crates/gearlever/src/ui/welcome.rs:157
+#: crates/gearlever/src/ui/mod.rs:2595 crates/gearlever/src/ui/mod.rs:2628
+#: crates/gearlever/src/ui/mod.rs:3877 crates/gearlever/src/ui/mod.rs:4634
+#: crates/gearlever/src/ui/mod.rs:4681 crates/gearlever/src/ui/mod.rs:4822
+#: crates/gearlever/src/ui/mod.rs:4860 crates/gearlever/src/ui/welcome.rs:213
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: crates/gearlever/src/ui/mod.rs:3403 crates/gearlever/src/ui/mod.rs:4598
-#: crates/gearlever/src/ui/mod.rs:4605 crates/gearlever/src/ui/mod.rs:4807
+#: crates/gearlever/src/ui/mod.rs:3638
 msgid "Cancel update"
 msgstr "Cancelar actualización"
 
-#: crates/gearlever/src/ui/mod.rs:676 crates/gearlever/src/ui/mod.rs:2029
-#: crates/gearlever/src/ui/mod.rs:4687
+#: crates/gearlever/src/ui/mod.rs:729 crates/gearlever/src/ui/mod.rs:2182
+#: crates/gearlever/src/ui/mod.rs:5096
 msgid "Check for updates"
 msgstr "Buscar actualizaciones"
 
-#: crates/gearlever/src/ui/mod.rs:3844 crates/gearlever/src/ui/welcome.rs:201
+#: crates/gearlever/src/ui/mod.rs:4079 crates/gearlever/src/ui/welcome.rs:257
 msgid "Check updates on system startup"
 msgstr "Comprobar actualizaciones al iniciar el sistema"
 
-#: crates/gearlever/src/ui/mod.rs:1904
+#: crates/gearlever/src/ui/mod.rs:2057
 msgid "Checking updates..."
 msgstr "Comprobando actualizaciones..."
 
-#: crates/gearlever/src/ui/mod.rs:4051
+#: crates/gearlever/src/ui/mod.rs:4286
 msgid "Clone AppImages into the destination folder"
 msgstr "Clonar AppImages hacia la carpeta destinada"
 
-#: crates/gearlever/src/ui/mod.rs:3548 crates/gearlever/src/ui/welcome.rs:101
+#: crates/gearlever/src/ui/mod.rs:3783 crates/gearlever/src/ui/welcome.rs:157
 msgid "Close"
 msgstr "Cerrar"
 
-#: crates/gearlever/src/ui/mod.rs:2844
+#: crates/gearlever/src/ui/mod.rs:3077
 msgid "Command line arguments"
 msgstr "Argumentos de la línea de comandos"
 
-#: crates/gearlever/src/ui/mod.rs:4253
+#: crates/gearlever/src/ui/mod.rs:4659
 msgid "Conflict with \"{app_name}\""
 msgstr "Conflicto con \"{app_name}\""
 
-#: crates/gearlever/src/ui/mod.rs:4069
+#: crates/gearlever/src/ui/mod.rs:4306
 msgid "Debugging"
 msgstr "Depurando"
 
-#: crates/gearlever/src/ui/mod.rs:3007
+#: crates/gearlever/src/ui/mod.rs:3242
 msgid "Default"
 msgstr "Por defecto"
 
-#: crates/gearlever/src/ui/mod.rs:4226
+#: crates/gearlever/src/ui/mod.rs:4632
 msgid "Do you really want to remove this app?"
 msgstr "¿Realmente desea eliminar esta aplicación?"
 
-#: crates/gearlever/src/ui/mod.rs:4742
+#: crates/gearlever/src/ui/mod.rs:5151
 msgid "Drag and drop an AppImage here or click on the \"+\" icon."
 msgstr "Arrastra y suelta una AppImage aqui o da click al icono \"+\"."
 
-#: crates/gearlever/src/ui/mod.rs:4828
+#: crates/gearlever/src/ui/mod.rs:5230
 msgid "Drop your file here"
 msgstr "Suelta tu archivo aqui"
 
-#: crates/gearlever/src/ui/mod.rs:4071
+#: crates/gearlever/src/ui/mod.rs:4308
 msgid "Enable debug logs"
 msgstr "Habilitar registros de depuración"
 
-#: crates/gearlever/src/ui/mod.rs:3121
+#: crates/gearlever/src/ui/mod.rs:3356
 msgid "Environment variables"
 msgstr "Variables de entorno"
 
-#: crates/gearlever/src/ui/mod.rs:4021 crates/gearlever/src/ui/welcome.rs:177
+#: crates/gearlever/src/ui/mod.rs:4256 crates/gearlever/src/ui/welcome.rs:233
 msgid "File management"
 msgstr "Gestión de archivos"
 
-#: crates/gearlever/src/ui/mod.rs:4669
+#: crates/gearlever/src/ui/mod.rs:5078
 msgid "Filter installed applications"
 msgstr "Filtrar aplicaciones instaladas"
 
-#: crates/gearlever/src/ui/mod.rs:4741
+#: crates/gearlever/src/ui/mod.rs:5150
 msgid "Get started"
 msgstr "Empezar"
 
-#: crates/gearlever/src/ui/mod.rs:3681
+#: crates/gearlever/src/ui/mod.rs:3916
 msgid ""
 "If enabled, the app will try to load an Appimage without using the built-in "
 "appimage-extract command.\n"
@@ -683,80 +856,80 @@ msgstr ""
 "Desactívelo solo si confía en sus fuentes: las aplicaciones maliciosas "
 "podrían ejecutar código al cargar los metadatos."
 
-#: crates/gearlever/src/ui/mod.rs:2581 crates/gearlever/src/ui/mod.rs:4681
+#: crates/gearlever/src/ui/mod.rs:2757 crates/gearlever/src/ui/mod.rs:5090
 msgid "Installed applications"
 msgstr "Aplicaciones instaladas"
 
-#: crates/gearlever/src/ui/welcome.rs:40
+#: crates/gearlever/src/ui/welcome.rs:56
 msgid "Installing..."
 msgstr "Instalando..."
 
-#: crates/gearlever/src/ui/mod.rs:2200
+#: crates/gearlever/src/ui/mod.rs:2353
 msgid "Integrated {done} of {total}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:4271
+#: crates/gearlever/src/ui/mod.rs:4677
 msgid "Keep both"
 msgstr "Mantener ambas"
 
-#: crates/gearlever/src/ui/mod.rs:4052
+#: crates/gearlever/src/ui/mod.rs:4287
 msgid "Keep the original file and create a copy in the destination folder"
 msgstr "Mantiene el archivo original y crea una copia en la otra carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:4963
+#: crates/gearlever/src/ui/mod.rs:5364
 msgid "Key"
 msgstr "Clave"
 
-#: crates/gearlever/src/ui/mod.rs:2770 crates/gearlever/src/ui/mod.rs:2959
+#: crates/gearlever/src/ui/mod.rs:2990 crates/gearlever/src/ui/mod.rs:3194
 msgid "Launch"
 msgstr "Lanzar"
 
-#: crates/gearlever/src/ui/mod.rs:3003
+#: crates/gearlever/src/ui/mod.rs:3238
 msgid "Manage update details for this application"
 msgstr "Gestionar los datos de actualización de esta aplicación"
 
-#: crates/gearlever/src/ui/mod.rs:4046 crates/gearlever/src/ui/welcome.rs:180
+#: crates/gearlever/src/ui/mod.rs:4281 crates/gearlever/src/ui/welcome.rs:236
 msgid "Move AppImages into the destination folder"
 msgstr "Mueve las AppImages a la carpeta destinada"
 
-#: crates/gearlever/src/ui/mod.rs:2966
+#: crates/gearlever/src/ui/mod.rs:3201
 msgid "Move to the app menu"
 msgstr "Mover al menu de aplicaciones"
 
-#: crates/gearlever/src/ui/mod.rs:4057
+#: crates/gearlever/src/ui/mod.rs:4292
 msgid "Naming conventions"
 msgstr "Convenciones de nomenclatura"
 
-#: crates/gearlever/src/ui/mod.rs:1145
+#: crates/gearlever/src/ui/mod.rs:1216
 msgid "No updates available"
 msgstr "No hay actualizaciones disponibles"
 
-#: crates/gearlever/src/ui/mod.rs:2443 crates/gearlever/src/ui/mod.rs:2651
+#: crates/gearlever/src/ui/mod.rs:2596 crates/gearlever/src/ui/mod.rs:2831
 msgid "Open"
 msgstr "Abrir"
 
-#: crates/gearlever/src/ui/mod.rs:2834
+#: crates/gearlever/src/ui/mod.rs:3067
 msgid "Open Folder"
 msgstr "Abrir carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:2898
+#: crates/gearlever/src/ui/mod.rs:3131
 msgid "Open URL"
 msgstr "Abrir URL"
 
-#: crates/gearlever/src/ui/mod.rs:2523 crates/gearlever/src/ui/mod.rs:4623
+#: crates/gearlever/src/ui/mod.rs:2676 crates/gearlever/src/ui/mod.rs:5032
 msgid "Open a new AppImage"
 msgstr "Abrir una nueva AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:2828
+#: crates/gearlever/src/ui/mod.rs:3061
 msgid "Path"
 msgstr "Directorio"
 
-#: crates/gearlever/src/ui/mod.rs:3673
+#: crates/gearlever/src/ui/mod.rs:3908
 msgid "Preview new apps in a minimal UI"
 msgstr ""
 "Previsualiza nuevas aplicaciones en una interfaz de usuario minimalista"
 
-#: crates/gearlever/src/ui/mod.rs:3845
+#: crates/gearlever/src/ui/mod.rs:4080
 msgid ""
 "Receive a notification when a new update is detected; updates will not be "
 "installed automatically"
@@ -764,70 +937,70 @@ msgstr ""
 "Recibir una notificación cuando se detecte una nueva actualización; las "
 "actualizaciones no se instalarán automáticamente"
 
-#: crates/gearlever/src/ui/mod.rs:4047
+#: crates/gearlever/src/ui/mod.rs:4282
 msgid "Reduce disk usage"
 msgstr "Reducir uso del disco"
 
-#: crates/gearlever/src/ui/mod.rs:2778 crates/gearlever/src/ui/mod.rs:4229
+#: crates/gearlever/src/ui/mod.rs:2998 crates/gearlever/src/ui/mod.rs:4635
 msgid "Remove"
 msgstr "Eliminar"
 
-#: crates/gearlever/src/ui/mod.rs:4267
+#: crates/gearlever/src/ui/mod.rs:4673
 msgid "Replace"
 msgstr "Remplazar"
 
-#: crates/gearlever/src/ui/mod.rs:3075 crates/gearlever/src/ui/mod.rs:3139
+#: crates/gearlever/src/ui/mod.rs:3310 crates/gearlever/src/ui/mod.rs:3374
 msgid "Save"
 msgstr "Guardar"
 
-#: crates/gearlever/src/ui/mod.rs:3629 crates/gearlever/src/ui/mod.rs:3637
-#: crates/gearlever/src/ui/welcome.rs:147
-#: crates/gearlever/src/ui/welcome.rs:152
+#: crates/gearlever/src/ui/mod.rs:3864 crates/gearlever/src/ui/mod.rs:3872
+#: crates/gearlever/src/ui/welcome.rs:203
+#: crates/gearlever/src/ui/welcome.rs:208
 msgid "Select a folder"
 msgstr "Selecciona una carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:3014
+#: crates/gearlever/src/ui/mod.rs:3249
 msgid "Select the source type"
 msgstr "Seleccione el tipo de fuente"
 
-#: crates/gearlever/src/ui/welcome.rs:131
+#: crates/gearlever/src/ui/welcome.rs:187
 msgid "Set the AppImage location"
 msgstr "Selecciona la ubicación de la AppImage"
 
-#: crates/gearlever/src/ui/mod.rs:3664
+#: crates/gearlever/src/ui/mod.rs:3899
 msgid "Show integrated AppImages outside the default folder"
 msgstr "Muestra las AppImages integradas fuera de la carpeta por defecto"
 
-#: crates/gearlever/src/ui/mod.rs:3013
+#: crates/gearlever/src/ui/mod.rs:3248
 msgid "Source"
 msgstr "Fuente"
 
-#: crates/gearlever/src/ui/mod.rs:3285 crates/gearlever/src/ui/mod.rs:4257
+#: crates/gearlever/src/ui/mod.rs:3520 crates/gearlever/src/ui/mod.rs:4663
 msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr "Tienes una app con el mismo nombre ¿Como quieres proceder?"
 
-#: crates/gearlever/src/cli.rs:359 crates/gearlever/src/ui/mod.rs:2470
-#: crates/gearlever/src/ui/mod.rs:5816
+#: crates/gearlever/src/cli.rs:364 crates/gearlever/src/ui/mod.rs:2623
+#: crates/gearlever/src/ui/mod.rs:6217
 msgid "This app might not be compatible with your system architecture"
 msgstr ""
 "Es posible que esta aplicación no sea compatible con la arquitectura de tu "
 "sistema"
 
-#: crates/gearlever/src/ui/mod.rs:2999
+#: crates/gearlever/src/ui/mod.rs:3234
 msgid "This application includes update information provided by the developer"
 msgstr ""
 "Esta aplicación incluye información actualizada proporcionada por el "
 "desarrollador"
 
-#: crates/gearlever/src/ui/mod.rs:2651 crates/gearlever/src/ui/mod.rs:2789
+#: crates/gearlever/src/ui/mod.rs:2830 crates/gearlever/src/ui/mod.rs:3019
 msgid "Update"
 msgstr "Actualizar"
 
-#: crates/gearlever/src/ui/mod.rs:4702
+#: crates/gearlever/src/ui/mod.rs:5111
 msgid "Update all"
 msgstr "Actualizar todo"
 
-#: crates/gearlever/src/ui/mod.rs:2806
+#: crates/gearlever/src/ui/mod.rs:3039
 msgid ""
 "Update information like icon, version and description.\n"
 "Useful if the app updated itself."
@@ -835,34 +1008,34 @@ msgstr ""
 "Actualizar información como icono, versión y descripción.\n"
 "Útil si la aplicación se actualizó por si misma."
 
-#: crates/gearlever/src/ui/mod.rs:2985
+#: crates/gearlever/src/ui/mod.rs:3220
 msgid "Update management"
 msgstr "Gestión de la actualización"
 
-#: crates/gearlever/src/ui/mod.rs:3842 crates/gearlever/src/ui/welcome.rs:198
+#: crates/gearlever/src/ui/mod.rs:4077 crates/gearlever/src/ui/welcome.rs:254
 msgid "Updates management"
 msgstr "Gestión de actualizaciones"
 
-#: crates/gearlever/src/ui/mod.rs:4059
+#: crates/gearlever/src/ui/mod.rs:4294
 msgid "Use executable name for integrated terminal apps"
 msgstr "Utilizar nombre ejecutable para aplicaciones de terminal integradas"
 
-#: crates/gearlever/src/ui/mod.rs:3680
+#: crates/gearlever/src/ui/mod.rs:3915
 msgid "Use safe mechanisms to load metadata"
 msgstr "Utilice mecanismos seguros para cargar metadatos"
 
-#: crates/gearlever/src/ui/mod.rs:4968
+#: crates/gearlever/src/ui/mod.rs:5369
 msgid "Value"
 msgstr "Valor"
 
-#: crates/gearlever/src/ui/mod.rs:2891
+#: crates/gearlever/src/ui/mod.rs:3124
 msgid "Website"
 msgstr "Sitio Web"
 
-#: crates/gearlever/src/ui/mod.rs:4639
+#: crates/gearlever/src/ui/mod.rs:5048
 msgid "_Open Log File"
 msgstr "_Abrir archivo Log"
 
-#: crates/gearlever/src/ui/mod.rs:4638
+#: crates/gearlever/src/ui/mod.rs:5047
 msgid "_Preferences"
 msgstr "_Preferencias"

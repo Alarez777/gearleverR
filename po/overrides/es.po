@@ -527,3 +527,147 @@ msgstr "1 actualización falló"
 
 msgid "{count} updates failed"
 msgstr "{count} actualizaciones fallaron"
+
+msgid "The FUSE device is not available"
+msgstr "El dispositivo FUSE no está disponible"
+
+msgid "Gear LeverR can still start by extracting itself, but AppImages that need FUSE will not run."
+msgstr "Gear LeverR puede seguir iniciándose extrayéndose a sí mismo, pero las AppImages que necesitan FUSE no se ejecutarán."
+
+msgid "Load the fuse kernel module with:"
+msgstr "Carga el módulo del kernel de FUSE con:"
+
+msgid "Load the fuse kernel module and install FUSE with:"
+msgstr "Carga el módulo del kernel de FUSE e instala FUSE con:"
+
+msgid "Load the fuse kernel module and install FUSE with your distribution's package manager."
+msgstr "Carga el módulo del kernel de FUSE e instala FUSE con el gestor de paquetes de tu distribución."
+
+msgid "FUSE 2 and FUSE 3 are not available"
+msgstr "FUSE 2 y FUSE 3 no están disponibles"
+
+msgid "FUSE 2 and FUSE 3 support is incomplete"
+msgstr "El soporte de FUSE 2 y FUSE 3 está incompleto"
+
+msgid "Install FUSE 2 and FUSE 3 with:"
+msgstr "Instala FUSE 2 y FUSE 3 con:"
+
+msgid "Some AppImages may not start until both FUSE versions are installed."
+msgstr "Algunas AppImages pueden no iniciarse hasta que se instalen ambas versiones de FUSE."
+
+msgid "FUSE 2 support is not available"
+msgstr "El soporte de FUSE 2 no está disponible"
+
+msgid "FUSE 3 support is not available"
+msgstr "El soporte de FUSE 3 no está disponible"
+
+msgid "AppImages built with the newer runtime may not start. Gear LeverR can still use FUSE 2."
+msgstr "Las AppImages creadas con el runtime más reciente pueden no iniciarse. Gear LeverR puede seguir usando FUSE 2."
+
+msgid "Install FUSE 3 with:"
+msgstr "Instala FUSE 3 con:"
+
+msgid "AppImages built with the older runtime may not start. Gear LeverR itself uses FUSE 3 and does not need it."
+msgstr "Las AppImages creadas con el runtime antiguo pueden no iniciarse. Gear LeverR usa FUSE 3 y no lo necesita."
+
+msgid "Install the FUSE 2 compatibility packages with:"
+msgstr "Instala los paquetes de compatibilidad con FUSE 2 con:"
+
+msgid "Install it with your distribution's package manager."
+msgstr "Instálalo con el gestor de paquetes de tu distribución."
+
+msgid "Learn more"
+msgstr "Más información"
+
+msgid "Running in extraction mode"
+msgstr "Ejecutándose en modo extracción"
+
+msgid "Check FUSE"
+msgstr "Comprobar FUSE"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Mounting"
+msgstr "Montaje"
+
+msgid "Gear LeverR needs FUSE to mount the AppImage instead of extracting it."
+msgstr "Gear LeverR necesita FUSE para montar la AppImage en lugar de extraerla."
+
+msgid "FUSE device"
+msgstr "Dispositivo FUSE"
+
+msgid "The kernel device AppImages use to mount their filesystem."
+msgstr "El dispositivo del kernel que usan las AppImages para montar su sistema de archivos."
+
+msgid "FUSE 3"
+msgstr "FUSE 3"
+
+msgid "The fusermount3 helper. Gear LeverR can use it or fusermount."
+msgstr "La herramienta fusermount3. Gear LeverR puede usarla o usar fusermount."
+
+msgid "FUSE 2"
+msgstr "FUSE 2"
+
+msgid "Needed by AppImages built with the older runtime. Gear LeverR does not use it."
+msgstr "Lo necesitan las AppImages creadas con el runtime antiguo. Gear LeverR no lo usa."
+
+msgid "FUSE documentation"
+msgstr "Documentación de FUSE"
+
+msgid "How to install FUSE on your distribution"
+msgstr "Cómo instalar FUSE en tu distribución"
+
+msgid "Detected"
+msgstr "Detectado"
+
+msgid "Not detected"
+msgstr "No detectado"
+
+msgid "Running from"
+msgstr "Ejecutándose desde"
+
+msgid "Mounted"
+msgstr "Montada"
+
+msgid "The AppImage filesystem is mounted through FUSE."
+msgstr "El sistema de archivos de la AppImage está montado mediante FUSE."
+
+msgid "Extracted"
+msgstr "Extraída"
+
+msgid "Gear LeverR extracted the AppImage to a temporary directory."
+msgstr "Gear LeverR extrajo la AppImage a un directorio temporal."
+
+msgid "Not an AppImage"
+msgstr "No es una AppImage"
+
+msgid "Gear LeverR is not running from an AppImage."
+msgstr "Gear LeverR no se está ejecutando desde una AppImage."
+
+msgid "Unknown"
+msgstr "Desconocido"
+
+msgid "Could not check how Gear LeverR was started."
+msgstr "No se pudo comprobar cómo se inició Gear LeverR."
+
+msgid "AppImage dependencies"
+msgstr "Dependencias para AppImages"
+
+msgid "FUSE lets AppImages run without extracting them. FUSE 2 is only needed by older AppImages."
+msgstr "FUSE permite ejecutar las AppImages sin extraerlas. FUSE 2 solo lo necesitan las AppImages antiguas."
+
+msgid "Recheck"
+msgstr "Revisar"
+
+msgid "Recheck dependencies"
+msgstr "Volver a comprobar las dependencias"
+
+msgid "Resolve the FUSE issues first"
+msgstr "Resuelve primero los problemas de FUSE"
+
+msgid "Dependencies are ready"
+msgstr "Las dependencias están listas"
+
+msgid "Some dependencies are still missing"
+msgstr "Todavía faltan algunas dependencias"

@@ -54,6 +54,10 @@ fi
     pkill -P $pid 2>/dev/null || true
     kill $pid 2>/dev/null || true
     wait $pid 2>/dev/null || true
+    # uruntime runs the extracted application through a supervisor. Killing
+    # only the AppImage PID leaves the window alive for the next check. Anchor
+    # the pattern so it cannot match the text of this script in `bash -c`.
+    pkill -f "^/tmp/appimage_extracted_[^ ]*/(.*/)?gearlever-r" 2>/dev/null || true
     for _ in $(seq 1 20); do
         xwininfo -root -tree 2>/dev/null | grep "Welcome to Gear LeverR" >/dev/null || break
         sleep 0.2
