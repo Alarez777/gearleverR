@@ -26,7 +26,12 @@ const APPIMAGE_VARS: &[&str] = &[
 ];
 
 /// Path lists that may still point inside our own AppDir.
-const PATH_VARS: &[&str] = &["LD_LIBRARY_PATH", "XDG_DATA_DIRS", "GSETTINGS_SCHEMA_DIR"];
+const PATH_VARS: &[&str] = &[
+    "LD_LIBRARY_PATH",
+    "XDG_DATA_DIRS",
+    "GSETTINGS_SCHEMA_DIR",
+    "PATH",
+];
 
 /// Builds a command for a process Gear LeverR starts.
 ///
@@ -191,6 +196,22 @@ mod tests {
         assert!(vars.contains(&(OsStr::new("APPIMAGE"), None)));
         assert!(vars.contains(&(OsStr::new("GTK_DATA_PREFIX"), None)));
         assert!(vars.contains(&(OsStr::new("LD_LIBRARY_PATH"), Some(OsStr::new("/usr/lib")))));
+    }
+
+    #[test]
+    fn drops_the_appdir_from_path() {
+        let environment = environment(&[("PATH", "/tmp/.mount_GearAbc/usr/bin:/usr/bin:/bin")]);
+        let mut command = Command::new("true");
+
+        sanitize(
+            &mut command,
+            &environment,
+            Some(Path::new("/tmp/.mount_GearAbc")),
+        );
+
+        let vars: Vec<(&OsStr, Option<&OsStr>)> = command.get_envs().collect();
+
+        assert!(vars.contains(&(OsStr::new("PATH"), Some(OsStr::new("/usr/bin:/bin")))));
     }
 
     #[test]

@@ -162,6 +162,41 @@ impl FuseComponent {
     }
 }
 
+/// Returns a package-manager command that installs 7-Zip, when known.
+///
+/// 7-Zip is only needed to read ISO9660 payloads. The returned command is a
+/// hint for the user; callers should still explain that `7zz` or `7z` must be
+/// available in `PATH`.
+#[must_use]
+pub fn seven_zip_install_command() -> Option<String> {
+    let release = OsRelease::load()?;
+    seven_zip_install_command_for(&release)
+}
+
+fn seven_zip_install_command_for(release: &OsRelease) -> Option<String> {
+    if release.is_family("debian") || release.is_family("ubuntu") || release.id == "linuxmint" {
+        return Some("sudo apt install 7zip".to_owned());
+    }
+
+    if release.is_family("fedora") || release.is_family("rhel") {
+        return Some("sudo dnf install 7zip".to_owned());
+    }
+
+    if release.is_family("arch") {
+        return Some("sudo pacman -S 7zip".to_owned());
+    }
+
+    if release.is_family("suse") {
+        return Some("sudo zypper install 7zip".to_owned());
+    }
+
+    if release.is_family("alpine") {
+        return Some("sudo apk add 7zip".to_owned());
+    }
+
+    None
+}
+
 /// How the current process was started from an AppImage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -636,6 +671,42 @@ mod tests {
         let unknown = release("ID=plan9\nVERSION_ID=1\n");
 
         assert_eq!(install_command_for(FuseComponent::All, &unknown), None);
+    }
+
+    #[test]
+    fn suggests_7zip_packages() {
+        let debian = release("ID=debian\nVERSION_ID=\"12\"\n");
+        let ubuntu = release("ID=ubuntu\nVERSION_ID=\"24.04\"\n");
+        let mint = release("ID=linuxmint\nVERSION_ID=\"22\"\n");
+        let fedora = release("ID=fedora\nVERSION_ID=40\n");
+        let arch = release("ID=arch\n");
+        let suse = release("ID=opensuse-tumbleweed\nID_LIKE=\"opensuse suse\"\n");
+        let alpine = release("ID=alpine\nVERSION_ID=3.20\n");
+        let unknown = release("ID=plan9\nVERSION_ID=1\n");
+
+        for release in [&debian, &ubuntu, &mint] {
+            assert_eq!(
+                seven_zip_install_command_for(release).as_deref(),
+                Some("sudo apt install 7zip")
+            );
+        }
+        assert_eq!(
+            seven_zip_install_command_for(&fedora).as_deref(),
+            Some("sudo dnf install 7zip")
+        );
+        assert_eq!(
+            seven_zip_install_command_for(&arch).as_deref(),
+            Some("sudo pacman -S 7zip")
+        );
+        assert_eq!(
+            seven_zip_install_command_for(&suse).as_deref(),
+            Some("sudo zypper install 7zip")
+        );
+        assert_eq!(
+            seven_zip_install_command_for(&alpine).as_deref(),
+            Some("sudo apk add 7zip")
+        );
+        assert_eq!(seven_zip_install_command_for(&unknown), None);
     }
 
     #[test]

@@ -31,7 +31,7 @@ use relm4::{adw, gtk};
 
 use gearlever_core::Error as CoreError;
 use gearlever_core::appimage::{
-    AppImage, AppMetadata, ElfArch, MetadataOptions, detect, is_running,
+    AppImage, AppMetadata, ElfArch, MetadataOptions, PayloadKind, detect, is_running,
 };
 use gearlever_core::cache::MetadataCache;
 use gearlever_core::config::Config;
@@ -59,6 +59,9 @@ const RETRY_BUDGET: Duration = update::DEFAULT_RETRY_BUDGET;
 
 /// How long the green check stays visible before the row moves to the installed list.
 const SINGLE_UPDATE_CHECK_DURATION: Duration = Duration::from_secs(1);
+
+/// How long an error toast stays visible, in seconds.
+const ERROR_TOAST_TIMEOUT_SECS: u32 = 10;
 
 /// Application name used by the main window and its header.
 const APP_NAME: &str = "Gear LeverR";
@@ -179,6 +182,21 @@ struct LoadedFile {
     installed: Option<PathBuf>,
 }
 
+/// One AppImage that could not be read, with the message shown to the user.
+#[derive(Debug)]
+struct LoadFailure {
+    path: PathBuf,
+    message: String,
+    kind: LoadFailureKind,
+}
+
+/// Whether a load failure needs the ISO9660 dialog.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoadFailureKind {
+    Iso9660Extractor,
+    Other,
+}
+
 /// Why a selected AppImage will not be integrated in a batch.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum IgnoredReason {
@@ -286,7 +304,7 @@ enum Msg {
     OpenChooser,
     FilesChosen(Vec<PathBuf>),
     OpenedFiles(Vec<PathBuf>),
-    FilesLoaded(Vec<LoadedFile>, Vec<String>),
+    FilesLoaded(Vec<LoadedFile>, Vec<LoadFailure>),
     ArchDecision(bool),
     DragActive(bool),
     CheckUpdates,
@@ -605,10 +623,8 @@ impl Component for AppModel {
             Msg::FilesChosen(paths) => {
                 self.files_chosen(widgets, &sender, paths, LoadSource::Chosen);
             }
-            Msg::FilesLoaded(loaded, errors) => {
-                for error in errors {
-                    Self::toast(widgets, &error);
-                }
+            Msg::FilesLoaded(loaded, failures) => {
+                Self::show_load_failures(widgets, failures);
 
                 let foreign: Vec<String> = if loaded.len() == 1 {
                     loaded
@@ -2579,11 +2595,34 @@ impl AppModel {
                                 } else {
                                     format!(" ({arch})")
                                 };
-                                errors.push(format!("{}: {error}{suffix}", path.display()));
+                                tracing::warn!(
+                                    path = %path.display(),
+                                    %error,
+                                    "cannot read the AppImage metadata"
+                                );
+                                let message =
+                                    format!("{}{suffix}", load_error_message(&path, &error));
+                                errors.push(LoadFailure {
+                                    path,
+                                    message,
+                                    kind: load_failure_kind(&error),
+                                });
                             }
                         }
                     }
-                    Err(error) => errors.push(format!("{}: {error}", path.display())),
+                    Err(error) => {
+                        tracing::warn!(
+                            path = %path.display(),
+                            %error,
+                            "cannot open the AppImage"
+                        );
+                        let message = load_error_message(&path, &error);
+                        errors.push(LoadFailure {
+                            path,
+                            message,
+                            kind: LoadFailureKind::Other,
+                        });
+                    }
                 }
             }
 
@@ -5024,6 +5063,93 @@ impl AppModel {
         widgets.toast.add_toast(adw::Toast::new(message));
     }
 
+    /// Shows an error toast long enough to read it.
+    fn error_toast(widgets: &Widgets, message: &str) {
+        let toast = adw::Toast::new(message);
+        toast.set_timeout(ERROR_TOAST_TIMEOUT_SECS);
+        widgets.toast.add_toast(toast);
+    }
+
+    /// Shows toasts for ordinary failures and a dialog for ISO9660 hints.
+    fn show_load_failures(widgets: &Widgets, failures: Vec<LoadFailure>) {
+        let (iso9660, other): (Vec<_>, Vec<_>) = failures
+            .into_iter()
+            .partition(|failure| failure.kind == LoadFailureKind::Iso9660Extractor);
+
+        // Only the first toast gets the longer timeout; queueing one long
+        // toast per file would keep the overlay busy for minutes.
+        for (index, failure) in other.into_iter().enumerate() {
+            if index == 0 {
+                Self::error_toast(widgets, &failure.message);
+            } else {
+                Self::toast(widgets, &failure.message);
+            }
+        }
+
+        if !iso9660.is_empty() {
+            Self::show_iso9660_dialog(widgets, &iso9660);
+        }
+    }
+
+    /// Explains that an ISO9660 payload needs 7-Zip and lets the user copy the
+    /// package-manager command.
+    fn show_iso9660_dialog(widgets: &Widgets, failures: &[LoadFailure]) {
+        use relm4::gtk::gdk::prelude::*;
+
+        let mut details = String::new();
+        for (index, failure) in failures.iter().enumerate() {
+            if index > 0 {
+                details.push_str("\n\n");
+            }
+            details.push_str(&failure.message);
+            details.push('\n');
+            details.push_str(&failure.path.display().to_string());
+        }
+
+        let label = gtk::Label::new(Some(&details));
+        label.set_wrap(true);
+        label.set_selectable(true);
+        label.set_xalign(0.0);
+
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
+        content.append(&label);
+
+        if let Some(command) = system::seven_zip_install_command() {
+            let entry = gtk::Entry::new();
+            entry.set_text(&command);
+            entry.set_editable(false);
+            entry.set_can_focus(true);
+            entry.set_hexpand(true);
+
+            let copy = gtk::Button::from_icon_name("edit-copy-symbolic");
+            copy.set_tooltip_text(Some(&t("Copy command")));
+            let display = relm4::gtk::prelude::WidgetExt::display(&widgets.window);
+            let clipboard = display.clipboard();
+            let command_for_copy = command;
+            copy.connect_clicked(move |_| {
+                clipboard.set_text(&command_for_copy);
+            });
+
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            row.append(&entry);
+            row.append(&copy);
+            content.append(&row);
+        }
+
+        let dialog = adw::MessageDialog::new(
+            Some(&widgets.window),
+            Some(&t("Cannot read this AppImage")),
+            None,
+        );
+        dialog.set_extra_child(Some(&content));
+        dialog.add_response("close", &t("Close"));
+        dialog.set_close_response("close");
+        dialog.connect_response(None, |dialog: &adw::MessageDialog, _response| {
+            dialog.close();
+        });
+        dialog.present();
+    }
+
     #[expect(
         clippy::too_many_lines,
         reason = "the shell is assembled once, in one place"
@@ -6272,6 +6398,58 @@ fn details_header(
     header.upcast()
 }
 
+/// Builds a short, readable message for an AppImage that failed to load.
+///
+/// The toast is narrow, so the full path is left out and only the file name is
+/// shown. Errors that carry their own path are reduced to their cause; the
+/// caller logs the detailed error with the full path.
+#[must_use]
+fn load_error_message(path: &Path, error: &CoreError) -> String {
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    );
+
+    let detail = match error {
+        CoreError::MissingExtractor { kind, .. } => match kind {
+            PayloadKind::Iso9660 => {
+                t("This AppImage uses an ISO9660 payload. Install 7-Zip (7zz or 7z) to read it.")
+            }
+            PayloadKind::Dwarfs => t(
+                "The bundled DwarFS extractor is missing. Reinstall Gear LeverR or install dwarfsextract.",
+            ),
+            _ => t(
+                "No extractor is available to read this AppImage. Install dwarfsextract or 7-Zip.",
+            ),
+        },
+        CoreError::NotAnAppImage { .. } => t("Not an AppImage"),
+        CoreError::MissingDesktopEntry(_) => t("The AppImage does not contain a .desktop file."),
+        CoreError::DesktopEntryNotUtf8(_) => t("The desktop entry is not valid UTF-8."),
+        CoreError::Io(_) => t("The file could not be read."),
+        CoreError::InvalidElf(_) => t("The AppImage runtime is invalid."),
+        CoreError::Squashfs(_) => t("The AppImage filesystem could not be read."),
+        _ => t("The AppImage could not be read."),
+    };
+
+    format!("{detail} — {name}")
+}
+
+/// Returns whether a load failure needs the ISO9660 install dialog.
+#[must_use]
+fn load_failure_kind(error: &CoreError) -> LoadFailureKind {
+    if matches!(
+        error,
+        CoreError::MissingExtractor {
+            kind: PayloadKind::Iso9660,
+            ..
+        }
+    ) {
+        LoadFailureKind::Iso9660Extractor
+    } else {
+        LoadFailureKind::Other
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -6334,6 +6512,95 @@ mod tests {
             },
             installed: None,
         }
+    }
+
+    #[test]
+    fn puts_the_load_error_before_the_file_name() {
+        let path = Path::new("/home/tester/Descargas/Programs/Ghostty-1.4.0-x86_64.AppImage");
+        let error = CoreError::MissingExtractor {
+            path: path.to_path_buf(),
+            kind: PayloadKind::Dwarfs,
+        };
+
+        let message = load_error_message(path, &error);
+
+        assert!(
+            message.starts_with(&t(
+                "The bundled DwarFS extractor is missing. Reinstall Gear LeverR or install dwarfsextract."
+            )),
+            "{message}"
+        );
+        assert!(
+            message.ends_with("— Ghostty-1.4.0-x86_64.AppImage"),
+            "{message}"
+        );
+        assert!(!message.contains("/home/tester/Descargas"), "{message}");
+    }
+
+    #[test]
+    fn explains_iso9660_before_the_file_name() {
+        let path = Path::new("/home/tester/Descargas/Programs/Legacy.AppImage");
+        let error = CoreError::MissingExtractor {
+            path: path.to_path_buf(),
+            kind: PayloadKind::Iso9660,
+        };
+
+        let message = load_error_message(path, &error);
+
+        assert!(
+            message.starts_with(&t(
+                "This AppImage uses an ISO9660 payload. Install 7-Zip (7zz or 7z) to read it."
+            )),
+            "{message}"
+        );
+        assert!(message.ends_with("— Legacy.AppImage"), "{message}");
+        assert!(!message.contains("/home/tester/Descargas"), "{message}");
+        assert_eq!(load_failure_kind(&error), LoadFailureKind::Iso9660Extractor);
+    }
+
+    #[test]
+    fn generic_load_errors_do_not_leak_the_path() {
+        let path = Path::new("/home/tester/Descargas/Programs/Broken.AppImage");
+        let error = CoreError::InvalidName(path.to_path_buf());
+
+        let message = load_error_message(path, &error);
+
+        assert_eq!(
+            message,
+            format!("{} — Broken.AppImage", t("The AppImage could not be read."))
+        );
+        assert!(!message.contains("/home/tester/Descargas"), "{message}");
+        assert_eq!(load_failure_kind(&error), LoadFailureKind::Other);
+    }
+
+    #[test]
+    fn explains_io_errors_without_the_path() {
+        let path = Path::new("/home/tester/Descargas/Programs/Broken.AppImage");
+        let error = CoreError::Io(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "denied",
+        ));
+
+        let message = load_error_message(path, &error);
+
+        assert_eq!(
+            message,
+            format!("{} — Broken.AppImage", t("The file could not be read."))
+        );
+        assert!(!message.contains("/home/tester/Descargas"), "{message}");
+    }
+
+    #[test]
+    fn falls_back_to_the_path_when_it_has_no_file_name() {
+        let path = Path::new("/");
+        let error = CoreError::NotAnAppImage {
+            path: path.to_path_buf(),
+            magic: [0, 0, 0],
+        };
+
+        let message = load_error_message(path, &error);
+
+        assert_eq!(message, format!("{} — /", t("Not an AppImage")));
     }
 
     #[test]

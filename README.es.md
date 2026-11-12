@@ -60,8 +60,11 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
   esos requisitos. Pulsa **Revisar** después de instalarlos.
 - Probado en Debian 12 y Debian 13. Ubuntu 23.04+, Fedora 38+ y Arch incluyen
   versiones compatibles. **Ubuntu 22.04 no** (GTK 4.6 / Adw 1.1).
-- Para payloads DwarFS o ISO9660 hacen falta `dwarfsextract`/`7zz`; sin ellos la
-  app muestra un error claro.
+- Los payloads DwarFS funcionan sin instalar nada: el AppImage incluye un
+  `dwarfsextract` estático fijado. Los payloads ISO9660 necesitan 7-Zip (`7zz` o
+  `7z`) en el `PATH`; el paquete `7zip` lo proporciona en Debian, Ubuntu, Fedora y
+  Arch. Si ejecutas desde el código fuente o un paquete de la distro, se usa el
+  `dwarfsextract`/`7zz`/`7z` del sistema.
 
 ## Uso
 
@@ -161,9 +164,10 @@ packaging/appimage/build-in-debian12.sh
 El script compila dentro de `rust:1.98-bookworm` y empaqueta las dos variantes en
 `dist/`: `...AppImage` (por defecto, GTK del sistema) y
 `...-gtk-included.AppImage`. La variante `gtk-included` se monta con
-`linuxdeploy` y su plugin de GTK, que se descargan automáticamente. El binario
-`uruntime` fijado también se descarga y verifica antes de empaquetar. Los
-binarios resultantes funcionan también en distros más nuevas.
+`linuxdeploy` y su plugin de GTK, que se descargan automáticamente. El runtime
+`uruntime` y el binario `dwarfsextract` fijados también se descargan y verifican
+antes de empaquetar. Los binarios resultantes funcionan también en distros más
+nuevas.
 
 Si ejecutas el binario directamente (sin AppImage), instala el esquema para que
 las preferencias persistan:
@@ -245,7 +249,7 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 - El tutorial tiene tres páginas (el original tiene cuatro) y no incluye el
   AppImage de demostración.
 - Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.
-- DwarFS e ISO9660 requieren `dwarfsextract` o `7zz` instalados.
+- ISO9660 requiere 7-Zip (`7zz` o `7z`); DwarFS va incluido en el AppImage.
 - Sin FUSE, el AppImage se extrae a `$TMPDIR` en cada arranque. Es más lento y
   necesita un directorio temporal escribible y ejecutable.
 - Las AppImages creadas con el runtime antiguo siguen necesitando `libfuse2`;
@@ -263,3 +267,7 @@ licencia MIT. Su aviso está en `LICENSES/zsync-rs-MIT.txt` y dentro del AppImag
 
 El runtime del AppImage es [uruntime](https://github.com/VHSgunzo/uruntime), con
 licencia MIT. Su aviso está en `LICENSES/uruntime-MIT.txt` y dentro del AppImage.
+
+La lectura de metadatos DwarFS usa [DwarFS](https://github.com/mhx/dwarfs) y su
+herramienta `dwarfsextract`, cuyas librerías de lectura son MIT. Su aviso está en
+`LICENSES/dwarfs-MIT.txt` y dentro del AppImage.
