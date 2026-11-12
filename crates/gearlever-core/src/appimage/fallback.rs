@@ -45,7 +45,10 @@ pub fn read(
         extracted = appimage_extract(image, work_dir)? && has_desktop(work_dir);
     }
     if !extracted {
-        return Err(Error::MissingExtractor(image.to_path_buf()));
+        return Err(Error::MissingExtractor {
+            path: image.to_path_buf(),
+            kind,
+        });
     }
 
     let root = if work_dir.join("squashfs-root").is_dir() {
@@ -86,7 +89,11 @@ fn seven_zip(image: &Path, work_dir: &Path) -> bool {
         "-ir0!.DirIcon",
     ];
 
-    run("7zz", &arguments)
+    // 7zz is the official Linux name; Debian and Ubuntu ship 7z, and some
+    // distributions only provide the reduced 7za binary.
+    ["7zz", "7z", "7za"]
+        .into_iter()
+        .any(|tool| run(tool, &arguments))
 }
 
 fn has_desktop(work_dir: &Path) -> bool {
@@ -123,8 +130,18 @@ fn appimage_extract(image: &Path, work_dir: &Path) -> Result<bool> {
 }
 
 fn run(tool: &str, arguments: &[impl AsRef<std::ffi::OsStr>]) -> bool {
-    match Command::new(tool).args(arguments).status() {
-        Ok(status) => status.success(),
+    match Command::new(tool).args(arguments).output() {
+        Ok(output) => {
+            if !output.status.success() {
+                tracing::debug!(
+                    tool,
+                    status = ?output.status,
+                    stderr = %String::from_utf8_lossy(&output.stderr),
+                    "extractor failed"
+                );
+            }
+            output.status.success()
+        }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             tracing::debug!(tool, "extractor not installed");
             false
@@ -153,6 +170,34 @@ mod tests {
             false,
         );
 
-        assert!(matches!(result, Err(Error::MissingExtractor(_))));
+        assert!(matches!(
+            result,
+            Err(Error::MissingExtractor {
+                kind: PayloadKind::Dwarfs,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn reports_the_iso9660_payload_kind() {
+        let directory = tempfile::tempdir().unwrap();
+        let image = directory.path().join("image.AppImage");
+        fs::write(&image, b"not really an image").unwrap();
+
+        let result = read(
+            &image,
+            PayloadKind::Iso9660,
+            &directory.path().join("work"),
+            false,
+        );
+
+        assert!(matches!(
+            result,
+            Err(Error::MissingExtractor {
+                kind: PayloadKind::Iso9660,
+                ..
+            })
+        ));
     }
 }

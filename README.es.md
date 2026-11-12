@@ -61,9 +61,10 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 - Probado en Debian 12 y Debian 13. Ubuntu 23.04+, Fedora 38+ y Arch incluyen
   versiones compatibles. **Ubuntu 22.04 no** (GTK 4.6 / Adw 1.1).
 - Los payloads DwarFS funcionan sin instalar nada: el AppImage incluye un
-  `dwarfsextract` estático fijado. Los payloads ISO9660 necesitan `7zz` en el
-  `PATH`. Si ejecutas desde el código fuente o un paquete de la distro, se usa el
-  `dwarfsextract`/`7zz` del sistema.
+  `dwarfsextract` estático fijado. Los payloads ISO9660 necesitan 7-Zip (`7zz` o
+  `7z`) en el `PATH`; el paquete `7zip` lo proporciona en Debian, Ubuntu, Fedora y
+  Arch. Si ejecutas desde el código fuente o un paquete de la distro, se usa el
+  `dwarfsextract`/`7zz`/`7z` del sistema.
 
 ## Uso
 
@@ -248,7 +249,7 @@ La extracción SquashFS usa `backhand` en proceso; no se invocan `7zz`,
 - El tutorial tiene tres páginas (el original tiene cuatro) y no incluye el
   AppImage de demostración.
 - Las variables de entorno se editan como líneas `KEY=value`, no fila por fila.
-- ISO9660 requiere `7zz` instalado; DwarFS va incluido en el AppImage.
+- ISO9660 requiere 7-Zip (`7zz` o `7z`); DwarFS va incluido en el AppImage.
 - Sin FUSE, el AppImage se extrae a `$TMPDIR` en cada arranque. Es más lento y
   necesita un directorio temporal escribible y ejecutable.
 - Las AppImages creadas con el runtime antiguo siguen necesitando `libfuse2`;

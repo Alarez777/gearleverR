@@ -66,8 +66,9 @@ updates from six sources, a compatible CLI and the full interface. See
 - Tested on Debian 12 and Debian 13. Ubuntu 23.04+, Fedora 38+ and Arch ship
   compatible versions. **Ubuntu 22.04 does not** (GTK 4.6 / Adw 1.1).
 - DwarFS payloads work out of the box: the AppImage bundles a pinned static
-  `dwarfsextract`. ISO9660 payloads need `7zz` on the `PATH`. Source builds and
-  distro packages fall back to a system `dwarfsextract`/`7zz`.
+  `dwarfsextract`. ISO9660 payloads need 7-Zip (`7zz` or `7z`) on the `PATH`; the
+  `7zip` package provides it on Debian, Ubuntu, Fedora and Arch. Source builds and
+  distro packages fall back to a system `dwarfsextract`/`7zz`/`7z`.
 
 ## Usage
 
@@ -258,7 +259,7 @@ bundled static `dwarfsextract`. The normal path does not invoke `7zz`, `unsquash
   in other languages, new Gear LeverR strings may appear in English until they are
   translated (see `po/`).
 - Environment variables are edited as `KEY=value` lines, not row by row.
-- ISO9660 requires `7zz`; DwarFS is bundled in the AppImage.
+- ISO9660 requires 7-Zip (`7zz` or `7z`); DwarFS is bundled in the AppImage.
 - Without FUSE, the AppImage extracts itself to `$TMPDIR` on every start. This is
   slower and needs a writable, executable temporary directory.
 - AppImages built with the older runtime still need `libfuse2`; Gear LeverR reports

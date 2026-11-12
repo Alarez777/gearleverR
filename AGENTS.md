@@ -43,8 +43,9 @@ Style and API rules come from the skill; do not improvise them.
 - CLI: `clap` (derive). Errors: `thiserror` in the library, `anyhow` only in the binary.
 - SquashFS: `backhand` (no external binaries). DwarFS uses a pinned static
   `dwarfsextract` (v0.15.8, SHA-256 verified) bundled in the AppImage; source builds
-  fall back to the system `dwarfsextract`/`7zz`. ISO9660 still uses the external
-  `7zz` fallback. Running the inspected AppImage itself as an extractor stays gated
+  fall back to the system `dwarfsextract`/`7zz`/`7z`. ISO9660 still uses the
+  external `7zz`/`7z` fallback. Running the inspected AppImage itself as an
+  extractor stays gated
   by the safe-extractor setting.
 - AppImage runtime: `uruntime` v0.8.1 (static SquashFS build, pinned by SHA-256)
   with `URUNTIME_EXTRACT=2`, so the AppImage extracts itself when FUSE is not
