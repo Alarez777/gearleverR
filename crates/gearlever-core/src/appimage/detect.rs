@@ -130,6 +130,19 @@ pub enum PayloadKind {
     Unknown,
 }
 
+impl PayloadKind {
+    /// Returns the short name shown in the interface.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Squashfs => "SquashFS",
+            Self::Dwarfs => "DwarFS",
+            Self::Iso9660 => "ISO9660",
+            Self::Unknown => "Unknown",
+        }
+    }
+}
+
 impl fmt::Display for PayloadKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -139,6 +152,56 @@ impl fmt::Display for PayloadKind {
             Self::Unknown => f.write_str("unknown"),
         }
     }
+}
+
+/// Container facts read from an AppImage in one pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Inspection {
+    pub(crate) image_type: ImageType,
+    pub(crate) payload_offset: u64,
+    pub(crate) payload_kind: PayloadKind,
+    pub(crate) arch: ElfArch,
+}
+
+/// Reads the runtime header and the payload magic with a single file open.
+pub(crate) fn inspect(path: &Path) -> Result<Inspection> {
+    let mut file = File::open(path)?;
+    let mut buffer = [0_u8; 64];
+    let read = file.read(&mut buffer)?;
+    let magic = if read >= MAGIC_OFFSET + 3 {
+        [
+            buffer[MAGIC_OFFSET],
+            buffer[MAGIC_OFFSET + 1],
+            buffer[MAGIC_OFFSET + 2],
+        ]
+    } else {
+        [0, 0, 0]
+    };
+
+    let Some(image_type) = image_type_from_magic(magic) else {
+        return Err(Error::NotAnAppImage {
+            path: path.to_path_buf(),
+            magic,
+        });
+    };
+
+    if read < 4 || buffer[0..4] != [0x7f, b'E', b'L', b'F'] {
+        return Err(Error::InvalidElf("missing ELF magic"));
+    }
+    if read < 64 {
+        return Err(Error::InvalidElf("truncated ELF header"));
+    }
+
+    let header = elf::header_from_bytes(&buffer)?;
+    let payload_offset = header.payload_offset()?;
+    let payload_kind = payload_kind_from_file(&mut file, payload_offset)?;
+
+    Ok(Inspection {
+        image_type,
+        payload_offset,
+        payload_kind,
+        arch: ElfArch::from_machine(header.machine()),
+    })
 }
 
 /// Reads the AppImage revision from the runtime magic.
@@ -161,13 +224,21 @@ pub fn image_type(path: &Path) -> Result<ImageType> {
         [0, 0, 0]
     };
 
-    match magic {
-        [0x41, 0x49, 0x01] => Ok(ImageType::Type1),
-        [0x41, 0x49, 0x02] => Ok(ImageType::Type2),
-        _ => Err(Error::NotAnAppImage {
+    match image_type_from_magic(magic) {
+        Some(kind) => Ok(kind),
+        None => Err(Error::NotAnAppImage {
             path: path.to_path_buf(),
             magic,
         }),
+    }
+}
+
+/// Maps the runtime magic to an AppImage revision.
+fn image_type_from_magic(magic: [u8; 3]) -> Option<ImageType> {
+    match magic {
+        [0x41, 0x49, 0x01] => Some(ImageType::Type1),
+        [0x41, 0x49, 0x02] => Some(ImageType::Type2),
+        _ => None,
     }
 }
 
@@ -202,6 +273,10 @@ pub fn elf_arch(path: &Path) -> Result<ElfArch> {
 /// Returns [`Error::Io`] when the file cannot be read.
 pub fn payload_kind(path: &Path, offset: u64) -> Result<PayloadKind> {
     let mut file = File::open(path)?;
+    payload_kind_from_file(&mut file, offset)
+}
+
+fn payload_kind_from_file(file: &mut File, offset: u64) -> Result<PayloadKind> {
     file.seek(SeekFrom::Start(offset))?;
 
     let mut magic = [0_u8; 8];
@@ -215,7 +290,7 @@ pub fn payload_kind(path: &Path, offset: u64) -> Result<PayloadKind> {
         return Ok(PayloadKind::Dwarfs);
     }
 
-    if is_iso9660(&mut file, offset)? {
+    if is_iso9660(file, offset)? {
         return Ok(PayloadKind::Iso9660);
     }
 
@@ -252,6 +327,39 @@ mod tests {
     fn image_type_names_are_stable() {
         assert_eq!(ImageType::Type1.to_string(), "type 1");
         assert_eq!(ImageType::Type2.to_string(), "type 2");
+    }
+
+    #[test]
+    fn payload_kind_labels_are_stable() {
+        assert_eq!(PayloadKind::Squashfs.label(), "SquashFS");
+        assert_eq!(PayloadKind::Dwarfs.label(), "DwarFS");
+        assert_eq!(PayloadKind::Iso9660.label(), "ISO9660");
+        assert_eq!(PayloadKind::Unknown.label(), "Unknown");
+    }
+
+    #[test]
+    fn inspects_the_container_in_one_pass() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("App.AppImage");
+
+        let mut image = vec![0_u8; 64];
+        image[0..4].copy_from_slice(b"\x7fELF");
+        image[4] = 2; // 64-bit ELF
+        image[5] = 1; // little-endian
+        image[8..11].copy_from_slice(b"AI\x02");
+        image[0x12..0x14].copy_from_slice(&0x3e_u16.to_le_bytes()); // x86-64
+        image[0x28..0x30].copy_from_slice(&64_u64.to_le_bytes()); // section table offset
+        image[0x3a..0x3c].copy_from_slice(&64_u16.to_le_bytes()); // section entry size
+        image.extend_from_slice(b"hsqs");
+        image.extend_from_slice(&[0_u8; 4]);
+        std::fs::write(&path, image).expect("write the fixture");
+
+        let inspection = inspect(&path).expect("inspect the fixture");
+
+        assert_eq!(inspection.image_type, ImageType::Type2);
+        assert_eq!(inspection.payload_offset, 64);
+        assert_eq!(inspection.payload_kind, PayloadKind::Squashfs);
+        assert_eq!(inspection.arch, ElfArch::X86_64);
     }
 
     #[test]
