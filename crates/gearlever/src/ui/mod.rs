@@ -15,7 +15,7 @@ mod util;
 mod welcome;
 
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -445,8 +445,8 @@ struct AppModel {
     check_done: usize,
     /// App checked by the running single-app check, or `None` for a global check.
     check_target: Option<PathBuf>,
-    /// App whose check was requested while another one was running.
-    pending_app_check: Option<PathBuf>,
+    /// Apps whose checks were requested while another one was running.
+    pending_app_checks: VecDeque<PathBuf>,
     pending: Vec<CandidateFile>,
     pending_arch: Option<Vec<LoadedFile>>,
     multi_ignored: Vec<IgnoredCandidate>,
@@ -698,13 +698,11 @@ impl Component for AppModel {
             Msg::CheckUpdates => Self::start_update_check(self, widgets, &sender, None),
             Msg::CheckAppUpdates(path) => {
                 if self.checking {
-                    if self
-                        .check_target
-                        .as_ref()
-                        .is_some_and(|target| target != &path)
-                    {
-                        self.pending_app_check = Some(path);
-                    }
+                    queue_app_check(
+                        &mut self.pending_app_checks,
+                        self.check_target.as_deref(),
+                        path,
+                    );
                     return;
                 }
                 Self::start_update_check(self, widgets, &sender, Some(&path));
@@ -776,7 +774,7 @@ impl Component for AppModel {
                     });
                 Self::rebuild_list(self, widgets, &sender);
 
-                if let Some(path) = self.pending_app_check.take() {
+                if let Some(path) = self.pending_app_checks.pop_front() {
                     Self::start_update_check(self, widgets, &sender, Some(&path));
                 }
             }
@@ -1951,7 +1949,7 @@ impl AppModel {
             check_total: 0,
             check_done: 0,
             check_target: None,
-            pending_app_check: None,
+            pending_app_checks: VecDeque::new(),
             pending: Vec::new(),
             pending_arch: None,
             multi_ignored: Vec::new(),
@@ -2916,7 +2914,7 @@ impl AppModel {
         line.append(&text);
 
         let single_row = if let Some(update) = single {
-            let progress_row = Self::single_update_row(update, &app.name);
+            let progress_row = Self::single_update_row(update, &app.name, UPDATE_STATUS_SIZE);
             line.append(&progress_row.status);
             Some(progress_row)
         } else {
@@ -2947,11 +2945,11 @@ impl AppModel {
     }
 
     /// Builds the stack that replaces the update button while an app updates.
-    fn single_update_row(update: &SingleUpdate, app_name: &str) -> SingleUpdateRow {
+    fn single_update_row(update: &SingleUpdate, app_name: &str, height: i32) -> SingleUpdateRow {
         let status = gtk::Stack::new();
         status.set_transition_type(gtk::StackTransitionType::Crossfade);
         status.set_transition_duration(120);
-        status.set_size_request(24, 24);
+        status.set_size_request(UPDATE_STATUS_SIZE, height);
         status.set_halign(gtk::Align::Center);
         status.set_valign(gtk::Align::Center);
         status.set_margin_end(6);
@@ -3143,7 +3141,7 @@ impl AppModel {
                 .as_ref()
                 .filter(|update| update.path == app.image_path)
             {
-                let row = Self::single_update_row(update, &name);
+                let row = Self::single_update_row(update, &name, ACTION_BUTTON_HEIGHT);
                 actions.append(&row.status);
                 single_row = Some(row);
             } else if self.updates.contains(&app.image_path) {
@@ -3853,7 +3851,7 @@ impl AppModel {
             let status = gtk::Stack::new();
             status.set_transition_type(gtk::StackTransitionType::Crossfade);
             status.set_transition_duration(120);
-            status.set_size_request(24, 24);
+            status.set_size_request(UPDATE_STATUS_SIZE, UPDATE_STATUS_SIZE);
             status.set_halign(gtk::Align::Center);
             status.set_valign(gtk::Align::Center);
             status.set_margin_end(6);
@@ -5933,6 +5931,13 @@ impl FieldWidget {
     }
 }
 
+/// Queues a single-app check unless that app is already running or pending.
+fn queue_app_check(pending: &mut VecDeque<PathBuf>, running: Option<&Path>, path: PathBuf) {
+    if running != Some(path.as_path()) && !pending.contains(&path) {
+        pending.push_back(path);
+    }
+}
+
 #[expect(
     clippy::as_conversions,
     clippy::cast_precision_loss,
@@ -5946,6 +5951,8 @@ fn fraction(done: usize, total: usize) -> f64 {
 const ACTION_BUTTON_WIDTH: i32 = 260;
 /// Height shared by the primary action buttons and Update, 50% above the former 34 px default.
 const ACTION_BUTTON_HEIGHT: i32 = 51;
+/// Size of the inline update status shown in list rows.
+const UPDATE_STATUS_SIZE: i32 = 24;
 /// Spacing between the primary action buttons and the full-width action.
 const ACTION_BUTTON_SPACING: i32 = 10;
 /// Width of the update button under Launch and Remove.
@@ -6735,6 +6742,26 @@ mod tests {
         assert!(!source_allows_update_check(incomplete));
 
         assert!(!source_allows_update_check(None));
+    }
+
+    #[test]
+    fn queues_pending_checks_once_and_survives_global_checks() {
+        let current = PathBuf::from("/tmp/current.appimage");
+        let second = PathBuf::from("/tmp/second.appimage");
+        let third = PathBuf::from("/tmp/third.appimage");
+        let fourth = PathBuf::from("/tmp/fourth.appimage");
+        let mut pending = VecDeque::new();
+
+        queue_app_check(&mut pending, Some(current.as_path()), second.clone());
+        queue_app_check(&mut pending, Some(current.as_path()), second.clone());
+        queue_app_check(&mut pending, Some(current.as_path()), third.clone());
+        queue_app_check(&mut pending, Some(current.as_path()), current.clone());
+        queue_app_check(&mut pending, None, fourth.clone());
+
+        assert_eq!(
+            pending.into_iter().collect::<Vec<_>>(),
+            vec![second, third, fourth]
+        );
     }
 
     #[test]
