@@ -226,6 +226,19 @@ impl fmt::Display for ManagerKind {
     }
 }
 
+/// Update source facts that can be read without contacting the network.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceInfo {
+    /// Kind of update source.
+    pub kind: ManagerKind,
+    /// Whether the configuration has every field the source requires.
+    ///
+    /// Sources embedded by the AppImage developer are treated as complete.
+    pub valid: bool,
+    /// Whether the source can use zsync delta downloads.
+    pub zsync: bool,
+}
+
 /// One configuration field of an update source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigField {
@@ -431,6 +444,54 @@ pub fn resolve(
     }
 
     Ok(None)
+}
+
+/// Describes the update source of an AppImage without contacting the network.
+///
+/// A source is `valid` when the configuration contains the fields it needs.
+/// Sources embedded in the AppImage are considered complete because their
+/// required fields come from the embedded section instead of the configuration.
+///
+/// # Errors
+///
+/// Returns [`Error::UpdateConfig`] when the configuration names an unknown
+/// manager, and [`Error::InvalidElf`] if the embedded section cannot be read.
+pub fn source_info(
+    image: &Path,
+    config: &std::collections::BTreeMap<String, String>,
+) -> Result<Option<SourceInfo>> {
+    let Some(manager) = resolve(image, config, None)? else {
+        return Ok(None);
+    };
+
+    let embedded = !config.contains_key("manager");
+    let valid = embedded || validate_config(manager.kind(), manager.config()).is_ok();
+
+    Ok(Some(SourceInfo {
+        kind: manager.kind(),
+        valid,
+        zsync: supports_zsync(manager.kind(), manager.config(), manager.embedded()),
+    }))
+}
+
+/// Returns whether a source can download a zsync delta.
+fn supports_zsync(
+    kind: ManagerKind,
+    config: &std::collections::BTreeMap<String, String>,
+    embedded: Option<&str>,
+) -> bool {
+    match kind {
+        ManagerKind::StaticFile => embedded.is_some_and(|raw| raw.starts_with("zsync|")),
+        ManagerKind::Github => {
+            embedded.is_some_and(|raw| raw.starts_with("gh-releases-zsync|"))
+                || config.get("repo_filename").is_some_and(|name| {
+                    Path::new(name)
+                        .extension()
+                        .is_some_and(|extension| extension.eq_ignore_ascii_case("zsync"))
+                })
+        }
+        _ => false,
+    }
 }
 
 /// Validates the configuration of an update source before saving it.
@@ -1321,6 +1382,100 @@ mod tests {
         let static_url =
             std::collections::BTreeMap::from([("url".to_owned(), "not-a-url".to_owned())]);
         assert!(validate_config(ManagerKind::StaticFile, &static_url).is_err());
+    }
+
+    fn minimal_elf() -> Vec<u8> {
+        let mut header = vec![0_u8; 64];
+        header[0..4].copy_from_slice(b"\x7fELF");
+        header[4] = 2; // 64-bit ELF
+        header[5] = 1; // little-endian
+        header[0x12..0x14].copy_from_slice(&0x3e_u16.to_le_bytes()); // x86-64
+        header
+    }
+
+    #[test]
+    fn reports_no_update_source_without_embedded_information() {
+        let directory = tempfile::tempdir().unwrap();
+        let image = directory.path().join("App.AppImage");
+        std::fs::write(&image, minimal_elf()).unwrap();
+
+        assert_eq!(source_info(&image, &BTreeMap::new()).unwrap(), None);
+    }
+
+    #[test]
+    fn describes_a_complete_configured_source() {
+        let config = BTreeMap::from([
+            ("manager".to_owned(), "GithubUpdater".to_owned()),
+            ("repo".to_owned(), "owner/repo".to_owned()),
+            (
+                "repo_filename".to_owned(),
+                "App-*.AppImage.zsync".to_owned(),
+            ),
+        ]);
+
+        let info = source_info(Path::new("/missing"), &config)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(info.kind, ManagerKind::Github);
+        assert!(info.valid);
+        assert!(info.zsync);
+    }
+
+    #[test]
+    fn flags_incomplete_configurations_and_unknown_managers() {
+        let incomplete = BTreeMap::from([("manager".to_owned(), "GithubUpdater".to_owned())]);
+        let info = source_info(Path::new("/missing"), &incomplete)
+            .unwrap()
+            .unwrap();
+
+        assert!(!info.valid);
+        assert!(!info.zsync);
+
+        let unknown = BTreeMap::from([("manager".to_owned(), "NopeUpdater".to_owned())]);
+        assert!(matches!(
+            source_info(Path::new("/missing"), &unknown),
+            Err(Error::UpdateConfig(_))
+        ));
+    }
+
+    #[test]
+    fn only_static_and_github_sources_support_zsync() {
+        let empty = BTreeMap::new();
+        let zsync = Some("zsync|https://example.com/App.AppImage.zsync");
+
+        assert!(supports_zsync(ManagerKind::StaticFile, &empty, zsync));
+        assert!(!supports_zsync(
+            ManagerKind::StaticFile,
+            &empty,
+            Some("https://example.com/App.AppImage.zsync")
+        ));
+        assert!(supports_zsync(
+            ManagerKind::Github,
+            &empty,
+            Some("gh-releases-zsync|owner|repo|latest|App-*.AppImage.zsync")
+        ));
+
+        let zsync_pattern =
+            BTreeMap::from([("repo_filename".to_owned(), "App-*.zsync".to_owned())]);
+        assert!(supports_zsync(ManagerKind::Github, &zsync_pattern, None));
+
+        let appimage_pattern =
+            BTreeMap::from([("repo_filename".to_owned(), "App-*.AppImage".to_owned())]);
+        assert!(!supports_zsync(
+            ManagerKind::Github,
+            &appimage_pattern,
+            None
+        ));
+
+        for kind in [
+            ManagerKind::Gitlab,
+            ManagerKind::Codeberg,
+            ManagerKind::Forgejo,
+            ManagerKind::Ftp,
+        ] {
+            assert!(!supports_zsync(kind, &empty, zsync));
+        }
     }
 
     #[test]

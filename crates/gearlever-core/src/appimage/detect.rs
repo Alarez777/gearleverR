@@ -130,6 +130,19 @@ pub enum PayloadKind {
     Unknown,
 }
 
+impl PayloadKind {
+    /// Returns the short name shown in the interface.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Squashfs => "SquashFS",
+            Self::Dwarfs => "DwarFS",
+            Self::Iso9660 => "ISO9660",
+            Self::Unknown => "Unknown",
+        }
+    }
+}
+
 impl fmt::Display for PayloadKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -252,6 +265,14 @@ mod tests {
     fn image_type_names_are_stable() {
         assert_eq!(ImageType::Type1.to_string(), "type 1");
         assert_eq!(ImageType::Type2.to_string(), "type 2");
+    }
+
+    #[test]
+    fn payload_kind_labels_are_stable() {
+        assert_eq!(PayloadKind::Squashfs.label(), "SquashFS");
+        assert_eq!(PayloadKind::Dwarfs.label(), "DwarFS");
+        assert_eq!(PayloadKind::Iso9660.label(), "ISO9660");
+        assert_eq!(PayloadKind::Unknown.label(), "Unknown");
     }
 
     #[test]
