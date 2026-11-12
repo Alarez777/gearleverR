@@ -713,3 +713,9 @@ msgstr "Actualizaciones: {source} (incompleta)"
 
 msgid "Invalid update source"
 msgstr "Fuente de actualizaciones no válida"
+
+msgid "Check for updates when opening app details"
+msgstr "Comprobar actualizaciones al abrir los detalles de una app"
+
+msgid "Automatically look for a new version when you open the details page of an app with an update source"
+msgstr "Buscar automáticamente una versión nueva al abrir la página de detalles de una app con fuente de actualizaciones"

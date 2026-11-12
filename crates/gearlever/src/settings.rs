@@ -45,6 +45,8 @@ pub mod keys {
     pub const BLOCK_UNSAFE_EXTRACTOR: &str = "block-unsafe-extractor";
     /// Whether updates are checked at login.
     pub const FETCH_IN_BACKGROUND: &str = "fetch-updates-in-background";
+    /// Whether opening app details checks for updates.
+    pub const CHECK_UPDATES_ON_DETAILS_OPEN: &str = "check-updates-on-details-open";
     /// Whether update sources that publish zsync data use delta downloads.
     pub const USE_ZSYNC_DELTA: &str = "use-zsync-delta";
     /// Maximum number of updates downloaded at the same time.
@@ -92,6 +94,8 @@ pub struct Values {
     pub block_unsafe_extractor: bool,
     /// Whether updates are checked at login.
     pub fetch_in_background: bool,
+    /// Whether opening app details checks for updates.
+    pub check_updates_on_details_open: bool,
     /// Whether update sources that publish zsync data use delta downloads.
     pub use_zsync_delta: bool,
     /// Maximum number of updates downloaded at the same time.
@@ -122,6 +126,7 @@ impl Values {
             preview_minimal_ui: true,
             block_unsafe_extractor: true,
             fetch_in_background: false,
+            check_updates_on_details_open: true,
             use_zsync_delta: true,
             max_parallel_downloads: update::DEFAULT_PARALLEL_DOWNLOADS,
             max_parallel_checks: update::DEFAULT_PARALLEL_CHECKS,
@@ -180,6 +185,10 @@ impl Settings {
             preview_minimal_ui: settings.boolean(keys::PREVIEW_MINIMAL_UI),
             block_unsafe_extractor: settings.boolean(keys::BLOCK_UNSAFE_EXTRACTOR),
             fetch_in_background: settings.boolean(keys::FETCH_IN_BACKGROUND),
+            check_updates_on_details_open: settings
+                .settings_schema()
+                .is_none_or(|schema| !schema.has_key(keys::CHECK_UPDATES_ON_DETAILS_OPEN))
+                || settings.boolean(keys::CHECK_UPDATES_ON_DETAILS_OPEN),
             use_zsync_delta,
             max_parallel_downloads: parallel_value(
                 &settings,
@@ -236,6 +245,9 @@ impl Settings {
             keys::PREVIEW_MINIMAL_UI => self.values.preview_minimal_ui = value,
             keys::BLOCK_UNSAFE_EXTRACTOR => self.values.block_unsafe_extractor = value,
             keys::FETCH_IN_BACKGROUND => self.values.fetch_in_background = value,
+            keys::CHECK_UPDATES_ON_DETAILS_OPEN => {
+                self.values.check_updates_on_details_open = value;
+            }
             keys::USE_ZSYNC_DELTA => self.values.use_zsync_delta = value,
             keys::DEBUG_LOGS => self.values.debug_logs = value,
             keys::IS_MAXIMIZED => self.values.is_maximized = value,
@@ -515,14 +527,17 @@ mod tests {
 
         let mut settings = Settings::from_settings(raw.clone(), &paths);
         assert!(settings.values().use_zsync_delta);
+        assert!(settings.values().check_updates_on_details_open);
         assert_eq!(settings.values().max_parallel_downloads, 3);
         assert_eq!(settings.values().max_parallel_checks, 5);
         settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
+        settings.set_boolean(keys::CHECK_UPDATES_ON_DETAILS_OPEN, false);
         settings.set_max_parallel_downloads(1);
         settings.set_max_parallel_checks(12);
 
         let reloaded = Settings::from_settings(raw, &paths);
         assert!(!reloaded.values().use_zsync_delta);
+        assert!(!reloaded.values().check_updates_on_details_open);
         assert_eq!(reloaded.values().max_parallel_downloads, 1);
         assert_eq!(reloaded.values().max_parallel_checks, MAX_PARALLEL_CHECKS);
     }
@@ -562,6 +577,19 @@ mod tests {
         assert!(settings.values().use_zsync_delta);
         settings.set_boolean(keys::USE_ZSYNC_DELTA, false);
         assert!(!settings.values().use_zsync_delta);
+    }
+
+    #[test]
+    fn enables_details_update_checks_by_default_and_can_disable_them() {
+        let paths = Paths::with_home(Path::new("/home/tester"));
+        let mut settings = Settings {
+            settings: None,
+            values: Values::defaults(&paths),
+        };
+
+        assert!(settings.values().check_updates_on_details_open);
+        settings.set_boolean(keys::CHECK_UPDATES_ON_DETAILS_OPEN, false);
+        assert!(!settings.values().check_updates_on_details_open);
     }
 
     #[test]
