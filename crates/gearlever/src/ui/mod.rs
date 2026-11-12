@@ -498,10 +498,13 @@ impl Component for AppModel {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let mut model = Self::new();
-        let (width, height) = fit_window_size(
+        let (mut width, height) = fit_window_size(
             model.settings.values().window_width,
             model.settings.values().window_height,
         );
+        if !opened_from_file && model.should_show_welcome() {
+            width = width.max(welcome::WELCOME_MAIN_MIN_WIDTH);
+        }
         root.set_default_size(width, height);
         util::install_css(model.applied_ui_scale);
         model.opened_from_file = opened_from_file;

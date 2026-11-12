@@ -21,6 +21,8 @@ use super::{AppModel, FUSE_DOCS_URL, Msg};
 
 /// Percentage of the main window width used by the first-run window.
 const WELCOME_WIDTH_PERCENT: i32 = 95;
+/// Minimum main-window width when the first-run window is shown.
+pub(crate) const WELCOME_MAIN_MIN_WIDTH: i32 = 800;
 /// Maximum width of the first-run content inside the window.
 const WELCOME_MAX_CONTENT_WIDTH: i32 = 720;
 /// Maximum width of the first-run window.
@@ -138,7 +140,10 @@ pub(crate) fn present(
     settings: &Settings,
     sender: &relm4::ComponentSender<AppModel>,
 ) -> Welcome {
-    let parent_width = parent.width().max(settings.values().window_width);
+    let parent_width = parent
+        .width()
+        .max(settings.values().window_width)
+        .max(WELCOME_MAIN_MIN_WIDTH);
     let parent_height = parent.height().max(settings.values().window_height);
     let width = (parent_width * WELCOME_WIDTH_PERCENT / 100)
         .clamp(WELCOME_MIN_WIDTH, WELCOME_MAX_WINDOW_WIDTH);
