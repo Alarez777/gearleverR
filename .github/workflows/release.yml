@@ -39,6 +39,12 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN=1 \
             ./packaging/appimage/build.sh
 
+      - name: Verify AppImage runtime
+        run: |
+          appimage=$(echo dist/GearLeverR-*-x86_64.AppImage)
+          "$appimage" --appimage-offset
+          APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version | grep -q '^gearlever-r '
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:

@@ -22,6 +22,7 @@ BUNDLED_APPDIR="$ROOT/packaging/appimage/AppDir-bundled"
 SYSTEM_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}.AppImage"
 BUNDLED_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}-gtk-included.AppImage"
 APPIMAGETOOL=${APPIMAGETOOL:-appimagetool}
+URUNTIME=${URUNTIME:-$ROOT/.cache/uruntime-appimage-squashfs-lite-$ARCH}
 LINUXDEPLOY=${LINUXDEPLOY:-$ROOT/.cache/linuxdeploy-x86_64.AppImage}
 LINUXDEPLOY_PLUGIN=${LINUXDEPLOY_PLUGIN:-$ROOT/.cache/linuxdeploy-plugin-gtk.sh}
 
@@ -31,6 +32,8 @@ if ! command -v "$APPIMAGETOOL" >/dev/null 2>&1 && [ ! -x "$APPIMAGETOOL" ]; the
     echo "error: appimagetool not found; set APPIMAGETOOL=/path/to/appimagetool" >&2
     exit 1
 fi
+
+ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-uruntime.sh" "$URUNTIME"
 
 if [ -n "${GEARLEVER_R_BINARY:-}" ]; then
     BINARY="$GEARLEVER_R_BINARY"
@@ -68,6 +71,8 @@ install_common() {
 
     install -Dm644 "$ROOT/LICENSES/zsync-rs-MIT.txt" \
         "$appdir/usr/share/doc/gearlever-r/zsync-rs-MIT.txt"
+    install -Dm644 "$ROOT/LICENSES/uruntime-MIT.txt" \
+        "$appdir/usr/share/doc/gearlever-r/uruntime-MIT.txt"
 
     if command -v glib-compile-schemas >/dev/null 2>&1; then
         glib-compile-schemas "$appdir/usr/share/glib-2.0/schemas"
@@ -107,7 +112,17 @@ package_appimage() {
 
     mkdir -p "$DIST"
     echo ":: packaging $label AppImage: $output"
-    ARCH="$ARCH" "$APPIMAGETOOL" "$appdir" "$output"
+    ARCH="$ARCH" "$APPIMAGETOOL" --runtime-file "$URUNTIME" "$appdir" "$output"
+
+    local offset
+    local runtime_size
+    offset=$("$output" --appimage-offset)
+    runtime_size=$(stat -c %s "$URUNTIME")
+    if [ "$offset" != "$runtime_size" ]; then
+        echo "error: $output reports payload offset $offset, expected $runtime_size" >&2
+        exit 1
+    fi
+
     (cd "$DIST" && sha256sum "$(basename "$output")" >"$(basename "$output").sha256")
 }
 

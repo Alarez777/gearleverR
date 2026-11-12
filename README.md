@@ -8,7 +8,9 @@ files and the same interface.
 
 - **UI**: GTK4 + libadwaita + Relm4
 - **AppImage**: two variants: the default build (uses the system GTK) and
-  `gtk-included` (bundles GTK/libadwaita and their dependencies)
+  `gtk-included` (bundles GTK/libadwaita and their dependencies). The AppImage
+  uses [uruntime](https://github.com/VHSgunzo/uruntime) and extracts itself when
+  FUSE is not available.
 - **License**: GPL-3.0-or-later
 
 ## Status
@@ -55,6 +57,12 @@ updates from six sources, a compatible CLI and the full interface. See
 ## Requirements
 
 - GTK 4.8 or newer and libadwaita 1.2 or newer.
+- Mounting AppImages needs `/dev/fuse` and a setuid `fusermount` or
+  `fusermount3` helper. Without them the AppImage extracts itself to a
+  temporary directory. `libfuse2` is only needed by AppImages built with the
+  older runtime.
+- The first-run window keeps **Install** disabled until those requirements are
+  met. Press **Recheck** after installing them.
 - Tested on Debian 12 and Debian 13. Ubuntu 23.04+, Fedora 38+ and Arch ship
   compatible versions. **Ubuntu 22.04 does not** (GTK 4.6 / Adw 1.1).
 - DwarFS or ISO9660 payloads need `dwarfsextract`/`7zz`; without them the app shows a
@@ -76,9 +84,10 @@ chmod +x GearLeverR-0.1.0-x86_64.AppImage
 ```
 
 The first launch shows a welcome window: it installs Gear LeverR in the application menu
-(a `.desktop` entry plus the icons in `~/.local/share/icons/hicolor`) and lets you choose
+(a `.desktop` entry plus the icons in `~/.local/share/icons/hicolor`), lets you choose
 the AppImages folder, whether new AppImages are moved or cloned, and whether updates are
-checked at login. Once the entry exists the window is not shown again.
+checked at login. It also reports whether FUSE is available, with the command to install
+it when it is not. Once the entry exists the window is not shown again.
 
 Gear LeverR also appears in its own list of installed AppImages. Its Remove button can
 uninstall only Gear LeverR or every integrated AppImage.
@@ -165,8 +174,8 @@ packaging/appimage/build-in-debian12.sh
 The script builds inside `rust:1.98-bookworm` and packages both variants into
 `dist/`: `...AppImage` (default, system GTK) and `...-gtk-included.AppImage`. The
 `gtk-included` variant is assembled with `linuxdeploy` and its GTK plugin, which
-are downloaded automatically. The resulting binaries also run on newer
-distributions.
+are downloaded automatically. The pinned `uruntime` binary is also downloaded and
+verified before packaging. The resulting binaries also run on newer distributions.
 
 If you run the binary directly (without the AppImage), install the schema so the
 preferences persist:
@@ -247,6 +256,10 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
   translated (see `po/`).
 - Environment variables are edited as `KEY=value` lines, not row by row.
 - DwarFS and ISO9660 require `dwarfsextract` or `7zz` to be installed.
+- Without FUSE, the AppImage extracts itself to `$TMPDIR` on every start. This is
+  slower and needs a writable, executable temporary directory.
+- AppImages built with the older runtime still need `libfuse2`; Gear LeverR reports
+  it but does not use it itself.
 - There is no self-update for the AppImage itself.
 
 ## License and attribution
@@ -257,3 +270,6 @@ this project is distributed as Gear LeverR.
 
 Delta updates use [zsync-rs](https://crates.io/crates/zsync-rs), MIT licensed. Its
 notice is included in `LICENSES/zsync-rs-MIT.txt` and in the AppImage.
+
+The AppImage runtime is [uruntime](https://github.com/VHSgunzo/uruntime), MIT
+licensed. Its notice is included in `LICENSES/uruntime-MIT.txt` and in the AppImage.

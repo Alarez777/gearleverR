@@ -6,6 +6,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 RUNTIME=${CONTAINER_RUNTIME:-podman}
 IMAGE=${BUILD_IMAGE:-rust:1.98-bookworm}
+ARCH=${ARCH:-x86_64}
 TOOL=${APPIMAGETOOL:-$ROOT/.cache/appimagetool-x86_64.AppImage}
 
 if ! command -v "$RUNTIME" >/dev/null 2>&1; then
@@ -21,6 +22,9 @@ if [ ! -x "$TOOL" ]; then
     chmod +x "$TOOL"
 fi
 
+# Fetch the runtime on the host so the bind-mounted cache is not owned by root.
+ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-uruntime.sh"
+
 echo ":: building inside $IMAGE"
 "$RUNTIME" run --rm \
     -v "$ROOT:/src:z" \
@@ -28,6 +32,7 @@ echo ":: building inside $IMAGE"
     -e CARGO_TARGET_DIR=/src/target-debian12 \
     -e RUSTFLAGS="-C link-arg=-L/usr/lib/x86_64-linux-gnu" \
     -e VARIANTS="${VARIANTS:-all}" \
+    -e ARCH="$ARCH" \
     "$IMAGE" bash -c '
         export PATH=/usr/local/cargo/bin:$PATH
         apt-get update -qq >/dev/null

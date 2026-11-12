@@ -42,6 +42,7 @@ use gearlever_core::install::{self, Conflict, IntegrateOptions, PreviousInstall}
 use gearlever_core::paths::Paths;
 use gearlever_core::scan::{InstalledApp, ScanOptions, scan};
 use gearlever_core::self_install;
+use gearlever_core::system::{self, FuseComponent, FuseReport, RunningMode};
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::github::TokenCheck;
 use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
@@ -61,6 +62,16 @@ const SINGLE_UPDATE_CHECK_DURATION: Duration = Duration::from_secs(1);
 
 /// Application name used by the main window and its header.
 const APP_NAME: &str = "Gear LeverR";
+
+/// Documentation for installing FUSE on Linux distributions.
+const FUSE_DOCS_URL: &str = "https://github.com/AppImage/AppImageKit/wiki/FUSE";
+
+/// Whether a system capability was detected in Preferences.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SystemStatus {
+    Detected,
+    Missing,
+}
 
 /// Starts the graphical application.
 pub(crate) fn run(arguments: Vec<String>) {
@@ -374,7 +385,9 @@ enum Msg {
     ShowAbout,
     ShowLog,
     Toast(String),
+    ExtractionNotice,
     Welcome,
+    WelcomeRecheckDependencies,
     WelcomeFolder(PathBuf),
     WelcomeMove(bool),
     WelcomeFetchUpdates(bool),
@@ -510,6 +523,13 @@ impl Component for AppModel {
             sender.input(Msg::OpenedFiles(pending));
         } else if !opened_from_file && model.should_show_welcome() {
             sender.input(Msg::Welcome);
+        }
+
+        if !opened_from_file
+            && system::running_mode() == RunningMode::Extracted
+            && !model.should_show_welcome()
+        {
+            sender.input(Msg::ExtractionNotice);
         }
 
         ComponentParts { model, widgets }
@@ -1746,9 +1766,23 @@ impl Component for AppModel {
                 Self::open_uri(uri.as_str());
             }
             Msg::Toast(message) => Self::toast(widgets, &message),
+            Msg::ExtractionNotice => {
+                let toast = adw::Toast::new(&t("Running in extraction mode"));
+                toast.set_button_label(Some(&t("Check FUSE")));
+                toast.set_action_name(Some("win.preferences"));
+                widgets.toast.add_toast(toast);
+            }
             Msg::Welcome => {
+                widgets
+                    .window
+                    .set_size_request(welcome::WELCOME_MAIN_MIN_WIDTH, -1);
                 widgets.window.present();
                 widgets.welcome = Some(welcome::present(&widgets.window, &self.settings, &sender));
+            }
+            Msg::WelcomeRecheckDependencies => {
+                if let Some(welcome) = &widgets.welcome {
+                    welcome.recheck_dependencies(&sender);
+                }
             }
             Msg::WelcomeFolder(path) => {
                 self.settings.set_appimages_dir(&path);
@@ -1806,6 +1840,7 @@ impl Component for AppModel {
                     if let Some(welcome) = widgets.welcome.take() {
                         welcome.window.close();
                     }
+                    widgets.window.set_size_request(-1, -1);
                     tracing::info!(
                         image = %installation.image_path.display(),
                         desktop = %installation.desktop_path.display(),
@@ -1827,8 +1862,10 @@ impl Component for AppModel {
                 if let Some(welcome) = widgets.welcome.take() {
                     welcome.window.close();
                 }
+                widgets.window.set_size_request(-1, -1);
             }
             Msg::WelcomeClosed => {
+                widgets.window.set_size_request(-1, -1);
                 widgets.welcome = None;
             }
         }
@@ -4269,6 +4306,8 @@ impl AppModel {
             sender,
         ));
 
+        let system = Self::system_group(sender);
+
         let debugging = adw::PreferencesGroup::new();
         debugging.set_title(&t("Debugging"));
         debugging.add(&self.switch_row(
@@ -4287,9 +4326,178 @@ impl AppModel {
         page.add(&github);
         page.add(&files);
         page.add(&naming);
+        page.add(&system);
         page.add(&debugging);
         window.add(&page);
         window.present();
+    }
+
+    /// Builds the system status group shown in Preferences.
+    fn system_group(sender: &ComponentSender<Self>) -> adw::PreferencesGroup {
+        let report = FuseReport::detect();
+        let group = adw::PreferencesGroup::new();
+        group.set_title(&t("System"));
+
+        let mut mount_fixes = Vec::new();
+        if !report.has_device() {
+            mount_fixes.push("sudo modprobe fuse".to_owned());
+        }
+        if !report.has_fuse2_helper()
+            && !report.has_fuse3_helper()
+            && let Some(command) = FuseComponent::Mount.install_command()
+        {
+            mount_fixes.push(command);
+        }
+        let mount_fix = (!mount_fixes.is_empty()).then(|| mount_fixes.join("\n"));
+        let fuse3_fix = if report.has_device() {
+            FuseComponent::Mount.install_command()
+        } else {
+            None
+        };
+        let legacy_fix = if report.has_device() {
+            FuseComponent::Legacy.install_command()
+        } else {
+            None
+        };
+
+        let mount_status = if report.can_mount() {
+            SystemStatus::Detected
+        } else {
+            SystemStatus::Missing
+        };
+        let device_status = if report.has_device() {
+            SystemStatus::Detected
+        } else {
+            SystemStatus::Missing
+        };
+        let fuse3_status = if report.has_fuse3_helper() {
+            SystemStatus::Detected
+        } else {
+            SystemStatus::Missing
+        };
+        let fuse2_status = if report.legacy_ready() {
+            SystemStatus::Detected
+        } else {
+            SystemStatus::Missing
+        };
+
+        group.add(&Self::status_row(
+            &t("Mounting"),
+            &t("Gear LeverR needs FUSE to mount the AppImage instead of extracting it."),
+            mount_status,
+            mount_fix,
+        ));
+        group.add(&Self::status_row(
+            &t("FUSE device"),
+            &t("The kernel device AppImages use to mount their filesystem."),
+            device_status,
+            None,
+        ));
+        group.add(&Self::status_row(
+            &t("FUSE 3"),
+            &t("The fusermount3 helper. Gear LeverR can use it or fusermount."),
+            fuse3_status,
+            fuse3_fix,
+        ));
+        group.add(&Self::status_row(
+            &t("FUSE 2"),
+            &t("Needed by AppImages built with the older runtime. Gear LeverR does not use it."),
+            fuse2_status,
+            legacy_fix,
+        ));
+        group.add(&Self::running_mode_row());
+
+        let docs = adw::ActionRow::builder()
+            .title(t("FUSE documentation"))
+            .subtitle(t("How to install FUSE on your distribution"))
+            .activatable(true)
+            .build();
+        docs.add_prefix(&gtk::Image::from_icon_name("help-about-symbolic"));
+        docs.add_suffix(&gtk::Image::from_icon_name("external-link-symbolic"));
+        let sender_docs = sender.clone();
+        docs.connect_activated(move |_| {
+            sender_docs.input(Msg::OpenUrl(FUSE_DOCS_URL.to_owned()));
+        });
+        group.add(&docs);
+
+        group
+    }
+
+    /// Builds a row with a detected/not-detected status and an optional fix.
+    fn status_row(
+        title: &str,
+        subtitle: &str,
+        status: SystemStatus,
+        fix: Option<String>,
+    ) -> adw::ActionRow {
+        let row = adw::ActionRow::builder().title(title).build();
+        row.set_activatable(false);
+        row.add_prefix(&gtk::Image::from_icon_name(
+            if status == SystemStatus::Detected {
+                "emblem-ok-symbolic"
+            } else {
+                "dialog-warning-symbolic"
+            },
+        ));
+
+        let mut subtitle = subtitle.to_owned();
+        if status == SystemStatus::Missing
+            && let Some(command) = fix
+        {
+            subtitle.push('\n');
+            subtitle.push_str(&command);
+        }
+        row.set_subtitle(&subtitle);
+        row.set_subtitle_lines(0);
+
+        let status_text = if status == SystemStatus::Detected {
+            t("Detected")
+        } else {
+            t("Not detected")
+        };
+        let status = gtk::Label::new(Some(&status_text));
+        status.add_css_class("dim-label");
+        status.set_valign(gtk::Align::Center);
+        row.add_suffix(&status);
+
+        row
+    }
+
+    /// Builds the row that reports how the current process was started.
+    fn running_mode_row() -> adw::ActionRow {
+        let (status, subtitle) = match system::running_mode() {
+            RunningMode::Mounted => (
+                t("Mounted"),
+                t("The AppImage filesystem is mounted through FUSE."),
+            ),
+            RunningMode::Extracted => (
+                t("Extracted"),
+                t("Gear LeverR extracted the AppImage to a temporary directory."),
+            ),
+            RunningMode::NotAnAppImage => (
+                t("Not an AppImage"),
+                t("Gear LeverR is not running from an AppImage."),
+            ),
+            _ => (
+                t("Unknown"),
+                t("Could not check how Gear LeverR was started."),
+            ),
+        };
+
+        let row = adw::ActionRow::builder()
+            .title(t("Running from"))
+            .subtitle(subtitle)
+            .build();
+        row.set_activatable(false);
+        row.add_prefix(&gtk::Image::from_icon_name(
+            "application-x-executable-symbolic",
+        ));
+        let status = gtk::Label::new(Some(&status));
+        status.add_css_class("dim-label");
+        status.set_valign(gtk::Align::Center);
+        row.add_suffix(&status);
+
+        row
     }
 
     #[expect(
