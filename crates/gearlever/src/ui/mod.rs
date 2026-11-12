@@ -434,6 +434,10 @@ struct AppModel {
     checking: bool,
     check_total: usize,
     check_done: usize,
+    /// App checked by the running single-app check, or `None` for a global check.
+    check_target: Option<PathBuf>,
+    /// App whose check was requested while another one was running.
+    pending_app_check: Option<PathBuf>,
     pending: Vec<CandidateFile>,
     pending_arch: Option<Vec<LoadedFile>>,
     multi_ignored: Vec<IgnoredCandidate>,
@@ -595,6 +599,7 @@ impl Component for AppModel {
                     self.page = Page::Details;
                     Self::show_page(self, widgets);
                     Self::rebuild_details(self, widgets, &sender);
+                    Self::request_details_update_check(self, &sender);
                 }
             }
             Msg::LeftButton => {
@@ -683,6 +688,21 @@ impl Component for AppModel {
             }
             Msg::CheckUpdates => Self::start_update_check(self, widgets, &sender, None),
             Msg::CheckAppUpdates(path) => {
+                if self.config.updates_disabled(&path)
+                    || !has_update_source(&path, &self.config.update_manager(&path))
+                {
+                    return;
+                }
+                if self.checking {
+                    if self
+                        .check_target
+                        .as_ref()
+                        .is_some_and(|target| target != &path)
+                    {
+                        self.pending_app_check = Some(path);
+                    }
+                    return;
+                }
                 Self::start_update_check(self, widgets, &sender, Some(&path));
             }
             Msg::UpdateCheckStarted(total) => {
@@ -722,7 +742,9 @@ impl Component for AppModel {
                     .set_label(&t("Retrying failed checks..."));
             }
             Msg::CheckDone => {
+                let global_check = self.check_target.is_none();
                 self.checking = false;
+                self.check_target = None;
                 widgets.updates_button.set_sensitive(true);
 
                 if self.check_total > 0 {
@@ -741,12 +763,18 @@ impl Component for AppModel {
                     widgets.updates_progress.set_visible(false);
                 }
 
-                widgets.updates_button.set_label(&if self.has_updates() {
-                    t("Check for updates")
-                } else {
-                    t("No updates found")
-                });
+                widgets
+                    .updates_button
+                    .set_label(&if self.has_updates() || !global_check {
+                        t("Check for updates")
+                    } else {
+                        t("No updates found")
+                    });
                 Self::rebuild_list(self, widgets, &sender);
+
+                if let Some(path) = self.pending_app_check.take() {
+                    Self::start_update_check(self, widgets, &sender, Some(&path));
+                }
             }
             Msg::GithubTokenTested(check) => {
                 let store = TokenStore::new(self.settings.clone());
@@ -933,6 +961,7 @@ impl Component for AppModel {
                         if self.minimal_preview() {
                             Self::minimal_ui(widgets);
                         }
+                        Self::request_details_update_check(self, &sender);
                         Self::toast(widgets, &t("AppImage integrated"));
                     }
                     Err(error) => Self::toast(widgets, &error),
@@ -1916,6 +1945,8 @@ impl AppModel {
             checking: false,
             check_total: 0,
             check_done: 0,
+            check_target: None,
+            pending_app_check: None,
             pending: Vec::new(),
             pending_arch: None,
             multi_ignored: Vec::new(),
@@ -1956,6 +1987,23 @@ impl AppModel {
     /// Returns whether the window was created to preview an externally opened file.
     fn minimal_preview(&self) -> bool {
         self.preview_window && self.settings.values().preview_minimal_ui
+    }
+
+    /// Returns whether the details page hides the update source and its actions.
+    fn details_uses_minimal_ui(&self) -> bool {
+        self.minimal_preview() || (self.external_open && self.settings.values().preview_minimal_ui)
+    }
+
+    /// Requests an update check for the installed app whose details are open.
+    fn request_details_update_check(&self, sender: &ComponentSender<Self>) {
+        if self.details_uses_minimal_ui() {
+            return;
+        }
+
+        let Some(DetailsItem::Installed(app)) = &self.details else {
+            return;
+        };
+        sender.input(Msg::CheckAppUpdates(app.image_path.clone()));
     }
 
     /// Returns whether launching an installed app should close the window.
@@ -2062,6 +2110,18 @@ impl AppModel {
         entries
     }
 
+    /// Shows the header progress for an update check that is starting.
+    fn show_update_check_progress(widgets: &Widgets) {
+        widgets.updates_button.set_sensitive(false);
+        widgets.updates_button.set_label(&t("Checking updates..."));
+        widgets.updates_progress.set_visible(true);
+        widgets.updates_progress.set_fraction(0.0);
+        widgets.updates_progress.remove_css_class("success");
+        widgets
+            .updates_generation
+            .set(widgets.updates_generation.get().wrapping_add(1));
+    }
+
     fn start_update_check(
         &mut self,
         widgets: &Widgets,
@@ -2075,14 +2135,8 @@ impl AppModel {
         self.checking = true;
         self.check_total = 0;
         self.check_done = 0;
-        widgets.updates_button.set_sensitive(false);
-        widgets.updates_button.set_label(&t("Checking updates..."));
-        widgets.updates_progress.set_visible(true);
-        widgets.updates_progress.set_fraction(0.0);
-        widgets.updates_progress.remove_css_class("success");
-        widgets
-            .updates_generation
-            .set(widgets.updates_generation.get().wrapping_add(1));
+        self.check_target = only.map(Path::to_path_buf);
+        Self::show_update_check_progress(widgets);
 
         let apps: Vec<InstalledApp> = match only {
             Some(path) => self
@@ -2514,6 +2568,7 @@ impl AppModel {
             if self.minimal_preview() {
                 Self::minimal_ui(widgets);
             }
+            Self::request_details_update_check(self, sender);
             return;
         }
 
@@ -3004,8 +3059,7 @@ impl AppModel {
             ),
         };
 
-        let minimal = self.minimal_preview()
-            || (self.external_open && self.settings.values().preview_minimal_ui);
+        let minimal = self.details_uses_minimal_ui();
         let update_source = if minimal {
             None
         } else {
@@ -3035,9 +3089,9 @@ impl AppModel {
         content.append(&details_header(&name, &description, &icon, &pills));
 
         let terminal = app.terminal;
-        let actions = gtk::Box::new(gtk::Orientation::Vertical, 10);
+        let actions = gtk::Box::new(gtk::Orientation::Vertical, ACTION_BUTTON_SPACING);
         actions.set_halign(gtk::Align::Center);
-        let primary_actions = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let primary_actions = gtk::Box::new(gtk::Orientation::Horizontal, ACTION_BUTTON_SPACING);
         primary_actions.set_halign(gtk::Align::Center);
 
         let (button_width, button_height) = if minimal {
@@ -3077,7 +3131,7 @@ impl AppModel {
             } else if self.updates.contains(&app.image_path) {
                 let update = gtk::Button::with_label(&t("Update"));
                 update.add_css_class("suggested-action");
-                update.set_size_request(ACTION_BUTTON_WIDTH, -1);
+                update.set_size_request(ACTION_ROW_WIDTH, -1);
                 let sender_update = sender.clone();
                 let path = app.image_path.clone();
                 update.connect_clicked(move |_| {
@@ -5857,6 +5911,10 @@ fn fraction(done: usize, total: usize) -> f64 {
 
 /// Width shared by the primary action buttons.
 const ACTION_BUTTON_WIDTH: i32 = 200;
+/// Spacing between the primary action buttons and the full-width action.
+const ACTION_BUTTON_SPACING: i32 = 10;
+/// Width of the update button under Launch and Remove.
+const ACTION_ROW_WIDTH: i32 = ACTION_BUTTON_WIDTH * 2 + ACTION_BUTTON_SPACING;
 
 /// Opacity of the text entries of a disabled environment variable.
 const DISABLED_ENV_OPACITY: f64 = 0.55;
@@ -6394,6 +6452,18 @@ fn update_source_pills(source: &Result<Option<update::SourceInfo>, CoreError>) -
     }
 }
 
+/// Returns whether an AppImage has a complete update source to check.
+fn has_update_source(image: &Path, manager: &BTreeMap<String, String>) -> bool {
+    match update::source_info(image, manager) {
+        Ok(Some(source)) => source.valid,
+        Ok(None) => false,
+        Err(error) => {
+            tracing::debug!(path = %image.display(), %error, "cannot read the update source");
+            false
+        }
+    }
+}
+
 fn details_header(
     name: &str,
     description: &str,
@@ -6601,6 +6671,19 @@ mod tests {
             update_source_pills(&Err(error)),
             vec![t("Invalid update source")]
         );
+    }
+
+    #[test]
+    fn only_checks_complete_update_sources() {
+        let valid = BTreeMap::from([
+            ("manager".to_owned(), "GithubUpdater".to_owned()),
+            ("repo".to_owned(), "owner/repo".to_owned()),
+            ("repo_filename".to_owned(), "App.AppImage".to_owned()),
+        ]);
+        assert!(has_update_source(Path::new("/missing"), &valid));
+
+        let incomplete = BTreeMap::from([("manager".to_owned(), "GithubUpdater".to_owned())]);
+        assert!(!has_update_source(Path::new("/missing"), &incomplete));
     }
 
     #[test]
