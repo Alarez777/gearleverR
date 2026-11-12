@@ -4,6 +4,8 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::appimage::PayloadKind;
+
 /// Largest `Retry-After` value honoured by the update-check retry pass.
 ///
 /// Waiting longer than this would freeze the check for no useful gain: a
@@ -130,8 +132,13 @@ pub enum Error {
     Cancelled,
 
     /// No external tool can extract this AppImage's payload.
-    #[error("{0}: no extractor available, install 7zz or dwarfs and retry")]
-    MissingExtractor(PathBuf),
+    #[error("{path}: {message}", message = missing_extractor_message(*kind))]
+    MissingExtractor {
+        /// File that was inspected.
+        path: PathBuf,
+        /// Filesystem found inside the AppImage.
+        kind: PayloadKind,
+    },
 
     /// No release matches the configured file name.
     #[error("no release asset matches {0}")]
@@ -182,6 +189,19 @@ impl Error {
                 .map(Duration::from_secs),
             _ => None,
         }
+    }
+}
+
+/// Returns the user-facing reason for a missing extractor.
+fn missing_extractor_message(kind: PayloadKind) -> &'static str {
+    match kind {
+        PayloadKind::Iso9660 => {
+            "no extractor available for this ISO9660 AppImage; install 7-Zip (7zz or 7z)"
+        }
+        PayloadKind::Dwarfs => {
+            "the DwarFS extractor is missing; install dwarfsextract or reinstall Gear LeverR"
+        }
+        _ => "no extractor available to read this AppImage; install dwarfsextract or 7-Zip",
     }
 }
 

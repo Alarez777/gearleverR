@@ -87,6 +87,11 @@ fi
 export GEARLEVER_R_LOCALEDIR="$HERE/usr/share"
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
+# The bundled dwarfsextract reads DwarFS metadata without running the inspected
+# AppImage. Keep it ahead of any system copy; launch.rs removes this entry from
+# the environment of the applications Gear LeverR starts.
+export PATH="$HERE/usr/bin${PATH:+:$PATH}"
+
 BIN="$HERE/gearlever-r"
 if [ ! -x "$BIN" ]; then
     BIN="$HERE/usr/bin/gearlever-r"

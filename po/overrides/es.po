@@ -671,3 +671,36 @@ msgstr "Las dependencias están listas"
 
 msgid "Some dependencies are still missing"
 msgstr "Todavía faltan algunas dependencias"
+
+msgid "This AppImage uses an ISO9660 payload. Install 7-Zip (7zz or 7z) to read it."
+msgstr "Este AppImage usa un payload ISO9660. Instala 7-Zip (7zz o 7z) para leerlo."
+
+msgid "The bundled DwarFS extractor is missing. Reinstall Gear LeverR or install dwarfsextract."
+msgstr "Falta el extractor DwarFS incluido. Reinstala Gear LeverR o instala dwarfsextract."
+
+msgid "No extractor is available to read this AppImage. Install dwarfsextract or 7-Zip."
+msgstr "No hay extractor para leer este AppImage. Instala dwarfsextract o 7-Zip."
+
+msgid "The file could not be read."
+msgstr "No se pudo leer el archivo."
+
+msgid "The AppImage runtime is invalid."
+msgstr "El runtime de la AppImage no es válido."
+
+msgid "The AppImage filesystem could not be read."
+msgstr "No se pudo leer el sistema de archivos de la AppImage."
+
+msgid "The AppImage could not be read."
+msgstr "No se pudo leer la AppImage."
+
+msgid "Cannot read this AppImage"
+msgstr "No se pudo leer este AppImage"
+
+msgid "Copy command"
+msgstr "Copiar comando"
+
+msgid "The AppImage does not contain a .desktop file."
+msgstr "La AppImage no contiene ningún archivo .desktop."
+
+msgid "The desktop entry is not valid UTF-8."
+msgstr "La entrada de escritorio no es UTF-8 válida."

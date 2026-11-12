@@ -65,8 +65,10 @@ updates from six sources, a compatible CLI and the full interface. See
   met. Press **Recheck** after installing them.
 - Tested on Debian 12 and Debian 13. Ubuntu 23.04+, Fedora 38+ and Arch ship
   compatible versions. **Ubuntu 22.04 does not** (GTK 4.6 / Adw 1.1).
-- DwarFS or ISO9660 payloads need `dwarfsextract`/`7zz`; without them the app shows a
-  clear error.
+- DwarFS payloads work out of the box: the AppImage bundles a pinned static
+  `dwarfsextract`. ISO9660 payloads need 7-Zip (`7zz` or `7z`) on the `PATH`; the
+  `7zip` package provides it on Debian, Ubuntu, Fedora and Arch. Source builds and
+  distro packages fall back to a system `dwarfsextract`/`7zz`/`7z`.
 
 ## Usage
 
@@ -174,8 +176,9 @@ packaging/appimage/build-in-debian12.sh
 The script builds inside `rust:1.98-bookworm` and packages both variants into
 `dist/`: `...AppImage` (default, system GTK) and `...-gtk-included.AppImage`. The
 `gtk-included` variant is assembled with `linuxdeploy` and its GTK plugin, which
-are downloaded automatically. The pinned `uruntime` binary is also downloaded and
-verified before packaging. The resulting binaries also run on newer distributions.
+are downloaded automatically. The pinned `uruntime` runtime and `dwarfsextract`
+binary are also downloaded and verified before packaging. The resulting binaries
+also run on newer distributions.
 
 If you run the binary directly (without the AppImage), install the schema so the
 preferences persist:
@@ -237,8 +240,9 @@ packaging/appimage/      AppRun, build.sh and build-in-debian12.sh
 ```
 
 The core does not depend on GTK: the CLI runs without a display and the tests are
-headless. SquashFS extraction uses `backhand` in process; the normal path does not
-invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
+headless. SquashFS extraction uses `backhand` in process; DwarFS metadata uses the
+bundled static `dwarfsextract`. The normal path does not invoke `7zz`, `unsquashfs`,
+`readelf`, `file` or `ps`.
 
 ## Gear Lever compatibility
 
@@ -255,7 +259,7 @@ invoke `7zz`, `unsquashfs`, `readelf`, `file` or `ps`.
   in other languages, new Gear LeverR strings may appear in English until they are
   translated (see `po/`).
 - Environment variables are edited as `KEY=value` lines, not row by row.
-- DwarFS and ISO9660 require `dwarfsextract` or `7zz` to be installed.
+- ISO9660 requires 7-Zip (`7zz` or `7z`); DwarFS is bundled in the AppImage.
 - Without FUSE, the AppImage extracts itself to `$TMPDIR` on every start. This is
   slower and needs a writable, executable temporary directory.
 - AppImages built with the older runtime still need `libfuse2`; Gear LeverR reports
@@ -273,3 +277,7 @@ notice is included in `LICENSES/zsync-rs-MIT.txt` and in the AppImage.
 
 The AppImage runtime is [uruntime](https://github.com/VHSgunzo/uruntime), MIT
 licensed. Its notice is included in `LICENSES/uruntime-MIT.txt` and in the AppImage.
+
+DwarFS metadata extraction uses [DwarFS](https://github.com/mhx/dwarfs) and its
+`dwarfsextract` tool, whose read-only libraries are MIT licensed. Its notice is
+included in `LICENSES/dwarfs-MIT.txt` and in the AppImage.

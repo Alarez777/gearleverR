@@ -23,6 +23,7 @@ SYSTEM_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}.AppImage"
 BUNDLED_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}-gtk-included.AppImage"
 APPIMAGETOOL=${APPIMAGETOOL:-appimagetool}
 URUNTIME=${URUNTIME:-$ROOT/.cache/uruntime-appimage-squashfs-lite-$ARCH}
+DWARFS=${DWARFS:-$ROOT/.cache/dwarfsextract-$ARCH}
 LINUXDEPLOY=${LINUXDEPLOY:-$ROOT/.cache/linuxdeploy-x86_64.AppImage}
 LINUXDEPLOY_PLUGIN=${LINUXDEPLOY_PLUGIN:-$ROOT/.cache/linuxdeploy-plugin-gtk.sh}
 
@@ -34,6 +35,7 @@ if ! command -v "$APPIMAGETOOL" >/dev/null 2>&1 && [ ! -x "$APPIMAGETOOL" ]; the
 fi
 
 ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-uruntime.sh" "$URUNTIME"
+ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-dwarfs.sh" "$DWARFS"
 
 if [ -n "${GEARLEVER_R_BINARY:-}" ]; then
     BINARY="$GEARLEVER_R_BINARY"
@@ -73,6 +75,12 @@ install_common() {
         "$appdir/usr/share/doc/gearlever-r/zsync-rs-MIT.txt"
     install -Dm644 "$ROOT/LICENSES/uruntime-MIT.txt" \
         "$appdir/usr/share/doc/gearlever-r/uruntime-MIT.txt"
+    install -Dm644 "$ROOT/LICENSES/dwarfs-MIT.txt" \
+        "$appdir/usr/share/doc/gearlever-r/dwarfs-MIT.txt"
+
+    # DwarFS metadata needs an extractor; bundle the pinned static binary so
+    # the safe path works even when the host has no dwarfsextract installed.
+    install -Dm755 "$DWARFS" "$appdir/usr/bin/dwarfsextract"
 
     if command -v glib-compile-schemas >/dev/null 2>&1; then
         glib-compile-schemas "$appdir/usr/share/glib-2.0/schemas"
