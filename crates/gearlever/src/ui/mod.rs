@@ -2929,8 +2929,16 @@ impl AppModel {
             return;
         };
 
+        let appimage = match item {
+            DetailsItem::Installed(app) => AppImage::open(&app.image_path).ok(),
+            DetailsItem::Candidate(_) => None,
+        };
+
         let arch = match item {
-            DetailsItem::Installed(app) => detect::elf_arch(&app.image_path).ok(),
+            DetailsItem::Installed(app) => appimage
+                .as_ref()
+                .map(AppImage::arch)
+                .or_else(|| detect::elf_arch(&app.image_path).ok()),
             DetailsItem::Candidate(candidate) => Some(candidate.arch),
         };
 
@@ -2945,7 +2953,9 @@ impl AppModel {
         content.set_margin_end(24);
 
         let single_row = match item {
-            DetailsItem::Installed(app) => self.build_installed_details(app, &content, sender),
+            DetailsItem::Installed(app) => {
+                self.build_installed_details(app, appimage.as_ref(), &content, sender)
+            }
             DetailsItem::Candidate(candidate) => {
                 Self::build_candidate_details(candidate, &content, sender);
                 None
@@ -2969,6 +2979,7 @@ impl AppModel {
     fn build_installed_details(
         &self,
         app: &InstalledApp,
+        appimage: Option<&AppImage>,
         content: &gtk::Box,
         sender: &ComponentSender<Self>,
     ) -> Option<SingleUpdateRow> {
@@ -2995,26 +3006,30 @@ impl AppModel {
 
         let minimal = self.minimal_preview()
             || (self.external_open && self.settings.values().preview_minimal_ui);
-        let update_source = update::source_info(
-            &app.image_path,
-            &self.config.update_manager(&app.image_path),
-        );
+        let update_source = if minimal {
+            None
+        } else {
+            Some(update::source_info(
+                &app.image_path,
+                &self.config.update_manager(&app.image_path),
+            ))
+        };
         let mut pills = Vec::new();
         if !minimal {
             if let Some(version) = version {
                 pills.push(version);
             }
             pills.push(size(app.size));
-            if let Ok(kind) = detect::image_type(&app.image_path) {
-                pills.push(format!("AppImage Type. {}", kind.code()));
+            if let Some(image) = appimage {
+                pills.push(format!("AppImage Type. {}", image.image_type().code()));
+                let payload = image.payload_kind();
+                if payload != PayloadKind::Unknown {
+                    pills.push(payload.label().to_owned());
+                }
             }
-            if let Ok(offset) = detect::payload_offset(&app.image_path)
-                && let Ok(payload) = detect::payload_kind(&app.image_path, offset)
-                && payload != PayloadKind::Unknown
-            {
-                pills.push(payload.label().to_owned());
+            if let Some(source) = &update_source {
+                pills.extend(update_source_pills(source));
             }
-            pills.extend(update_source_pills(&update_source));
         }
 
         content.append(&details_header(&name, &description, &icon, &pills));
@@ -3092,7 +3107,7 @@ impl AppModel {
         reload_list.add_css_class("boxed-list");
         reload_list.set_selection_mode(gtk::SelectionMode::None);
         reload_list.append(&reload);
-        if matches!(&update_source, Ok(Some(_))) {
+        if matches!(update_source.as_ref(), Some(Ok(Some(_)))) {
             reload_list.append(&self.updates_toggle_row(app, sender));
         }
         content.append(&reload_list);
@@ -6543,11 +6558,17 @@ mod tests {
 
     #[test]
     fn describes_a_valid_update_source_and_zsync() {
-        let source = update::SourceInfo {
-            kind: ManagerKind::Github,
-            valid: true,
-            zsync: true,
-        };
+        let config = BTreeMap::from([
+            ("manager".to_owned(), "GithubUpdater".to_owned()),
+            ("repo".to_owned(), "owner/repo".to_owned()),
+            (
+                "repo_filename".to_owned(),
+                "App-*.AppImage.zsync".to_owned(),
+            ),
+        ]);
+        let source = update::source_info(Path::new("/missing"), &config)
+            .expect("configured source")
+            .expect("source present");
 
         assert_eq!(
             update_source_pills(&Ok(Some(source))),
@@ -6563,11 +6584,10 @@ mod tests {
 
     #[test]
     fn flags_incomplete_and_invalid_update_sources() {
-        let incomplete = update::SourceInfo {
-            kind: ManagerKind::Gitlab,
-            valid: false,
-            zsync: false,
-        };
+        let config = BTreeMap::from([("manager".to_owned(), "GitlabUpdater".to_owned())]);
+        let incomplete = update::source_info(Path::new("/missing"), &config)
+            .expect("configured source")
+            .expect("source present");
         assert_eq!(
             update_source_pills(&Ok(Some(incomplete))),
             vec![tf(

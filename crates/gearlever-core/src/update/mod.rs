@@ -228,6 +228,7 @@ impl fmt::Display for ManagerKind {
 
 /// Update source facts that can be read without contacting the network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SourceInfo {
     /// Kind of update source.
     pub kind: ManagerKind,
