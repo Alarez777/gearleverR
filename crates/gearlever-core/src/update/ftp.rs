@@ -3,9 +3,11 @@
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, Write};
+use std::net::{TcpStream, ToSocketAddrs};
 use std::path::PathBuf;
+use std::time::Duration;
 
-use suppaftp::FtpStream;
+use suppaftp::{FtpError, FtpStream};
 use url::Url;
 
 use crate::error::{Error, Result};
@@ -15,6 +17,10 @@ use super::http::HttpClient;
 use super::{DownloadContext, ManagerKind, UpdateManager, UpdateStatus, value};
 
 const MAX_DEPTH: usize = 8;
+/// Maximum time spent resolving and opening an FTP connection.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Maximum time to wait for control or data traffic from the FTP server.
+const IO_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// An FTP server with a file name pattern.
 #[derive(Debug, Clone)]
@@ -84,8 +90,45 @@ impl Ftp {
     }
 
     fn connect(remote: &Remote) -> Result<FtpStream> {
-        let mut stream = FtpStream::connect((remote.host.as_str(), remote.port))
-            .map_err(|error| Error::Http(format!("FTP connect: {error}")))?;
+        let addresses = (remote.host.as_str(), remote.port)
+            .to_socket_addrs()
+            .map_err(|error| Error::Http(format!("FTP resolve: {error}")))?;
+        let mut last_error = None;
+        let mut connected = None;
+        for address in addresses {
+            match FtpStream::connect_timeout(address, CONNECT_TIMEOUT) {
+                Ok(stream) => {
+                    connected = Some(stream);
+                    break;
+                }
+                Err(error) => last_error = Some(error),
+            }
+        }
+        let stream = connected.ok_or_else(|| {
+            let reason =
+                last_error.map_or_else(|| "no address".to_owned(), |error| error.to_string());
+            Error::Http(format!("FTP connect: {reason}"))
+        })?;
+
+        {
+            let socket = stream.get_ref();
+            socket
+                .set_read_timeout(Some(IO_TIMEOUT))
+                .map_err(|error| Error::Http(format!("FTP control timeout: {error}")))?;
+            socket
+                .set_write_timeout(Some(IO_TIMEOUT))
+                .map_err(|error| Error::Http(format!("FTP control timeout: {error}")))?;
+        }
+
+        let mut stream = stream.passive_stream_builder(|address| {
+            let data = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT)
+                .map_err(FtpError::ConnectionError)?;
+            data.set_read_timeout(Some(IO_TIMEOUT))
+                .map_err(FtpError::ConnectionError)?;
+            data.set_write_timeout(Some(IO_TIMEOUT))
+                .map_err(FtpError::ConnectionError)?;
+            Ok(data)
+        });
         stream
             .login("anonymous", "anonymous")
             .map_err(|error| Error::Http(format!("FTP login: {error}")))?;
