@@ -2182,18 +2182,6 @@ impl AppModel {
         });
     }
 
-    /// Returns whether `app` has an update source.
-    fn has_update_source(&self, app: &InstalledApp) -> bool {
-        update::resolve(
-            &app.image_path,
-            &self.config.update_manager(&app.image_path),
-            None,
-        )
-        .ok()
-        .flatten()
-        .is_some()
-    }
-
     fn updates_toggle_row(
         &self,
         app: &InstalledApp,
@@ -3007,6 +2995,10 @@ impl AppModel {
 
         let minimal = self.minimal_preview()
             || (self.external_open && self.settings.values().preview_minimal_ui);
+        let update_source = update::source_info(
+            &app.image_path,
+            &self.config.update_manager(&app.image_path),
+        );
         let mut pills = Vec::new();
         if !minimal {
             if let Some(version) = version {
@@ -3016,6 +3008,13 @@ impl AppModel {
             if let Ok(kind) = detect::image_type(&app.image_path) {
                 pills.push(format!("AppImage Type. {}", kind.code()));
             }
+            if let Ok(offset) = detect::payload_offset(&app.image_path)
+                && let Ok(payload) = detect::payload_kind(&app.image_path, offset)
+                && payload != PayloadKind::Unknown
+            {
+                pills.push(payload.label().to_owned());
+            }
+            pills.extend(update_source_pills(&update_source));
         }
 
         content.append(&details_header(&name, &description, &icon, &pills));
@@ -3093,7 +3092,7 @@ impl AppModel {
         reload_list.add_css_class("boxed-list");
         reload_list.set_selection_mode(gtk::SelectionMode::None);
         reload_list.append(&reload);
-        if self.has_update_source(app) {
+        if matches!(&update_source, Ok(Some(_))) {
             reload_list.append(&self.updates_toggle_row(app, sender));
         }
         content.append(&reload_list);
@@ -6357,6 +6356,29 @@ fn architecture_banner() -> gtk::Widget {
     banner.upcast()
 }
 
+/// Builds the update pills shown on the installed application details page.
+fn update_source_pills(source: &Result<Option<update::SourceInfo>, CoreError>) -> Vec<String> {
+    match source {
+        Ok(Some(info)) if !info.valid => vec![tf(
+            "Updates: {source} (incomplete)",
+            &[("source", info.kind.label())],
+        )],
+        Ok(Some(info)) => {
+            let mut pills = vec![tf("Updates: {source}", &[("source", info.kind.label())])];
+            if info.zsync {
+                pills.push("zsync".to_owned());
+            }
+            pills
+        }
+        // An application without an update source simply has no pill.
+        Ok(None) => Vec::new(),
+        Err(error) => {
+            tracing::debug!(%error, "cannot describe the update source");
+            vec![t("Invalid update source")]
+        }
+    }
+}
+
 fn details_header(
     name: &str,
     description: &str,
@@ -6512,6 +6534,53 @@ mod tests {
             },
             installed: None,
         }
+    }
+
+    #[test]
+    fn hides_the_update_pill_without_a_source() {
+        assert!(update_source_pills(&Ok(None)).is_empty());
+    }
+
+    #[test]
+    fn describes_a_valid_update_source_and_zsync() {
+        let source = update::SourceInfo {
+            kind: ManagerKind::Github,
+            valid: true,
+            zsync: true,
+        };
+
+        assert_eq!(
+            update_source_pills(&Ok(Some(source))),
+            vec![
+                tf(
+                    "Updates: {source}",
+                    &[("source", ManagerKind::Github.label())]
+                ),
+                "zsync".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn flags_incomplete_and_invalid_update_sources() {
+        let incomplete = update::SourceInfo {
+            kind: ManagerKind::Gitlab,
+            valid: false,
+            zsync: false,
+        };
+        assert_eq!(
+            update_source_pills(&Ok(Some(incomplete))),
+            vec![tf(
+                "Updates: {source} (incomplete)",
+                &[("source", ManagerKind::Gitlab.label())],
+            )]
+        );
+
+        let error = CoreError::InvalidElf("bad header");
+        assert_eq!(
+            update_source_pills(&Err(error)),
+            vec![t("Invalid update source")]
+        );
     }
 
     #[test]
