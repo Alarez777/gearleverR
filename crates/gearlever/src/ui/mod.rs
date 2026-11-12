@@ -3079,10 +3079,13 @@ impl AppModel {
                 &self.config.update_manager(&app.image_path),
             ))
         };
-        let can_check_updates = !self.config.updates_disabled(&app.image_path)
-            && update_source
-                .as_ref()
-                .is_some_and(source_allows_update_check);
+        let source = update_source
+            .as_ref()
+            .and_then(|source| source.as_ref().ok())
+            .copied()
+            .flatten();
+        let can_check_updates =
+            !self.config.updates_disabled(&app.image_path) && source_allows_update_check(source);
         let mut pills = Vec::new();
         if !minimal {
             if let Some(version) = version {
@@ -6483,15 +6486,14 @@ fn update_source_pills(source: &Result<Option<update::SourceInfo>, CoreError>) -
 }
 
 /// Returns whether an update source is complete enough to check.
-fn source_allows_update_check(source: &Result<Option<update::SourceInfo>, CoreError>) -> bool {
-    matches!(source, Ok(Some(info)) if info.valid)
+fn source_allows_update_check(source: Option<update::SourceInfo>) -> bool {
+    source.is_some_and(|info| info.valid)
 }
 
 /// Returns whether an AppImage has a complete update source to check.
 fn has_update_source(image: &Path, manager: &BTreeMap<String, String>) -> bool {
     match update::source_info(image, manager) {
-        Ok(Some(source)) => source.valid,
-        Ok(None) => false,
+        Ok(source) => source_allows_update_check(source),
         Err(error) => {
             tracing::debug!(path = %image.display(), %error, "cannot read the update source");
             false
@@ -6718,7 +6720,7 @@ mod tests {
         assert!(has_update_source(Path::new("/missing"), &valid_config));
         let valid =
             update::source_info(Path::new("/missing"), &valid_config).expect("configured source");
-        assert!(source_allows_update_check(&Ok(valid)));
+        assert!(source_allows_update_check(valid));
 
         let incomplete_config =
             BTreeMap::from([("manager".to_owned(), "GithubUpdater".to_owned())]);
@@ -6728,12 +6730,9 @@ mod tests {
         ));
         let incomplete = update::source_info(Path::new("/missing"), &incomplete_config)
             .expect("configured source");
-        assert!(!source_allows_update_check(&Ok(incomplete)));
+        assert!(!source_allows_update_check(incomplete));
 
-        assert!(!source_allows_update_check(&Ok(None)));
-        assert!(!source_allows_update_check(&Err(CoreError::InvalidElf(
-            "bad header"
-        ))));
+        assert!(!source_allows_update_check(None));
     }
 
     #[test]
