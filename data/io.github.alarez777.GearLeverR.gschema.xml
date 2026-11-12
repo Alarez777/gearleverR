@@ -35,6 +35,11 @@
         <key name="fetch-updates-in-background" type="b">
             <default>false</default>
         </key>
+        <key name="check-updates-on-details-open" type="b">
+            <default>true</default>
+            <summary>Check for updates when opening app details</summary>
+            <description>Automatically check an application for a new version when its details page is opened, provided the application has a valid update source.</description>
+        </key>
         <key name="use-zsync-delta" type="b">
             <default>true</default>
             <summary>Use zsync delta updates</summary>

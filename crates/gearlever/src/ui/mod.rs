@@ -2001,7 +2001,8 @@ impl AppModel {
 
     /// Requests an update check for the installed app whose details are open.
     fn request_details_update_check(&self, sender: &ComponentSender<Self>) {
-        if !self.details_can_check_updates {
+        if !self.settings.values().check_updates_on_details_open || !self.details_can_check_updates
+        {
             return;
         }
 
@@ -4215,6 +4216,15 @@ impl AppModel {
             )),
             keys::FETCH_IN_BACKGROUND,
             self.settings.values().fetch_in_background,
+            sender,
+        ));
+        updates.add(&self.switch_row(
+            &t("Check for updates when opening app details"),
+            Some(&t(
+                "Automatically look for a new version when you open the details page of an app with an update source",
+            )),
+            keys::CHECK_UPDATES_ON_DETAILS_OPEN,
+            self.settings.values().check_updates_on_details_open,
             sender,
         ));
         updates.add(&self.switch_row(
