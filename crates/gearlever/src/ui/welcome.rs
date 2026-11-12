@@ -19,6 +19,8 @@ use crate::settings::Settings;
 
 use super::{AppModel, FUSE_DOCS_URL, Msg};
 
+/// Percentage of the main window width used by the first-run window.
+const WELCOME_WIDTH_PERCENT: i32 = 95;
 /// Maximum width of the first-run content inside the window.
 const WELCOME_MAX_CONTENT_WIDTH: i32 = 720;
 /// Maximum width of the first-run window.
@@ -138,7 +140,8 @@ pub(crate) fn present(
 ) -> Welcome {
     let parent_width = parent.width().max(settings.values().window_width);
     let parent_height = parent.height().max(settings.values().window_height);
-    let width = parent_width.clamp(WELCOME_MIN_WIDTH, WELCOME_MAX_WINDOW_WIDTH);
+    let width = (parent_width * WELCOME_WIDTH_PERCENT / 100)
+        .clamp(WELCOME_MIN_WIDTH, WELCOME_MAX_WINDOW_WIDTH);
     let height = parent_height.clamp(WELCOME_MIN_HEIGHT, WELCOME_MAX_HEIGHT);
 
     let window = adw::Window::builder()
