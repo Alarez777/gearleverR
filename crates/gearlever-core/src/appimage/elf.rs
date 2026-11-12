@@ -39,6 +39,7 @@ pub(crate) struct ElfHeader {
     /// 64-bit ELF (`EI_CLASS == 2`) versus 32-bit.
     is_64: bool,
     endian: Endian,
+    machine: u16,
     section_offset: u64,
     section_entry_size: u16,
     section_count: u16,
@@ -46,6 +47,11 @@ pub(crate) struct ElfHeader {
 }
 
 impl ElfHeader {
+    /// Returns the machine type declared in the header.
+    pub(crate) const fn machine(&self) -> u16 {
+        self.machine
+    }
+
     /// Returns the offset where the appended payload starts.
     pub(crate) fn payload_offset(&self) -> Result<u64> {
         let table_size = u64::from(self.section_entry_size)
@@ -109,26 +115,36 @@ pub(crate) fn header(path: &Path) -> Result<ElfHeader> {
         return Err(Error::InvalidElf("truncated ELF header"));
     }
 
+    header_from_bytes(&buffer)
+}
+
+/// Parses an ELF header already read from a file.
+pub(crate) fn header_from_bytes(buffer: &[u8; 64]) -> Result<ElfHeader> {
+    if buffer[0..4] != ELF_MAGIC {
+        return Err(Error::InvalidElf("missing ELF magic"));
+    }
+
     let is_64 = match buffer[4] {
         2 => true,
         1 => false,
         _ => return Err(Error::InvalidElf("unknown ELF class")),
     };
     let endian = Endian::from_elf(buffer[5])?;
+    let machine = u16_at(buffer, 0x12, endian)?;
 
     let (section_offset, section_entry_size, section_count, string_table_index) = if is_64 {
         (
-            u64_at(&buffer, 0x28, endian)?,
-            u16_at(&buffer, 0x3a, endian)?,
-            u16_at(&buffer, 0x3c, endian)?,
-            u16_at(&buffer, 0x3e, endian)?,
+            u64_at(buffer, 0x28, endian)?,
+            u16_at(buffer, 0x3a, endian)?,
+            u16_at(buffer, 0x3c, endian)?,
+            u16_at(buffer, 0x3e, endian)?,
         )
     } else {
         (
-            u64::from(u32_at(&buffer, 0x20, endian)?),
-            u16_at(&buffer, 0x2e, endian)?,
-            u16_at(&buffer, 0x30, endian)?,
-            u16_at(&buffer, 0x32, endian)?,
+            u64::from(u32_at(buffer, 0x20, endian)?),
+            u16_at(buffer, 0x2e, endian)?,
+            u16_at(buffer, 0x30, endian)?,
+            u16_at(buffer, 0x32, endian)?,
         )
     };
 
@@ -139,6 +155,7 @@ pub(crate) fn header(path: &Path) -> Result<ElfHeader> {
     Ok(ElfHeader {
         is_64,
         endian,
+        machine,
         section_offset,
         section_entry_size,
         section_count,

@@ -58,17 +58,14 @@ impl AppImage {
     /// [`crate::Error::Io`] when the file cannot be read.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
-        let image_type = detect::image_type(&path)?;
-        let payload_offset = detect::payload_offset(&path)?;
-        let payload_kind = detect::payload_kind(&path, payload_offset)?;
-        let arch = detect::elf_arch(&path)?;
+        let inspection = detect::inspect(&path)?;
 
         Ok(Self {
             path,
-            image_type,
-            payload_offset,
-            payload_kind,
-            arch,
+            image_type: inspection.image_type,
+            payload_offset: inspection.payload_offset,
+            payload_kind: inspection.payload_kind,
+            arch: inspection.arch,
         })
     }
 
