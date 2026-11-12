@@ -3115,7 +3115,7 @@ impl AppModel {
         let (button_width, button_height) = if minimal {
             (PREVIEW_BUTTON_WIDTH, PREVIEW_BUTTON_HEIGHT)
         } else {
-            (ACTION_BUTTON_WIDTH, -1)
+            (ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT)
         };
 
         let launch = gtk::Button::with_label(&t("Launch"));
@@ -3149,7 +3149,7 @@ impl AppModel {
             } else if self.updates.contains(&app.image_path) {
                 let update = gtk::Button::with_label(&t("Update"));
                 update.add_css_class("suggested-action");
-                update.set_size_request(ACTION_ROW_WIDTH, -1);
+                update.set_size_request(ACTION_ROW_WIDTH, ACTION_BUTTON_HEIGHT);
                 let sender_update = sender.clone();
                 let path = app.image_path.clone();
                 update.connect_clicked(move |_| {
@@ -5942,8 +5942,10 @@ fn fraction(done: usize, total: usize) -> f64 {
     done as f64 / total as f64
 }
 
-/// Width shared by the primary action buttons.
-const ACTION_BUTTON_WIDTH: i32 = 200;
+/// Width shared by the primary action buttons, 30% wider than the former 200 px.
+const ACTION_BUTTON_WIDTH: i32 = 260;
+/// Height shared by the primary action buttons and Update, 50% above the former 34 px default.
+const ACTION_BUTTON_HEIGHT: i32 = 51;
 /// Spacing between the primary action buttons and the full-width action.
 const ACTION_BUTTON_SPACING: i32 = 10;
 /// Width of the update button under Launch and Remove.
