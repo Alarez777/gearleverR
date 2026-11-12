@@ -704,3 +704,12 @@ msgstr "La AppImage no contiene ningún archivo .desktop."
 
 msgid "The desktop entry is not valid UTF-8."
 msgstr "La entrada de escritorio no es UTF-8 válida."
+
+msgid "Updates: {source}"
+msgstr "Actualizaciones: {source}"
+
+msgid "Updates: {source} (incomplete)"
+msgstr "Actualizaciones: {source} (incompleta)"
+
+msgid "Invalid update source"
+msgstr "Fuente de actualizaciones no válida"
