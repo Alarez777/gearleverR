@@ -130,7 +130,7 @@ pub enum Error {
     Cancelled,
 
     /// No external tool can extract this AppImage's payload.
-    #[error("{0}: no extractor available, install 7zz or dwarfs and retry")]
+    #[error("{0}: no extractor available to read this AppImage; install dwarfsextract or 7zz")]
     MissingExtractor(PathBuf),
 
     /// No release matches the configured file name.

@@ -41,8 +41,11 @@ Style and API rules come from the skill; do not improvise them.
   in project code. Do not touch GTK from a worker thread.
 - HTTP: `ureq` with **rustls** (never OpenSSL, so the AppImage does not depend on it).
 - CLI: `clap` (derive). Errors: `thiserror` in the library, `anyhow` only in the binary.
-- SquashFS: `backhand` (no external binaries). DwarFS and ISO9660 use the external
-  `dwarfsextract`/`7zz` fallback, gated by the safe-extractor setting.
+- SquashFS: `backhand` (no external binaries). DwarFS uses a pinned static
+  `dwarfsextract` (v0.15.8, SHA-256 verified) bundled in the AppImage; source builds
+  fall back to the system `dwarfsextract`/`7zz`. ISO9660 still uses the external
+  `7zz` fallback. Running the inspected AppImage itself as an extractor stays gated
+  by the safe-extractor setting.
 - AppImage runtime: `uruntime` v0.8.1 (static SquashFS build, pinned by SHA-256)
   with `URUNTIME_EXTRACT=2`, so the AppImage extracts itself when FUSE is not
   available. Its MIT notice lives in `LICENSES/uruntime-MIT.txt`.

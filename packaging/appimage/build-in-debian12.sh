@@ -22,8 +22,10 @@ if [ ! -x "$TOOL" ]; then
     chmod +x "$TOOL"
 fi
 
-# Fetch the runtime on the host so the bind-mounted cache is not owned by root.
+# Fetch the runtime and the DwarFS extractor on the host so the bind-mounted
+# cache is not owned by root.
 ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-uruntime.sh"
+ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-dwarfs.sh"
 
 echo ":: building inside $IMAGE"
 "$RUNTIME" run --rm \
@@ -37,7 +39,7 @@ echo ":: building inside $IMAGE"
         export PATH=/usr/local/cargo/bin:$PATH
         apt-get update -qq >/dev/null
         apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
-            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev gettext \
+            libglib2.0-dev libglib2.0-bin liblzma-dev zlib1g-dev xz-utils gettext \
             curl file librsvg2-dev libgirepository1.0-dev \
             libgdk-pixbuf2.0-bin adwaita-icon-theme libgtk-4-bin >/dev/null
         cargo build --release --locked -p gearlever
