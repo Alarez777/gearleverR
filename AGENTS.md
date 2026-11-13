@@ -47,7 +47,7 @@ Style and API rules come from the skill; do not improvise them.
   external `7zz`/`7z` fallback. Running the inspected AppImage itself as an
   extractor stays gated
   by the safe-extractor setting.
-- AppImage runtime: `uruntime` v0.8.1 (static SquashFS build, pinned by SHA-256)
+- AppImage runtime: `uruntime` v0.8.2 (static SquashFS build, pinned by SHA-256)
   with `URUNTIME_EXTRACT=2`, so the AppImage extracts itself when FUSE is not
   available. Its MIT notice lives in `LICENSES/uruntime-MIT.txt`.
 - FTP: `suppaftp`. Hashing: `md-5`, `sha1`, `sha2`, `blake3`.
