@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-ARCH=${ARCH:-x86_64}
+ARCH=${ARCH:-$(uname -m)}
 OUT=${1:-$ROOT/.cache/uruntime-appimage-squashfs-lite-$ARCH}
 
 URUNTIME_VERSION=v0.8.2
@@ -19,6 +19,10 @@ case "$ARCH" in
     x86_64)
         SHA256_ORIGINAL=ba8aedc25c4b4f924636b3b81f8c7ee6ce4132499313ead9417d002a2a401693
         SHA256_PATCHED=f74c77ec07e05fc1c20005a01cd7206bad62e1c893e297864667fae79145de2f
+        ;;
+    aarch64)
+        SHA256_ORIGINAL=04e0431be20b73886c6ee115bd81840d82fe7ed211f9b5e7db46d7fabfbabe9b
+        SHA256_PATCHED=c2d8ed71e8464d0ed53342c64decca4b342345a8f90ac21e35255a98aad881d9
         ;;
     *)
         echo "error: no pinned uruntime for architecture '$ARCH'" >&2
