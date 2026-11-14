@@ -71,6 +71,7 @@ echo ":: building $ARCH inside $IMAGE"
     -e CARGO_TARGET_DIR="/src/target-debian12-$ARCH" \
     -e RUSTFLAGS="-C link-arg=-L/usr/lib/$MULTIARCH" \
     -e VARIANTS="${VARIANTS:-all}" \
+    -e ALLOW_PAYLOAD_ONLY_CHECK="${ALLOW_PAYLOAD_ONLY_CHECK:-0}" \
     -e ARCH="$ARCH" \
     -e IMAGE="$IMAGE" \
     -e APPIMAGETOOL="/src/.cache/$(basename "$TOOL")" \
