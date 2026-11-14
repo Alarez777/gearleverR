@@ -1,0 +1,118 @@
+# Ukrainian translation for Gear Lever.
+# Copyright (C) 2023-2024 THE Gear Lever'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the Gear Lever package.
+# volkov <volkovissocool@gmail.com>, 2023-2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Gear Lever\n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2024-12-07 17:14+0200\n"
+"Last-Translator: volkov <volkovissocool@gmail.com>\n"
+"Language-Team: \n"
+"Language: uk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.5\n"
+
+msgid "Launch"
+msgstr "Відкрити"
+
+msgid "Move to the app menu"
+msgstr "Встановити"
+
+msgid "Move all to the app menu"
+msgstr "Встановити всі"
+
+msgid "Apps to integrate"
+msgstr "Додатки для встановлення"
+
+msgid "Integrating..."
+msgstr "Встановлення…"
+
+msgid "AppImage integrated"
+msgstr "AppImage встановлено"
+
+msgid "AppImages integrated"
+msgstr "AppImages встановлено"
+
+msgid "Already integrated"
+msgstr "Уже встановлено"
+
+msgid "This AppImage is already integrated"
+msgstr "Цей AppImage уже встановлено"
+
+msgid "Version {version} is already integrated"
+msgstr "Версію {version} уже встановлено"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Зібрано для {arch}; не буде встановлено"
+
+msgid "No AppImage could be integrated"
+msgstr "Не вдалося встановити жодного AppImage"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Жоден із вибраних AppImage не можна встановити"
+
+msgid "Integrated {done} of {total}"
+msgstr "Встановлено {done} з {total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "Встановлено {done}; очікує {remaining}"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Показувати встановлені AppImage за межами стандартної теки"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Показувати AppImage, встановлені в системне меню, але розташовані за "
+"межами стандартної теки"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr ""
+"Використовувати назву виконуваного файлу для встановлених "
+"термінальних додатків"
+
+msgid "Installed"
+msgstr "Встановлені"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR ще не встановлено на вашому робочому столі. Виберіть, як "
+"його встановити та де зберігати AppImage."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR буде видалено разом із пунктом меню, і програма "
+"закриється. Якщо видалити лише Gear LeverR, інші AppImage залишаться "
+"встановленими."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR — єдиний встановлений AppImage. Його буде видалено, і "
+"програма закриється."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Це видалить усі встановлені AppImage ({count} шт.), включно з Gear "
+"LeverR, і програма закриється."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"{count} із вибраних AppImage мають таку саму назву, як уже "
+"встановлений додаток."

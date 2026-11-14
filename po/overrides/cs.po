@@ -1,0 +1,118 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2024-09-03 17:10+0200\n"
+"Last-Translator: Jonáš Loskot <jonas.loskot@proton.me>\n"
+"Language-Team: \n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.4.4\n"
+
+msgid "Launch"
+msgstr "Otevřít"
+
+msgid "Move to the app menu"
+msgstr "Nainstalovat"
+
+msgid "Move all to the app menu"
+msgstr "Nainstalovat vše"
+
+msgid "Apps to integrate"
+msgstr "Aplikace k instalaci"
+
+msgid "Integrating..."
+msgstr "Instalace..."
+
+msgid "AppImage integrated"
+msgstr "AppImage nainstalována"
+
+msgid "AppImages integrated"
+msgstr "AppImage nainstalované"
+
+msgid "Already integrated"
+msgstr "Již nainstalována"
+
+msgid "This AppImage is already integrated"
+msgstr "Tato AppImage je již nainstalována"
+
+msgid "Version {version} is already integrated"
+msgstr "Verze {version} je již nainstalována"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Sestaveno pro {arch}; nebude nainstalováno"
+
+msgid "No AppImage could be integrated"
+msgstr "Žádnou AppImage se nepodařilo nainstalovat"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Žádnou z vybraných AppImage nelze nainstalovat"
+
+msgid "Integrated {done} of {total}"
+msgstr "Nainstalováno {done} z {total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "Nainstalováno {done}; zbývá {remaining}"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Zobrazit nainstalované AppImage mimo výchozí složku"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Zobrazit AppImage nainstalované do systémové nabídky, které se "
+"nacházejí mimo výchozí složku"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr ""
+"Použít název spustitelného souboru pro nainstalované terminálové "
+"aplikace"
+
+msgid "Installed"
+msgstr "Nainstalované"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR ještě není nainstalován na vaší ploše. Zvolte, jak jej "
+"nainstalovat a kde uchovávat AppImage."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR bude odstraněn spolu se svou položkou nabídky a aplikace "
+"se zavře. Odstraněním pouze Gear LeverR zůstanou ostatní AppImage "
+"nainstalované."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR je jediná nainstalovaná AppImage. Bude odstraněna a "
+"aplikace se zavře."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Tím se odstraní všech {count} nainstalovaných AppImage, včetně Gear "
+"LeverR, a aplikace se zavře."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"{count} z vybraných AppImage má stejný název jako již nainstalovaná "
+"aplikace."

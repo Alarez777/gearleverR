@@ -1,0 +1,121 @@
+# Russian translation for Gear lever
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Ворон <voron@duck.com>, 2023.
+#
+# SPDX-FileCopyrightText: 2025 Sergey Kazorin <translation-team@basealt.ru>
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2025-11-25 18:58+0300\n"
+"Last-Translator: Ворон <voron@duck.com>\n"
+"Language-Team: Russian <kde-russian@lists.kde.ru>\n"
+"Language: ru_RU\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: Poedit 3.8\n"
+
+msgid "Launch"
+msgstr "Открыть"
+
+msgid "Move to the app menu"
+msgstr "Установить"
+
+msgid "Move all to the app menu"
+msgstr "Установить все"
+
+msgid "Apps to integrate"
+msgstr "Приложения для установки"
+
+msgid "Integrating..."
+msgstr "Установка…"
+
+msgid "AppImage integrated"
+msgstr "AppImage установлен"
+
+msgid "AppImages integrated"
+msgstr "AppImages установлены"
+
+msgid "Already integrated"
+msgstr "Уже установлен"
+
+msgid "This AppImage is already integrated"
+msgstr "Этот AppImage уже установлен"
+
+msgid "Version {version} is already integrated"
+msgstr "Версия {version} уже установлена"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Собрано для {arch}; установка не будет выполнена"
+
+msgid "No AppImage could be integrated"
+msgstr "Не удалось установить ни один AppImage"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Ни один из выбранных AppImage нельзя установить"
+
+msgid "Integrated {done} of {total}"
+msgstr "Установлено {done} из {total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "Установлено {done}; ожидает {remaining}"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Показывать установленные AppImage за пределами папки по умолчанию"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Показывать AppImage, установленные в системное меню, но находящиеся "
+"за пределами папки по умолчанию"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr ""
+"Использовать имя исполняемого файла для установленных консольных "
+"приложений"
+
+msgid "Installed"
+msgstr "Установленные"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR ещё не установлен на вашем рабочем столе. Выберите, как "
+"его установить и где хранить AppImage."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR будет удалён вместе с пунктом меню, и приложение "
+"закроется. Если удалить только Gear LeverR, остальные AppImage "
+"останутся установленными."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR — единственный установленный AppImage. Он будет удалён, и "
+"приложение закроется."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Это удалит все установленные AppImage ({count} шт.), включая Gear "
+"LeverR, и приложение закроется."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"{count} из выбранных AppImage имеют то же имя, что и уже "
+"установленное приложение."

@@ -1,0 +1,118 @@
+# Ukrainian translation for Gear Lever.
+# Copyright (C) 2023 THE Gear Lever'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the Gear Lever package.
+# volkov <volkovissocool@gmail.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2024-11-07 18:43+0200\n"
+"Last-Translator: JT65 <jouko.tiilikainen@outlook.com>\n"
+"Language-Team: \n"
+"Language: fi_FI\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.4.4\n"
+
+msgid "Launch"
+msgstr "Avaa"
+
+msgid "Move to the app menu"
+msgstr "Asenna"
+
+msgid "Move all to the app menu"
+msgstr "Asenna kaikki"
+
+msgid "Apps to integrate"
+msgstr "Asennettavat sovellukset"
+
+msgid "Integrating..."
+msgstr "Asennetaan..."
+
+msgid "AppImage integrated"
+msgstr "AppImage asennettu"
+
+msgid "AppImages integrated"
+msgstr "AppImages asennettu"
+
+msgid "Already integrated"
+msgstr "Jo asennettu"
+
+msgid "This AppImage is already integrated"
+msgstr "Tämä AppImage on jo asennettu"
+
+msgid "Version {version} is already integrated"
+msgstr "Versio {version} on jo asennettu"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Rakennettu arkkitehtuurille {arch}; sitä ei asenneta"
+
+msgid "No AppImage could be integrated"
+msgstr "Yhtään AppImagea ei voitu asentaa"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Yhtään valituista AppImageista ei voi asentaa"
+
+msgid "Integrated {done} of {total}"
+msgstr "Asennettu {done}/{total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "{done} asennettu; {remaining} odottaa"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Näytä asennetut AppImages oletuskansion ulkopuolella"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Listaa AppImaget, jotka on asennettu järjestelmävalikkoon mutta "
+"sijaitsevat oletuskansion ulkopuolella"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr ""
+"Käytä suoritettavan tiedoston nimeä asennetuille "
+"pääteohjelmille"
+
+msgid "Installed"
+msgstr "Asennetut"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR ei ole vielä asennettu työpöydällesi. Valitse, miten se "
+"asennetaan ja mihin AppImages-tiedostosi tallennetaan."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR poistetaan yhdessä sen valikkokohdan kanssa ja sovellus "
+"suljetaan. Jos poistat vain Gear LeverR:n, muut AppImages-tiedostot "
+"pysyvät asennettuina."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR on ainoa asennettu AppImage. Se poistetaan ja sovellus "
+"suljetaan."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Tämä poistaa kaikki {count} asennettua AppImagea, mukaan lukien Gear "
+"LeverR:n, ja sovellus suljetaan."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"{count} valituista AppImageista on samanniminen kuin jo asennettu "
+"sovellus."
