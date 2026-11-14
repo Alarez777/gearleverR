@@ -18,6 +18,14 @@ use crate::paths::Paths;
 /// Sizes tried when looking for a sharp icon, best first.
 const ICON_SIZES: [&str; 5] = ["scalable", "512x512", "256x256", "128x128", "96x96"];
 
+/// Library paths that identify a bundled GTK inside an AppImage payload.
+const BUNDLED_GTK_PATHS: [&str; 4] = [
+    "/usr/lib/libgtk-4.so.1",
+    "/usr/lib/x86_64-linux-gnu/libgtk-4.so.1",
+    "/usr/lib/aarch64-linux-gnu/libgtk-4.so.1",
+    "/lib/libgtk-4.so.1",
+];
+
 /// Stem of the desktop entry written for Gear LeverR.
 pub const DESKTOP_STEM: &str = "io.github.alarez777.GearLeverR";
 
@@ -137,14 +145,9 @@ fn bundled_gtk(appimage: &AppImage) -> Option<bool> {
     let payload = SquashfsImage::open(appimage.path(), appimage.payload_offset()).ok()?;
 
     Some(
-        [
-            "/usr/lib/libgtk-4.so.1",
-            "/usr/lib/x86_64-linux-gnu/libgtk-4.so.1",
-            "/usr/lib/aarch64-linux-gnu/libgtk-4.so.1",
-            "/lib/libgtk-4.so.1",
-        ]
-        .into_iter()
-        .any(|path| payload.contains(Path::new(path))),
+        BUNDLED_GTK_PATHS
+            .into_iter()
+            .any(|path| payload.contains(Path::new(path))),
     )
 }
 
@@ -595,9 +598,15 @@ mod tests {
         set_executable(path).expect("make it executable");
     }
 
+    const X86_64_MACHINE: u16 = 0x3e;
+    const AARCH64_MACHINE: u16 = 0xb7;
+
     #[derive(Clone, Copy)]
     enum Payload {
-        Bundled(&'static str),
+        Bundled {
+            gtk_path: &'static str,
+            machine: u16,
+        },
         Default,
     }
 
@@ -610,7 +619,11 @@ mod tests {
         filesystem
             .push_dir_all("usr/lib", header)
             .expect("create the payload directories");
-        if let Payload::Bundled(gtk_path) = payload {
+        let (gtk_path, machine) = match payload {
+            Payload::Bundled { gtk_path, machine } => (Some(gtk_path), machine),
+            Payload::Default => (None, X86_64_MACHINE),
+        };
+        if let Some(gtk_path) = gtk_path {
             let gtk_dir = Path::new(gtk_path)
                 .parent()
                 .expect("the GTK library has a parent directory");
@@ -631,7 +644,7 @@ mod tests {
         bytes[4] = 2; // 64-bit ELF
         bytes[5] = 1; // little-endian
         bytes[8..11].copy_from_slice(b"AI\x02");
-        bytes[0x12..0x14].copy_from_slice(&0x3e_u16.to_le_bytes());
+        bytes[0x12..0x14].copy_from_slice(&machine.to_le_bytes());
         bytes[0x28..0x30].copy_from_slice(&64_u64.to_le_bytes());
         bytes[0x3a..0x3c].copy_from_slice(&64_u16.to_le_bytes());
         bytes.extend_from_slice(&squashfs.into_inner());
@@ -896,7 +909,13 @@ mod tests {
         let metadata = metadata();
 
         let bundled = directory.path().join("GearLeverR.AppImage");
-        synthetic_appimage(&bundled, Payload::Bundled("usr/lib/libgtk-4.so.1"));
+        synthetic_appimage(
+            &bundled,
+            Payload::Bundled {
+                gtk_path: "usr/lib/libgtk-4.so.1",
+                machine: X86_64_MACHINE,
+            },
+        );
         assert_eq!(detect_variant(&metadata, &bundled), Variant::GtkIncluded);
 
         let default = directory.path().join("GearLeverR-other.AppImage");
@@ -912,7 +931,10 @@ mod tests {
         let bundled = directory.path().join("GearLeverR-aarch64.AppImage");
         synthetic_appimage(
             &bundled,
-            Payload::Bundled("usr/lib/aarch64-linux-gnu/libgtk-4.so.1"),
+            Payload::Bundled {
+                gtk_path: "usr/lib/aarch64-linux-gnu/libgtk-4.so.1",
+                machine: AARCH64_MACHINE,
+            },
         );
         assert_eq!(detect_variant(&metadata, &bundled), Variant::GtkIncluded);
     }
