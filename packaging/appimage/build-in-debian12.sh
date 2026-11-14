@@ -34,6 +34,14 @@ if ! command -v "$RUNTIME" >/dev/null 2>&1; then
     exit 1
 fi
 
+# A local tag may point at another architecture after testing both images.
+# Refresh it explicitly so --platform selects the host variant.
+image_arch=$("$RUNTIME" image inspect --format '{{.Architecture}}' "$IMAGE" 2>/dev/null || true)
+if [ -n "$image_arch" ] && [ "$image_arch" != "${PLATFORM#linux/}" ]; then
+    echo ":: refreshing $IMAGE for $PLATFORM"
+    "$RUNTIME" pull --platform "$PLATFORM" "$IMAGE"
+fi
+
 case "$TOOL" in
     "$ROOT/.cache/"*) ;;
     *)
