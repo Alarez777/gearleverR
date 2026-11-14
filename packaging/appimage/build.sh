@@ -10,11 +10,20 @@
 #   packaging/appimage/build.sh
 #   VARIANT=default packaging/appimage/build.sh
 #   APPIMAGETOOL=/path/to/appimagetool packaging/appimage/build.sh
+#
+# ALLOW_PAYLOAD_ONLY_CHECK=1  Verify the payload offset without executing the
+#                             produced AppImage. Cross builds do this
+#                             automatically; set it for native builds on a
+#                             noexec filesystem.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-ARCH=${ARCH:-x86_64}
+ARCH=${ARCH:-$(uname -m)}
 VARIANT=${VARIANT:-all}
+ALLOW_PAYLOAD_ONLY_CHECK=${ALLOW_PAYLOAD_ONLY_CHECK:-0}
+if [ "$ALLOW_PAYLOAD_ONLY_CHECK" = "1" ]; then
+    echo "warning: ALLOW_PAYLOAD_ONLY_CHECK=1 allows skipping the AppImage execution check" >&2
+fi
 VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/Cargo.toml" | head -n 1)
 DIST="$ROOT/dist"
 SYSTEM_APPDIR="$ROOT/packaging/appimage/AppDir"
@@ -24,7 +33,7 @@ BUNDLED_OUTPUT="$DIST/GearLeverR-${VERSION}-${ARCH}-gtk-included.AppImage"
 APPIMAGETOOL=${APPIMAGETOOL:-appimagetool}
 URUNTIME=${URUNTIME:-$ROOT/.cache/uruntime-appimage-squashfs-lite-$ARCH}
 DWARFS=${DWARFS:-$ROOT/.cache/dwarfsextract-$ARCH}
-LINUXDEPLOY=${LINUXDEPLOY:-$ROOT/.cache/linuxdeploy-x86_64.AppImage}
+LINUXDEPLOY=${LINUXDEPLOY:-$ROOT/.cache/linuxdeploy-$ARCH.AppImage}
 LINUXDEPLOY_PLUGIN=${LINUXDEPLOY_PLUGIN:-$ROOT/.cache/linuxdeploy-plugin-gtk.sh}
 
 export APPIMAGE_EXTRACT_AND_RUN=${APPIMAGE_EXTRACT_AND_RUN:-1}
@@ -124,8 +133,25 @@ package_appimage() {
 
     local offset
     local runtime_size
-    offset=$("$output" --appimage-offset)
     runtime_size=$(stat -c %s "$URUNTIME")
+    offset=$("$output" --appimage-offset 2>/dev/null || true)
+    if [ -z "$offset" ] &&
+        { [ "$ARCH" != "$(uname -m)" ] || [ "$ALLOW_PAYLOAD_ONLY_CHECK" = "1" ]; }; then
+        # A directly cross-built AppImage cannot run on the build host. Its
+        # SquashFS superblock still starts where the runtime ends, so verify
+        # the magic there instead of executing the produced file. Native builds
+        # keep the strict execution check unless ALLOW_PAYLOAD_ONLY_CHECK=1.
+        local magic
+        magic=$(dd if="$output" bs=1 skip="$runtime_size" count=4 2>/dev/null || true)
+        if [ "$magic" = "hsqs" ]; then
+            offset=$runtime_size
+            echo ":: verified the payload offset without executing $output"
+        fi
+    fi
+    if [ -z "$offset" ]; then
+        echo "error: could not determine the payload offset of $output" >&2
+        exit 1
+    fi
     if [ "$offset" != "$runtime_size" ]; then
         echo "error: $output reports payload offset $offset, expected $runtime_size" >&2
         exit 1
@@ -139,7 +165,7 @@ ensure_linuxdeploy() {
         echo ":: downloading linuxdeploy"
         mkdir -p "$(dirname "$LINUXDEPLOY")"
         curl -fsSL -o "$LINUXDEPLOY" \
-            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$ARCH.AppImage"
         chmod +x "$LINUXDEPLOY"
     fi
 

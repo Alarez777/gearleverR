@@ -11,8 +11,8 @@ reference only** and must not be modified. That directory has its own `AGENTS.md
 | Name | Gear LeverR |
 | App ID | `io.github.alarez777.GearLeverR` |
 | Binary | `gearlever-r` |
-| AppImage (default) | `GearLeverR-<version>-x86_64.AppImage` (system GTK) |
-| AppImage (portable) | `GearLeverR-<version>-x86_64-gtk-included.AppImage` |
+| AppImage (default) | `GearLeverR-<version>-x86_64.AppImage` / `...-aarch64.AppImage` (system GTK) |
+| AppImage (portable) | `GearLeverR-<version>-x86_64-gtk-included.AppImage` / `...-aarch64-gtk-included.AppImage` |
 | Config | `~/.config/gearlever-r.conf` |
 | License | GPL-3.0-or-later (derivative work; keep attribution to Lorenzo Paderi) |
 
@@ -59,6 +59,11 @@ Debian 13. Debian 13 binaries are for testing only. Use
 `packaging/appimage/build-in-debian12.sh`; do not build the AppImage on the host.
 The build downloads the pinned runtime with `packaging/appimage/fetch-uruntime.sh`
 and verifies its SHA-256 before packaging.
+The release workflow builds `x86_64` on `ubuntu-latest` and `aarch64` on
+`ubuntu-24.04-arm`, both inside `rust:1.98-bookworm`. Local arm64 builds run
+`ARCH=aarch64 packaging/appimage/build-in-debian12.sh` on an arm64 host; cross
+builds from x86_64 are rejected. A `workflow_dispatch` run builds and uploads both
+architectures without publishing a release; the publish job only runs for `v*` tags.
 
 ## Layout
 
