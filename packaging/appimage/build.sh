@@ -10,11 +10,17 @@
 #   packaging/appimage/build.sh
 #   VARIANT=default packaging/appimage/build.sh
 #   APPIMAGETOOL=/path/to/appimagetool packaging/appimage/build.sh
+#
+# ALLOW_PAYLOAD_ONLY_CHECK=1  Verify the payload offset without executing the
+#                             produced AppImage. Cross builds do this
+#                             automatically; set it for native builds on a
+#                             noexec filesystem.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ARCH=${ARCH:-$(uname -m)}
 VARIANT=${VARIANT:-all}
+ALLOW_PAYLOAD_ONLY_CHECK=${ALLOW_PAYLOAD_ONLY_CHECK:-0}
 VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/Cargo.toml" | head -n 1)
 DIST="$ROOT/dist"
 SYSTEM_APPDIR="$ROOT/packaging/appimage/AppDir"
@@ -126,11 +132,12 @@ package_appimage() {
     local runtime_size
     runtime_size=$(stat -c %s "$URUNTIME")
     offset=$("$output" --appimage-offset 2>/dev/null || true)
-    if [ -z "$offset" ] && [ "$ARCH" != "$(uname -m)" ]; then
+    if [ -z "$offset" ] &&
+        { [ "$ARCH" != "$(uname -m)" ] || [ "$ALLOW_PAYLOAD_ONLY_CHECK" = "1" ]; }; then
         # A directly cross-built AppImage cannot run on the build host. Its
         # SquashFS superblock still starts where the runtime ends, so verify
         # the magic there instead of executing the produced file. Native builds
-        # keep the strict execution check.
+        # keep the strict execution check unless ALLOW_PAYLOAD_ONLY_CHECK=1.
         local magic
         magic=$(dd if="$output" bs=1 skip="$runtime_size" count=4 2>/dev/null || true)
         if [ "$magic" = "hsqs" ]; then
