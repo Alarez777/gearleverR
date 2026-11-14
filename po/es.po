@@ -22,16 +22,16 @@ msgid "AppImage manager written in Rust"
 msgstr "Administrador de AppImages escrito en Rust"
 
 msgid "AppImage integrated"
-msgstr "AppImage integrada"
+msgstr "AppImage instalada"
 
 msgid "AppImages integrated"
-msgstr "AppImages integradas"
+msgstr "AppImages instaladas"
 
 msgid "Apply changes"
 msgstr "Aplicar cambios"
 
 msgid "Apps to integrate"
-msgstr "Aplicaciones para integrar"
+msgstr "Aplicaciones para instalar"
 
 msgid "Back"
 msgstr "Atrás"
@@ -67,13 +67,13 @@ msgstr ""
 "la GNU GPL, versión 3 o posterior."
 
 msgid "Integrating..."
-msgstr "Integrando..."
+msgstr "Instalando..."
 
 msgid "Metadata reloaded"
 msgstr "Metadata recargada"
 
 msgid "Move all to the app menu"
-msgstr "Mover todas al menú de aplicaciones"
+msgstr "Instalar todas"
 
 msgid "No update method was found for this AppImage"
 msgstr "No se encontró un método de actualización para esta AppImage"
@@ -115,7 +115,7 @@ msgid "The application is running, close it first"
 msgstr "La aplicación está en ejecución, ciérrala primero"
 
 msgid "This AppImage is already integrated"
-msgstr "Esta AppImage ya está integrada"
+msgstr "Esta AppImage ya está instalada"
 
 msgid "Update source saved"
 msgstr "Fuente de actualización guardada"
@@ -172,7 +172,7 @@ msgid ""
 "Gear LeverR is not integrated into your desktop yet. Choose how it should be "
 "installed and where to keep your AppImages."
 msgstr ""
-"Gear LeverR todavía no está integrado en tu escritorio. Elige cómo "
+"Gear LeverR todavía no está instalado en tu escritorio. Elige cómo "
 "instalarlo y dónde guardar tus AppImages."
 
 msgid "When adding an AppImage"
@@ -201,9 +201,9 @@ msgid ""
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
-"Se eliminará Gear LeverR junto con su acceso al menú y la aplicación se "
-"cerrará. Si eliminas solo Gear LeverR, el resto de AppImages seguirán "
-"integradas."
+"Se eliminará Gear LeverR junto con su acceso al menú y la aplicación "
+"se cerrará. Si eliminas solo Gear LeverR, el resto de AppImages "
+"seguirán instaladas."
 
 msgid "Remove Gear LeverR"
 msgstr "Eliminar Gear LeverR"
@@ -218,15 +218,15 @@ msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
-"Gear LeverR es el único AppImage integrado. Se eliminará y la aplicación se "
-"cerrará."
+"Gear LeverR es el único AppImage instalado. Se eliminará y la "
+"aplicación se cerrará."
 
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
 msgstr ""
-"Se eliminarán los {count} AppImages integrados, incluida Gear LeverR, y se "
-"cerrará la aplicación."
+"Se eliminarán los {count} AppImages instalados, incluida Gear LeverR, "
+"y se cerrará la aplicación."
 
 msgid "AppImages removed"
 msgstr "AppImages eliminadas"
@@ -239,8 +239,8 @@ msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
 msgstr ""
-"Lista de AppImages que han sido integradas en el menú del sistema, pero "
-"están fuera de la carpeta por defecto"
+"Lista las AppImages instaladas en el menú del sistema que están fuera "
+"de la carpeta predeterminada"
 
 msgid ""
 "If enabled, apps that run in the terminal are renamed as their executable.\n"
@@ -499,7 +499,7 @@ msgid ""
 "already integrated."
 msgstr ""
 "{count} de las AppImages seleccionadas tienen el mismo nombre que una "
-"aplicación ya integrada."
+"aplicación ya instalada."
 
 msgid "Replace all"
 msgstr "Remplazar todos"
@@ -520,13 +520,13 @@ msgid "An installation is already running"
 msgstr "Ya hay una instalación en curso"
 
 msgid "No AppImage could be integrated"
-msgstr "No se pudo integrar ninguna AppImage"
+msgstr "No se pudo instalar ninguna AppImage"
 
 msgid "Some AppImages were skipped"
 msgstr "Se omitieron algunas AppImages"
 
 msgid "{done} integrated; {remaining} pending"
-msgstr "{done} integradas; {remaining} pendientes"
+msgstr "{done} instaladas; {remaining} pendientes"
 
 msgid "Continue"
 msgstr "Continuar"
@@ -535,19 +535,19 @@ msgid "Incompatible architecture"
 msgstr "Arquitectura incompatible"
 
 msgid "Built for {arch}; it will not be integrated"
-msgstr "Compilada para {arch}; no se integrará"
+msgstr "Compilada para {arch}; no se instalará"
 
 msgid "Already integrated"
-msgstr "Ya integrada"
+msgstr "Ya instalada"
 
 msgid "Version {version} is already integrated"
-msgstr "La versión {version} ya está integrada"
+msgstr "La versión {version} ya está instalada"
 
 msgid "Name conflict"
 msgstr "Conflicto de nombre"
 
 msgid "None of the selected AppImages can be integrated"
-msgstr "Ninguna de las AppImages seleccionadas se puede integrar"
+msgstr "Ninguna de las AppImages seleccionadas se puede instalar"
 
 msgid "Parallel downloads"
 msgstr "Descargas simultáneas"
@@ -928,7 +928,7 @@ msgstr "Instalando..."
 
 #: crates/gearlever/src/ui/mod.rs:2423
 msgid "Integrated {done} of {total}"
-msgstr ""
+msgstr "{done} de {total} instaladas"
 
 #: crates/gearlever/src/ui/mod.rs:4820
 msgid "Keep both"
@@ -944,7 +944,7 @@ msgstr "Clave"
 
 #: crates/gearlever/src/ui/mod.rs:3118 crates/gearlever/src/ui/mod.rs:3328
 msgid "Launch"
-msgstr "Lanzar"
+msgstr "Abrir"
 
 #: crates/gearlever/src/ui/mod.rs:3372
 msgid "Manage update details for this application"
@@ -956,7 +956,7 @@ msgstr "Mueve las AppImages a la carpeta destinada"
 
 #: crates/gearlever/src/ui/mod.rs:3335
 msgid "Move to the app menu"
-msgstr "Mover al menu de aplicaciones"
+msgstr "Instalar"
 
 #: crates/gearlever/src/ui/mod.rs:4435
 msgid "Naming conventions"
@@ -1031,7 +1031,7 @@ msgstr "Selecciona la ubicación de la AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:4033
 msgid "Show integrated AppImages outside the default folder"
-msgstr "Muestra las AppImages integradas fuera de la carpeta por defecto"
+msgstr "Mostrar las AppImages instaladas fuera de la carpeta predeterminada"
 
 #: crates/gearlever/src/ui/mod.rs:3382
 msgid "Source"
@@ -1080,7 +1080,9 @@ msgstr "Gestión de actualizaciones"
 
 #: crates/gearlever/src/ui/mod.rs:4437
 msgid "Use executable name for integrated terminal apps"
-msgstr "Utilizar nombre ejecutable para aplicaciones de terminal integradas"
+msgstr ""
+"Usar el nombre del ejecutable para las aplicaciones de terminal "
+"instaladas"
 
 #: crates/gearlever/src/ui/mod.rs:4049
 msgid "Use safe mechanisms to load metadata"

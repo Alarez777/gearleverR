@@ -1,0 +1,103 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2025-03-23 10:05+0800\n"
+"Last-Translator: Wakimizu <wakimizu@disroot.org>\n"
+"Language-Team: \n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.5\n"
+
+msgid "Launch"
+msgstr "打开"
+
+msgid "Move to the app menu"
+msgstr "安装"
+
+msgid "Move all to the app menu"
+msgstr "全部安装"
+
+msgid "Apps to integrate"
+msgstr "要安装的应用"
+
+msgid "Integrating..."
+msgstr "正在安装…"
+
+msgid "AppImage integrated"
+msgstr "AppImage 已安装"
+
+msgid "AppImages integrated"
+msgstr "AppImages 已安装"
+
+msgid "Already integrated"
+msgstr "已安装"
+
+msgid "This AppImage is already integrated"
+msgstr "此 AppImage 已安装"
+
+msgid "Version {version} is already integrated"
+msgstr "版本 {version} 已安装"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "为 {arch} 构建；不会安装"
+
+msgid "No AppImage could be integrated"
+msgstr "无法安装任何 AppImage"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "所选 AppImage 均无法安装"
+
+msgid "Integrated {done} of {total}"
+msgstr "已安装 {done}/{total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "已安装 {done} 个；{remaining} 个待处理"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "显示默认文件夹外已安装的 AppImage"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr "列出已安装到系统菜单但位于默认文件夹之外的 AppImage"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr "已安装的终端应用使用可执行文件名称"
+
+msgid "Installed"
+msgstr "已安装"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr "Gear LeverR 尚未安装到您的桌面。请选择安装方式以及 AppImage 的保存位置。"
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr "Gear LeverR 将连同其菜单项一起被移除，应用将关闭。仅移除 Gear LeverR 时，其他 AppImage 仍保持安装状态。"
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr "Gear LeverR 是唯一已安装的 AppImage。它将被移除，应用将关闭。"
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr "这将移除全部 {count} 个已安装的 AppImage（包括 Gear LeverR），并关闭应用。"
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr "所选 AppImage 中有 {count} 个与已安装的应用同名。"

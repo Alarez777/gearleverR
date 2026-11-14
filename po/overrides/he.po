@@ -1,0 +1,114 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2026-05-28 20:59+0300\n"
+"Last-Translator: Omer I.S. <omeritzicschwartz@gmail.com>\n"
+"Language-Team: \n"
+"Language: he\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.9\n"
+
+msgid "Launch"
+msgstr "פתיחה"
+
+msgid "Move to the app menu"
+msgstr "התקנה"
+
+msgid "Move all to the app menu"
+msgstr "התקנת הכול"
+
+msgid "Apps to integrate"
+msgstr "יישומים להתקנה"
+
+msgid "Integrating..."
+msgstr "בהתקנה..."
+
+msgid "AppImage integrated"
+msgstr "AppImage הותקן"
+
+msgid "AppImages integrated"
+msgstr "AppImages הותקנו"
+
+msgid "Already integrated"
+msgstr "כבר מותקן"
+
+msgid "This AppImage is already integrated"
+msgstr "AppImage זה כבר מותקן"
+
+msgid "Version {version} is already integrated"
+msgstr "גרסה {version} כבר מותקנת"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "נבנה עבור {arch}; הוא לא יותקן"
+
+msgid "No AppImage could be integrated"
+msgstr "לא ניתן היה להתקין AppImage"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "לא ניתן להתקין אף אחד מה-AppImages שנבחרו"
+
+msgid "Integrated {done} of {total}"
+msgstr "הותקנו {done} מתוך {total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "{done} הותקנו; {remaining} ממתינים"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "הצגת AppImages מותקנים מחוץ לתיקיית ברירת המחדל"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"הצגת AppImages שהותקנו בתפריט המערכת אך נמצאים מחוץ לתיקיית ברירת "
+"המחדל"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr "שימוש בשם קובץ ההרצה עבור יישומי מסוף מותקנים"
+
+msgid "Installed"
+msgstr "מותקנים"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR עדיין לא מותקן בשולחן העבודה שלך. בחר כיצד להתקין אותו "
+"והיכן לשמור את קובצי ה-AppImage."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR יוסר יחד עם פריט התפריט שלו והאפליקציה תיסגר. הסרת Gear "
+"LeverR בלבד משאירה את שאר קובצי ה-AppImage מותקנים."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr "Gear LeverR הוא ה-AppImage המותקן היחיד. הוא יוסר והאפליקציה תיסגר."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"פעולה זו תסיר את כל {count} קובצי ה-AppImage המותקנים, כולל Gear "
+"LeverR, והאפליקציה תיסגר."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"ל-{count} מקובצי ה-AppImage שנבחרו יש אותו שם כמו אפליקציה שכבר "
+"מותקנת."

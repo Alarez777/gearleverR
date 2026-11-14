@@ -1,0 +1,115 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Loc Huynh <https://github.com/hthienloc>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: unnamed project\n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2025-12-09 21:20+0700\n"
+"Last-Translator: Loc Huynh <https://github.com/hthienloc>\n"
+"Language-Team: Vietnamese <https://github.com/linux-l10n-vi>\n"
+"Language: vi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Gtranslator 49.0\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Launch"
+msgstr "Mở"
+
+msgid "Move to the app menu"
+msgstr "Cài đặt"
+
+msgid "Move all to the app menu"
+msgstr "Cài đặt tất cả"
+
+msgid "Apps to integrate"
+msgstr "Ứng dụng cần cài đặt"
+
+msgid "Integrating..."
+msgstr "Đang cài đặt..."
+
+msgid "AppImage integrated"
+msgstr "Đã cài đặt AppImage"
+
+msgid "AppImages integrated"
+msgstr "Đã cài đặt các AppImage"
+
+msgid "Already integrated"
+msgstr "Đã cài đặt"
+
+msgid "This AppImage is already integrated"
+msgstr "AppImage này đã được cài đặt"
+
+msgid "Version {version} is already integrated"
+msgstr "Phiên bản {version} đã được cài đặt"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Được xây dựng cho {arch}; sẽ không được cài đặt"
+
+msgid "No AppImage could be integrated"
+msgstr "Không thể cài đặt AppImage nào"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Không thể cài đặt bất kỳ AppImage nào đã chọn"
+
+msgid "Integrated {done} of {total}"
+msgstr "Đã cài đặt {done}/{total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "Đã cài đặt {done}; còn {remaining} đang chờ"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Hiển thị các AppImage đã cài đặt bên ngoài thư mục mặc định"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Liệt kê các AppImage đã cài đặt vào menu hệ thống nhưng nằm ngoài thư "
+"mục mặc định"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr "Sử dụng tên tệp thực thi cho các ứng dụng terminal đã cài đặt"
+
+msgid "Installed"
+msgstr "Đã cài đặt"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR chưa được cài đặt trên màn hình của bạn. Chọn cách cài "
+"đặt và nơi lưu AppImage."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR sẽ bị xóa cùng với mục menu của nó và ứng dụng sẽ đóng. "
+"Nếu chỉ xóa Gear LeverR, các AppImage khác vẫn được cài đặt."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR là AppImage duy nhất đã cài đặt. Nó sẽ bị xóa và ứng dụng "
+"sẽ đóng."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Thao tác này sẽ xóa tất cả {count} AppImage đã cài đặt, bao gồm Gear "
+"LeverR, và ứng dụng sẽ đóng."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr "{count} AppImage đã chọn có cùng tên với một ứng dụng đã cài đặt."

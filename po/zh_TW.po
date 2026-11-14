@@ -52,7 +52,7 @@ msgstr "為此應用程式新增或自訂環境"
 
 #: crates/gearlever/src/ui/mod.rs:3707
 msgid "Already integrated"
-msgstr ""
+msgstr "已安裝"
 
 #: crates/gearlever/src/ui/mod.rs:814 crates/gearlever/src/ui/mod.rs:842
 #: crates/gearlever/src/ui/mod.rs:855 crates/gearlever/src/ui/mod.rs:1169
@@ -81,7 +81,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:969
 msgid "AppImage integrated"
-msgstr ""
+msgstr "AppImage 已安裝"
 
 #: crates/gearlever/src/ui/mod.rs:4760
 msgid "AppImage manager written in Rust"
@@ -101,7 +101,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1008
 msgid "AppImages integrated"
-msgstr ""
+msgstr "AppImages 已安裝"
 
 #: crates/gearlever/src/ui/mod.rs:1141
 msgid "AppImages removed"
@@ -131,7 +131,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3592
 msgid "Apps to integrate"
-msgstr ""
+msgstr "要安裝的應用程式"
 
 #: crates/gearlever/src/ui/mod.rs:4907
 msgid "Ask for each"
@@ -159,7 +159,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3683
 msgid "Built for {arch}; it will not be integrated"
-msgstr ""
+msgstr "為 {arch} 建置；不會安裝"
 
 #: crates/gearlever/src/ui/mod.rs:2689 crates/gearlever/src/ui/mod.rs:2722
 #: crates/gearlever/src/ui/mod.rs:4011 crates/gearlever/src/ui/mod.rs:4777
@@ -398,7 +398,7 @@ msgstr ""
 msgid ""
 "Gear LeverR is not integrated into your desktop yet. Choose how it should be "
 "installed and where to keep your AppImages."
-msgstr ""
+msgstr "Gear LeverR 尚未安裝到您的桌面。請選擇安裝方式以及 AppImage 的儲存位置。"
 
 #: crates/gearlever/src/ui/mod.rs:4616
 msgid "Gear LeverR is not running from an AppImage."
@@ -408,7 +408,7 @@ msgstr ""
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
-msgstr ""
+msgstr "Gear LeverR 是唯一已安裝的 AppImage。它將被移除，應用程式將關閉。"
 
 #: crates/gearlever/src/ui/mod.rs:4523
 msgid "Gear LeverR needs FUSE to mount the AppImage instead of extracting it."
@@ -420,6 +420,8 @@ msgid ""
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
+"Gear LeverR 將連同其選單項目一起移除，應用程式將關閉。僅移除 Gear LeverR 時，其他 AppImage "
+"仍保持安裝狀態。"
 
 #: crates/gearlever/src/ui/mod.rs:5380
 msgid "Get started"
@@ -513,7 +515,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:5367
 msgid "Installed"
-msgstr ""
+msgstr "已安裝"
 
 #: crates/gearlever/src/ui/mod.rs:2851 crates/gearlever/src/ui/mod.rs:5320
 msgid "Installed applications"
@@ -525,11 +527,11 @@ msgstr "正在安裝..."
 
 #: crates/gearlever/src/ui/mod.rs:2423
 msgid "Integrated {done} of {total}"
-msgstr ""
+msgstr "已安裝 {done}/{total}"
 
 #: crates/gearlever/src/ui/mod.rs:2345 crates/gearlever/src/ui/mod.rs:2389
 msgid "Integrating..."
-msgstr ""
+msgstr "正在安裝…"
 
 #: crates/gearlever/src/ui/mod.rs:4062
 msgid "Interface scale"
@@ -561,7 +563,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3118 crates/gearlever/src/ui/mod.rs:3328
 msgid "Launch"
-msgstr "啟動"
+msgstr "開啟"
 
 #: crates/gearlever/src/ui/welcome.rs:512
 msgid "Learn more"
@@ -571,7 +573,7 @@ msgstr ""
 msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
-msgstr "列出已整合至系統選單、但位於預設資料夾之外的 AppImage"
+msgstr "列出已安裝至系統選單、但位於預設資料夾之外的 AppImage"
 
 #: crates/gearlever/src/ui/welcome.rs:403
 msgid ""
@@ -617,11 +619,11 @@ msgstr "將 AppImage 移入目的資料夾"
 
 #: crates/gearlever/src/ui/mod.rs:2743 crates/gearlever/src/ui/mod.rs:3636
 msgid "Move all to the app menu"
-msgstr ""
+msgstr "全部安裝"
 
 #: crates/gearlever/src/ui/mod.rs:3335
 msgid "Move to the app menu"
-msgstr "移至應用程式選單"
+msgstr "安裝"
 
 #: crates/gearlever/src/ui/mod.rs:3657
 msgid "Name conflict"
@@ -639,7 +641,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1025
 msgid "No AppImage could be integrated"
-msgstr ""
+msgstr "無法安裝任何 AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:5818
 msgid "No environment variables yet"
@@ -665,7 +667,7 @@ msgstr "找不到更新"
 
 #: crates/gearlever/src/ui/mod.rs:865 crates/gearlever/src/ui/mod.rs:3629
 msgid "None of the selected AppImages can be integrated"
-msgstr ""
+msgstr "所選的 AppImage 都無法安裝"
 
 #: crates/gearlever/src/ui/mod.rs:4615 crates/gearlever/src/ui/mod.rs:6567
 #: crates/gearlever/src/ui/mod.rs:6825
@@ -888,7 +890,7 @@ msgstr "設定 AppImage 位置"
 
 #: crates/gearlever/src/ui/mod.rs:4033
 msgid "Show integrated AppImages outside the default folder"
-msgstr "在預設資料夾之外顯示已整合的 AppImage"
+msgstr "顯示預設資料夾外已安裝的 AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:4825
 msgid "Skip"
@@ -990,7 +992,7 @@ msgstr "已有同名應用程式，您希望如何處理？"
 
 #: crates/gearlever/src/ui/mod.rs:3697
 msgid "This AppImage is already integrated"
-msgstr ""
+msgstr "此 AppImage 已安裝"
 
 #: crates/gearlever/src/ui/mod.rs:6558 crates/gearlever/src/ui/mod.rs:6773
 msgid ""
@@ -1010,7 +1012,7 @@ msgstr "此應用程式包含由開發者提供的更新資訊"
 msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
-msgstr ""
+msgstr "這將移除全部 {count} 個已安裝的 AppImage（包括 Gear LeverR），並關閉應用程式。"
 
 #: crates/gearlever/src/ui/mod.rs:6173
 msgid "Token configured · invalid or expired"
@@ -1151,7 +1153,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4437
 msgid "Use executable name for integrated terminal apps"
-msgstr "整合的命令列應用程式使用執行檔名稱"
+msgstr "已安裝的終端機應用程式使用執行檔名稱"
 
 #: crates/gearlever/src/ui/mod.rs:4049
 msgid "Use safe mechanisms to load metadata"
@@ -1171,7 +1173,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3699
 msgid "Version {version} is already integrated"
-msgstr ""
+msgstr "版本 {version} 已安裝"
 
 #: crates/gearlever/src/ui/mod.rs:3255
 msgid "Website"
@@ -1198,7 +1200,7 @@ msgstr "設定(_P)"
 msgid ""
 "{count} of the selected AppImages have the same name as an app that is "
 "already integrated."
-msgstr ""
+msgstr "所選 AppImage 中有 {count} 個與已安裝的應用程式同名。"
 
 #: crates/gearlever/src/ui/mod.rs:3751
 msgid "{count} updates failed"
@@ -1206,7 +1208,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1016
 msgid "{done} integrated; {remaining} pending"
-msgstr ""
+msgstr "已安裝 {done} 個；{remaining} 個待處理"
 
 #: crates/gearlever/src/rate_limit.rs:60
 msgid "{minutes} min"

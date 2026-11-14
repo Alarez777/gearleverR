@@ -1,0 +1,119 @@
+# Slovak translation of Gear lever
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Jozef Gaal <preklady@mayday.sk>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Gear lever 4.5.5\n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2026-07-09 22:34+0200\n"
+"Last-Translator: Jozef Gaal <preklady@mayday.sk>\n"
+"Language-Team: Jozef Gaal <preklady@mayday.sk>\n"
+"Language: sk_SK\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.9\n"
+
+msgid "Launch"
+msgstr "Otvoriť"
+
+msgid "Move to the app menu"
+msgstr "Nainštalovať"
+
+msgid "Move all to the app menu"
+msgstr "Nainštalovať všetko"
+
+msgid "Apps to integrate"
+msgstr "Aplikácie na inštaláciu"
+
+msgid "Integrating..."
+msgstr "Inštaluje sa..."
+
+msgid "AppImage integrated"
+msgstr "AppImage nainštalovaná"
+
+msgid "AppImages integrated"
+msgstr "AppImage nainštalované"
+
+msgid "Already integrated"
+msgstr "Už nainštalovaná"
+
+msgid "This AppImage is already integrated"
+msgstr "Táto AppImage je už nainštalovaná"
+
+msgid "Version {version} is already integrated"
+msgstr "Verzia {version} je už nainštalovaná"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Zostavená pre {arch}; nebude nainštalovaná"
+
+msgid "No AppImage could be integrated"
+msgstr "Žiadnu AppImage sa nepodarilo nainštalovať"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Žiadnu z vybraných AppImage nie je možné nainštalovať"
+
+msgid "Integrated {done} of {total}"
+msgstr "Nainštalované {done} z {total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "Nainštalované {done}; zostáva {remaining}"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Zobraziť nainštalované AppImage mimo predvoleného priečinka"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Zobraziť AppImage nainštalované do systémového menu, ktoré sa "
+"nachádzajú mimo predvoleného priečinka"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr ""
+"Použiť názov spustiteľného súboru pre nainštalované terminálové "
+"aplikácie"
+
+msgid "Installed"
+msgstr "Nainštalované"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR ešte nie je nainštalovaný na vašej ploche. Zvoľte, ako ho "
+"nainštalovať a kde uchovávať AppImage."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR bude odstránený spolu so svojou položkou ponuky a "
+"aplikácia sa zavrie. Odstránením iba Gear LeverR zostanú ostatné "
+"AppImage nainštalované."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR je jediná nainštalovaná AppImage. Bude odstránená a "
+"aplikácia sa zavrie."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Tým sa odstránia všetky {count} nainštalované AppImage vrátane Gear "
+"LeverR a aplikácia sa zavrie."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"{count} z vybraných AppImage má rovnaký názov ako už nainštalovaná "
+"aplikácia."
