@@ -180,7 +180,9 @@ ARCH=aarch64 packaging/appimage/build-in-debian12.sh     # on an arm64 host
 
 The release workflow builds x86_64 and aarch64 natively on GitHub runners. A
 local release build runs inside `rust:1.98-bookworm` on a host of the same
-architecture; cross-building arm64 from x86_64 is not supported.
+architecture; cross-building arm64 from x86_64 is not supported. If the cached
+`rust:1.98-bookworm` image belongs to another architecture, the script pulls the
+host variant before building.
 
 The script packages both variants into `dist/`: `...AppImage` (default, system
 GTK) and `...-gtk-included.AppImage`. The `gtk-included` variant is assembled

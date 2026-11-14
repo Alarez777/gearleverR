@@ -167,7 +167,9 @@ ARCH=aarch64 packaging/appimage/build-in-debian12.sh     # en un host arm64
 
 El workflow de release compila x86_64 y aarch64 de forma nativa en runners de
 GitHub. Un build local de release se ejecuta dentro de `rust:1.98-bookworm` en
-un host de la misma arquitectura; no se admite compilar arm64 desde x86_64.
+un host de la misma arquitectura; no se admite compilar arm64 desde x86_64. Si
+la imagen `rust:1.98-bookworm` en caché pertenece a otra arquitectura, el script
+descarga la variante del host antes de compilar.
 
 El script empaqueta las dos variantes en `dist/`: `...AppImage` (por defecto,
 GTK del sistema) y `...-gtk-included.AppImage`. La variante `gtk-included` se
