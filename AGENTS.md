@@ -119,7 +119,12 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
   finding needs the exact rule, read the matching file under
   `.agents/skills/rust-best-practices/references/`. Fix every Must fix finding
   and report the remaining Should fix and Consider items in the hand-back.
-  Branches with no Rust changes skip the review.
+  Branches with no Rust changes still get their packaging, script and docs diff
+  reviewed before the merge.
+- AppImage artifacts are generated only under `dist/` (the AppImage and its
+  `.sha256`). Never replace or overwrite an installed copy such as
+  `~/AppImages/gear_leverr.appimage`; installing or updating it is an explicit
+  user action.
 - Never merge into `develop` on your own. Leave the branch implemented and
   tested, then wait for the user's explicit confirmation. Once confirmed, merge
   it into `develop`, then into `main`, and push both.
