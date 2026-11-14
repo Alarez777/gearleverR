@@ -169,7 +169,9 @@ El workflow de release compila x86_64 y aarch64 de forma nativa en runners de
 GitHub. Un build local de release se ejecuta dentro de `rust:1.98-bookworm` en
 un host de la misma arquitectura; no se admite compilar arm64 desde x86_64. Si
 la imagen `rust:1.98-bookworm` en caché pertenece a otra arquitectura, el script
-descarga la variante del host antes de compilar.
+descarga la variante del host antes de compilar. En un sistema de archivos
+`noexec`, define `ALLOW_PAYLOAD_ONLY_CHECK=1` para verificar el offset del
+payload sin ejecutar el AppImage.
 
 El script empaqueta las dos variantes en `dist/`: `...AppImage` (por defecto,
 GTK del sistema) y `...-gtk-included.AppImage`. La variante `gtk-included` se
