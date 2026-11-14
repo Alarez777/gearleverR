@@ -8,12 +8,21 @@ on:
 
 jobs:
   appimage:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            triplet: x86_64-linux-gnu
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            triplet: aarch64-linux-gnu
+    runs-on: ${{ matrix.runner }}
     container: rust:1.98-bookworm
-    permissions:
-      contents: write
     env:
-      RUSTFLAGS: "-C link-arg=-L/usr/lib/x86_64-linux-gnu"
+      ARCH: ${{ matrix.arch }}
+      RUSTFLAGS: "-C link-arg=-L/usr/lib/${{ matrix.triplet }}"
       CARGO_TARGET_DIR: /tmp/target
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +41,7 @@ jobs:
       - name: Package AppImage
         run: |
           curl -fsSL -o /tmp/appimagetool \
-            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${ARCH}.AppImage"
           chmod +x /tmp/appimagetool
           GEARLEVER_R_BINARY=/tmp/target/release/gearlever-r \
           APPIMAGETOOL=/tmp/appimagetool \
@@ -41,16 +50,38 @@ jobs:
 
       - name: Verify AppImage runtime
         run: |
-          appimage=$(echo dist/GearLeverR-*-x86_64.AppImage)
+          appimage=$(echo dist/GearLeverR-*-${ARCH}.AppImage)
           "$appimage" --appimage-offset
           APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version | grep -q '^gearlever-r '
 
       - name: Verify bundled DwarFS extractor
         run: |
-          appimage=$(echo dist/GearLeverR-*-x86_64.AppImage)
+          appimage=$(echo dist/GearLeverR-*-${ARCH}.AppImage)
           "$appimage" --appimage-extract >/dev/null
           ./squashfs-root/usr/bin/dwarfsextract --help | grep -q 'dwarfsextract'
           rm -rf squashfs-root AppDir
+
+      - name: Upload AppImage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-${{ matrix.arch }}
+          path: |
+            dist/*.AppImage
+            dist/*.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: appimage
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download AppImage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Publish release
         uses: softprops/action-gh-release@v2

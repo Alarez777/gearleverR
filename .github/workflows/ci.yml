@@ -6,10 +6,20 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            triplet: x86_64-linux-gnu
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            triplet: aarch64-linux-gnu
+    runs-on: ${{ matrix.runner }}
     container: rust:1.98-bookworm
     env:
-      RUSTFLAGS: "-C link-arg=-L/usr/lib/x86_64-linux-gnu"
+      RUSTFLAGS: "-C link-arg=-L/usr/lib/${{ matrix.triplet }}"
     steps:
       - uses: actions/checkout@v4
 
