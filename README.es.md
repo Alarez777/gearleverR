@@ -68,18 +68,21 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 
 ## Uso
 
-Descarga una de las dos variantes, dale permisos de ejecución y ábrela:
+Descarga el AppImage que corresponda a tu CPU (`uname -m`), dale permisos de
+ejecución y ábrelo:
 
-- `GearLeverR-<version>-x86_64.AppImage`: recomendada. Más pequeña y usa el
-  GTK 4.8 + libadwaita 1.2 del sistema.
-- `GearLeverR-<version>-x86_64-gtk-included.AppImage`: incluye GTK 4 y
-  libadwaita dentro del AppImage. Úsala si tu distribución no tiene GTK 4.8 +
-  libadwaita 1.2.
+- `GearLeverR-<version>-x86_64.AppImage` / `...-aarch64.AppImage`: recomendada.
+  Más pequeña y usa el GTK 4.8 + libadwaita 1.2 del sistema.
+- `GearLeverR-<version>-x86_64-gtk-included.AppImage` /
+  `...-aarch64-gtk-included.AppImage`: incluye GTK 4 y libadwaita dentro del
+  AppImage. Úsala si tu distribución no tiene GTK 4.8 + libadwaita 1.2.
 
 ```sh
 chmod +x GearLeverR-0.1.0-x86_64.AppImage
 ./GearLeverR-0.1.0-x86_64.AppImage
 ```
+
+En ARM64, sustituye `x86_64` por `aarch64` en el nombre del archivo.
 
 También puedes pasarle un AppImage directamente:
 
@@ -158,16 +161,20 @@ cargo build -p gearlever --release
 Builds de release (compatibles con Debian 12; glibc 2.36, GTK 4.8, Adw 1.2):
 
 ```sh
-packaging/appimage/build-in-debian12.sh
+packaging/appimage/build-in-debian12.sh                  # x86_64
+ARCH=aarch64 packaging/appimage/build-in-debian12.sh     # en un host arm64
 ```
 
-El script compila dentro de `rust:1.98-bookworm` y empaqueta las dos variantes en
-`dist/`: `...AppImage` (por defecto, GTK del sistema) y
-`...-gtk-included.AppImage`. La variante `gtk-included` se monta con
-`linuxdeploy` y su plugin de GTK, que se descargan automáticamente. El runtime
-`uruntime` y el binario `dwarfsextract` fijados también se descargan y verifican
-antes de empaquetar. Los binarios resultantes funcionan también en distros más
-nuevas.
+El workflow de release compila x86_64 y aarch64 de forma nativa en runners de
+GitHub. Un build local de release se ejecuta dentro de `rust:1.98-bookworm` en
+un host de la misma arquitectura; no se admite compilar arm64 desde x86_64.
+
+El script empaqueta las dos variantes en `dist/`: `...AppImage` (por defecto,
+GTK del sistema) y `...-gtk-included.AppImage`. La variante `gtk-included` se
+monta con `linuxdeploy` y su plugin de GTK, que se descargan automáticamente. El
+runtime `uruntime` y el binario `dwarfsextract` fijados también se descargan y
+verifican antes de empaquetar. Los binarios resultantes funcionan también en
+distros más nuevas.
 
 Si ejecutas el binario directamente (sin AppImage), instala el esquema para que
 las preferencias persistan:

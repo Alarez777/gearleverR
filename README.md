@@ -72,18 +72,22 @@ updates from six sources, a compatible CLI and the full interface. See
 
 ## Usage
 
-Download one of the two AppImages, make it executable and open it:
+Download the AppImage that matches your CPU (`uname -m`), make it executable and
+open it:
 
-- `GearLeverR-<version>-x86_64.AppImage`: recommended. Smaller and uses the
-  system GTK 4.8 + libadwaita 1.2+.
-- `GearLeverR-<version>-x86_64-gtk-included.AppImage`: GTK 4 and libadwaita are
-  inside the AppImage. Use it when your distribution does not provide GTK 4.8 +
+- `GearLeverR-<version>-x86_64.AppImage` / `...-aarch64.AppImage`: recommended.
+  Smaller and uses the system GTK 4.8 + libadwaita 1.2+.
+- `GearLeverR-<version>-x86_64-gtk-included.AppImage` /
+  `...-aarch64-gtk-included.AppImage`: GTK 4 and libadwaita are inside the
+  AppImage. Use it when your distribution does not provide GTK 4.8 +
   libadwaita 1.2+.
 
 ```sh
 chmod +x GearLeverR-0.1.0-x86_64.AppImage
 ./GearLeverR-0.1.0-x86_64.AppImage
 ```
+
+On ARM64, replace `x86_64` with `aarch64` in the file name.
 
 The first launch shows a welcome window: it installs Gear LeverR in the application menu
 (a `.desktop` entry plus the icons in `~/.local/share/icons/hicolor`), lets you choose
@@ -170,15 +174,20 @@ cargo build -p gearlever --release
 Release builds (compatible with Debian 12; glibc 2.36, GTK 4.8, Adw 1.2):
 
 ```sh
-packaging/appimage/build-in-debian12.sh
+packaging/appimage/build-in-debian12.sh                  # x86_64
+ARCH=aarch64 packaging/appimage/build-in-debian12.sh     # on an arm64 host
 ```
 
-The script builds inside `rust:1.98-bookworm` and packages both variants into
-`dist/`: `...AppImage` (default, system GTK) and `...-gtk-included.AppImage`. The
-`gtk-included` variant is assembled with `linuxdeploy` and its GTK plugin, which
-are downloaded automatically. The pinned `uruntime` runtime and `dwarfsextract`
-binary are also downloaded and verified before packaging. The resulting binaries
-also run on newer distributions.
+The release workflow builds x86_64 and aarch64 natively on GitHub runners. A
+local release build runs inside `rust:1.98-bookworm` on a host of the same
+architecture; cross-building arm64 from x86_64 is not supported.
+
+The script packages both variants into `dist/`: `...AppImage` (default, system
+GTK) and `...-gtk-included.AppImage`. The `gtk-included` variant is assembled
+with `linuxdeploy` and its GTK plugin, which are downloaded automatically. The
+pinned `uruntime` runtime and `dwarfsextract` binary are also downloaded and
+verified before packaging. The resulting binaries also run on newer
+distributions.
 
 If you run the binary directly (without the AppImage), install the schema so the
 preferences persist:
