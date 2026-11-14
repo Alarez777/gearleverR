@@ -126,10 +126,11 @@ package_appimage() {
     local runtime_size
     runtime_size=$(stat -c %s "$URUNTIME")
     offset=$("$output" --appimage-offset 2>/dev/null || true)
-    if [ -z "$offset" ]; then
-        # A cross-built AppImage cannot run on the build host. Its SquashFS
-        # superblock still starts where the runtime ends, so verify the magic
-        # there instead of executing the produced file.
+    if [ -z "$offset" ] && [ "$ARCH" != "$(uname -m)" ]; then
+        # A directly cross-built AppImage cannot run on the build host. Its
+        # SquashFS superblock still starts where the runtime ends, so verify
+        # the magic there instead of executing the produced file. Native builds
+        # keep the strict execution check.
         local magic
         magic=$(dd if="$output" bs=1 skip="$runtime_size" count=4 2>/dev/null || true)
         if [ "$magic" = "hsqs" ]; then
