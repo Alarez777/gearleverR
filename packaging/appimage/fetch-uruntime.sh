@@ -15,6 +15,14 @@ URUNTIME_VERSION=v0.8.3
 URUNTIME_NAME=uruntime-appimage-squashfs-lite-$ARCH
 URUNTIME_URL="https://github.com/VHSgunzo/uruntime/releases/download/$URUNTIME_VERSION/$URUNTIME_NAME"
 
+# AGENTS.md documents the pinned version for agents and contributors. Keep it
+# in sync so a bump cannot leave the guide pointing at an older runtime.
+if ! grep -Fq '`uruntime` '"$URUNTIME_VERSION" "$ROOT/AGENTS.md"; then
+    echo "error: AGENTS.md does not document uruntime $URUNTIME_VERSION" >&2
+    echo "update the AppImage runtime line in AGENTS.md" >&2
+    exit 1
+fi
+
 case "$ARCH" in
     x86_64)
         SHA256_ORIGINAL=85caec9c27c60933f1754281dd39b423f557b1d821a137698d98e6433f48e209
