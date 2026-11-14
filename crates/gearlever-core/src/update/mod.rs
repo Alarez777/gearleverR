@@ -1366,15 +1366,14 @@ mod tests {
         );
     }
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     #[test]
     fn prefers_the_native_architecture() {
         let assets = vec![asset("app-x86_64.AppImage"), asset("app-aarch64.AppImage")];
-        // The project also tracks riscv64 and loongarch64 assets, but this
-        // fixture only covers the two release architectures.
-        let expected = match std::env::consts::ARCH {
-            "x86_64" => "app-x86_64.AppImage",
-            "aarch64" => "app-aarch64.AppImage",
-            _ => return,
+        let expected = if cfg!(target_arch = "x86_64") {
+            "app-x86_64.AppImage"
+        } else {
+            "app-aarch64.AppImage"
         };
 
         assert_eq!(
