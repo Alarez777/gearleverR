@@ -13,6 +13,8 @@ export APPDIR
 
 # Prefer the bundled libraries when they exist. linuxdeploy writes them to
 # usr/lib; the multiarch paths cover distributions that use those directories.
+# Keep them in sync with BUNDLED_GTK_PATHS in
+# crates/gearlever-core/src/self_install.rs.
 for dir in "$HERE/usr/lib" "$HERE/usr/lib/x86_64-linux-gnu" \
     "$HERE/usr/lib/aarch64-linux-gnu" "$HERE/lib"; do
     if [ -d "$dir" ]; then
