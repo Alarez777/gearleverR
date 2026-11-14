@@ -55,7 +55,7 @@ msgstr "Добавьте или настройте среду для этого 
 
 #: crates/gearlever/src/ui/mod.rs:3707
 msgid "Already integrated"
-msgstr ""
+msgstr "Уже установлен"
 
 #: crates/gearlever/src/ui/mod.rs:814 crates/gearlever/src/ui/mod.rs:842
 #: crates/gearlever/src/ui/mod.rs:855 crates/gearlever/src/ui/mod.rs:1169
@@ -84,7 +84,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:969
 msgid "AppImage integrated"
-msgstr ""
+msgstr "AppImage установлен"
 
 #: crates/gearlever/src/ui/mod.rs:4760
 msgid "AppImage manager written in Rust"
@@ -104,7 +104,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1008
 msgid "AppImages integrated"
-msgstr ""
+msgstr "AppImages установлены"
 
 #: crates/gearlever/src/ui/mod.rs:1141
 msgid "AppImages removed"
@@ -134,7 +134,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3592
 msgid "Apps to integrate"
-msgstr ""
+msgstr "Приложения для установки"
 
 #: crates/gearlever/src/ui/mod.rs:4907
 msgid "Ask for each"
@@ -162,7 +162,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3683
 msgid "Built for {arch}; it will not be integrated"
-msgstr ""
+msgstr "Собрано для {arch}; установка не будет выполнена"
 
 #: crates/gearlever/src/ui/mod.rs:2689 crates/gearlever/src/ui/mod.rs:2722
 #: crates/gearlever/src/ui/mod.rs:4011 crates/gearlever/src/ui/mod.rs:4777
@@ -398,6 +398,8 @@ msgid ""
 "Gear LeverR is not integrated into your desktop yet. Choose how it should be "
 "installed and where to keep your AppImages."
 msgstr ""
+"Gear LeverR ещё не установлен на вашем рабочем столе. Выберите, как "
+"его установить и где хранить AppImage."
 
 #: crates/gearlever/src/ui/mod.rs:4616
 msgid "Gear LeverR is not running from an AppImage."
@@ -408,6 +410,8 @@ msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
+"Gear LeverR — единственный установленный AppImage. Он будет удалён, и "
+"приложение закроется."
 
 #: crates/gearlever/src/ui/mod.rs:4523
 msgid "Gear LeverR needs FUSE to mount the AppImage instead of extracting it."
@@ -419,6 +423,9 @@ msgid ""
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
+"Gear LeverR будет удалён вместе с пунктом меню, и приложение "
+"закроется. Если удалить только Gear LeverR, остальные AppImage "
+"останутся установленными."
 
 #: crates/gearlever/src/ui/mod.rs:5380
 msgid "Get started"
@@ -511,7 +518,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:5367
 msgid "Installed"
-msgstr ""
+msgstr "Установленные"
 
 #: crates/gearlever/src/ui/mod.rs:2851 crates/gearlever/src/ui/mod.rs:5320
 msgid "Installed applications"
@@ -523,11 +530,11 @@ msgstr "Установка…"
 
 #: crates/gearlever/src/ui/mod.rs:2423
 msgid "Integrated {done} of {total}"
-msgstr ""
+msgstr "Установлено {done} из {total}"
 
 #: crates/gearlever/src/ui/mod.rs:2345 crates/gearlever/src/ui/mod.rs:2389
 msgid "Integrating..."
-msgstr ""
+msgstr "Установка…"
 
 #: crates/gearlever/src/ui/mod.rs:4062
 msgid "Interface scale"
@@ -559,7 +566,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3118 crates/gearlever/src/ui/mod.rs:3328
 msgid "Launch"
-msgstr "Запустить"
+msgstr "Открыть"
 
 #: crates/gearlever/src/ui/welcome.rs:512
 msgid "Learn more"
@@ -570,8 +577,8 @@ msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
 msgstr ""
-"Показывает список AppImage, которые были интегрированы в системное меню, но "
-"расположены за пределами папки по умолчанию"
+"Показывать AppImage, установленные в системное меню, но находящиеся "
+"за пределами папки по умолчанию"
 
 #: crates/gearlever/src/ui/welcome.rs:403
 msgid ""
@@ -617,11 +624,11 @@ msgstr "Перемещать AppImage в папку назначения"
 
 #: crates/gearlever/src/ui/mod.rs:2743 crates/gearlever/src/ui/mod.rs:3636
 msgid "Move all to the app menu"
-msgstr ""
+msgstr "Установить все"
 
 #: crates/gearlever/src/ui/mod.rs:3335
 msgid "Move to the app menu"
-msgstr "Добавить в меню приложений"
+msgstr "Установить"
 
 #: crates/gearlever/src/ui/mod.rs:3657
 msgid "Name conflict"
@@ -639,7 +646,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1025
 msgid "No AppImage could be integrated"
-msgstr ""
+msgstr "Не удалось установить ни один AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:5818
 msgid "No environment variables yet"
@@ -665,7 +672,7 @@ msgstr "Обновлений не найдено"
 
 #: crates/gearlever/src/ui/mod.rs:865 crates/gearlever/src/ui/mod.rs:3629
 msgid "None of the selected AppImages can be integrated"
-msgstr ""
+msgstr "Ни один из выбранных AppImage нельзя установить"
 
 #: crates/gearlever/src/ui/mod.rs:4615 crates/gearlever/src/ui/mod.rs:6567
 #: crates/gearlever/src/ui/mod.rs:6825
@@ -890,7 +897,7 @@ msgstr "Задайте местоположение AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:4033
 msgid "Show integrated AppImages outside the default folder"
-msgstr "Показывать интегрированные AppImage за пределами папки по умолчанию"
+msgstr "Показывать установленные AppImage за пределами папки по умолчанию"
 
 #: crates/gearlever/src/ui/mod.rs:4825
 msgid "Skip"
@@ -992,7 +999,7 @@ msgstr "Приложение с таким именем уже существу�
 
 #: crates/gearlever/src/ui/mod.rs:3697
 msgid "This AppImage is already integrated"
-msgstr ""
+msgstr "Этот AppImage уже установлен"
 
 #: crates/gearlever/src/ui/mod.rs:6558 crates/gearlever/src/ui/mod.rs:6773
 msgid ""
@@ -1015,6 +1022,8 @@ msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
 msgstr ""
+"Это удалит все установленные AppImage ({count} шт.), включая Gear "
+"LeverR, и приложение закроется."
 
 #: crates/gearlever/src/ui/mod.rs:6173
 msgid "Token configured · invalid or expired"
@@ -1156,7 +1165,8 @@ msgstr ""
 #: crates/gearlever/src/ui/mod.rs:4437
 msgid "Use executable name for integrated terminal apps"
 msgstr ""
-"Использовать имя исполняемого файла для встроенных консольных приложений"
+"Использовать имя исполняемого файла для установленных консольных "
+"приложений"
 
 #: crates/gearlever/src/ui/mod.rs:4049
 msgid "Use safe mechanisms to load metadata"
@@ -1176,7 +1186,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3699
 msgid "Version {version} is already integrated"
-msgstr ""
+msgstr "Версия {version} уже установлена"
 
 #: crates/gearlever/src/ui/mod.rs:3255
 msgid "Website"
@@ -1204,6 +1214,8 @@ msgid ""
 "{count} of the selected AppImages have the same name as an app that is "
 "already integrated."
 msgstr ""
+"{count} из выбранных AppImage имеют то же имя, что и уже "
+"установленное приложение."
 
 #: crates/gearlever/src/ui/mod.rs:3751
 msgid "{count} updates failed"
@@ -1211,7 +1223,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1016
 msgid "{done} integrated; {remaining} pending"
-msgstr ""
+msgstr "Установлено {done}; ожидает {remaining}"
 
 #: crates/gearlever/src/rate_limit.rs:60
 msgid "{minutes} min"

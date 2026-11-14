@@ -1,0 +1,114 @@
+# Turkish translation for Gear lever
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Mobilturka <03teknoloji@gmail.com>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2024-10-25 14:24+0300\n"
+"Last-Translator: Levent Besli\n"
+"Language-Team: \n"
+"Language: tr_TR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.4.4\n"
+
+msgid "Launch"
+msgstr "Aç"
+
+msgid "Move to the app menu"
+msgstr "Yükle"
+
+msgid "Move all to the app menu"
+msgstr "Tümünü yükle"
+
+msgid "Apps to integrate"
+msgstr "Yüklenecek uygulamalar"
+
+msgid "Integrating..."
+msgstr "Yükleniyor..."
+
+msgid "AppImage integrated"
+msgstr "AppImage yüklendi"
+
+msgid "AppImages integrated"
+msgstr "AppImages yüklendi"
+
+msgid "Already integrated"
+msgstr "Zaten yüklü"
+
+msgid "This AppImage is already integrated"
+msgstr "Bu AppImage zaten yüklü"
+
+msgid "Version {version} is already integrated"
+msgstr "{version} sürümü zaten yüklü"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "{arch} için derlendi; yüklenmeyecek"
+
+msgid "No AppImage could be integrated"
+msgstr "Hiçbir AppImage yüklenemedi"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Seçilen AppImage'ların hiçbiri yüklenemiyor"
+
+msgid "Integrated {done} of {total}"
+msgstr "{total} AppImage'dan {done} tanesi yüklendi"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "{done} yüklendi; {remaining} bekliyor"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Varsayılan klasör dışındaki yüklü AppImage'ları göster"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"Sistem menüsüne yüklenmiş ancak varsayılan klasörün dışında bulunan "
+"AppImage'ları listele"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr "Yüklü terminal uygulamaları için çalıştırılabilir adını kullan"
+
+msgid "Installed"
+msgstr "Yüklü"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR henüz masaüstünüze yüklenmedi. Nasıl yükleneceğini ve "
+"AppImage'larınızın nerede saklanacağını seçin."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR, menü girdisiyle birlikte kaldırılacak ve uygulama "
+"kapanacak. Yalnızca Gear LeverR'yi kaldırırsanız diğer AppImage'lar "
+"yüklü kalır."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr "Gear LeverR yüklü tek AppImage. Kaldırılacak ve uygulama kapanacak."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Bu, Gear LeverR dahil {count} yüklü AppImage'ı kaldırır ve uygulama "
+"kapanır."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"Seçilen AppImage'ların {count} tanesi zaten yüklü bir uygulamayla "
+"aynı ada sahip."

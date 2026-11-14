@@ -15,8 +15,8 @@ los mismos archivos de configuración y la misma interfaz.
 
 ## Estado
 
-La versión 0.1 implementa la paridad funcional principal: integración, borrado,
-lanzamiento, actualizaciones desde seis fuentes, CLI compatible y la interfaz
+La versión 0.1 implementa la paridad funcional principal: instalación, borrado,
+apertura, actualizaciones desde seis fuentes, CLI compatible y la interfaz
 completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 
 ## Ramas
@@ -26,9 +26,9 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
 
 ## Funciones
 
-- Integrar AppImages con un click, por arrastrar y soltar o desde el selector de archivos.
-- Avisar antes de abrir o integrar un AppImage compilado para otra arquitectura de CPU.
-- Integrar varios AppImages a la vez y detectar conflictos de nombre (mantener ambos, reemplazar o preguntar en cada uno).
+- Instalar AppImages con un click, por arrastrar y soltar o desde el selector de archivos.
+- Avisar antes de abrir o instalar un AppImage compilado para otra arquitectura de CPU.
+- Instalar varios AppImages a la vez y detectar conflictos de nombre (mantener ambos, reemplazar o preguntar en cada uno).
 - Extraer icono, nombre, versión y descripción **sin** ejecutar la AppImage y sin
   herramientas externas para SquashFS.
 - Gestionar actualizaciones desde URL estática, GitHub, GitLab, Codeberg, Forgejo y FTP,
@@ -56,7 +56,7 @@ completa. Consulta [Limitaciones conocidas](#limitaciones-conocidas).
   `fusermount3` con setuid root. Sin ellos, el AppImage se extrae a un
   directorio temporal. `libfuse2` solo lo necesitan las AppImages creadas con
   el runtime antiguo.
-- La ventana de bienvenida mantiene **Install** deshabilitado hasta cumplir
+- La ventana de bienvenida mantiene **Instalar y abrir** deshabilitado hasta cumplir
   esos requisitos. Pulsa **Revisar** después de instalarlos.
 - Probado en Debian 12 y Debian 13. Ubuntu 23.04+, Fedora 38+ y Arch incluyen
   versiones compatibles. **Ubuntu 22.04 no** (GTK 4.6 / Adw 1.1).
@@ -114,7 +114,7 @@ Gear LeverR escribe en `~/.local/state/gearlever-r/gearlever-r.log` (o
 
 Por defecto solo se registran avisos. Para ver el detalle de las actualizaciones,
 activa «Habilitar registros de depuración» en Preferencias → Depurando y
-reinicia, o lanza la aplicación desde una terminal con:
+reinicia, o abre la aplicación desde una terminal con:
 
 ```sh
 RUST_LOG=gearlever_core=info ./GearLeverR-0.1.0-x86_64.AppImage

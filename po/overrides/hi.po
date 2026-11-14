@@ -1,0 +1,114 @@
+# Hindi translation for gearlever.
+# Copyright (C) 2024 gearlever's COPYRIGHT HOLDER
+# This file is distributed under the same license as the gearlever package.
+# Scrambled777 <weblate.scrambled777@simplelogin.com>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gearlever\n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2024-07-07 09:34+0530\n"
+"Last-Translator: Scrambled777 <weblate.scrambled777@simplelogin.com>\n"
+"Language-Team: Hindi <indlinux-hindi@lists.sourceforge.net>\n"
+"Language: hi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Gtranslator 46.1\n"
+
+msgid "Launch"
+msgstr "खोलें"
+
+msgid "Move to the app menu"
+msgstr "इंस्टॉल करें"
+
+msgid "Move all to the app menu"
+msgstr "सभी इंस्टॉल करें"
+
+msgid "Apps to integrate"
+msgstr "इंस्टॉल करने के लिए ऐप्स"
+
+msgid "Integrating..."
+msgstr "इंस्टॉल किया जा रहा है..."
+
+msgid "AppImage integrated"
+msgstr "AppImage इंस्टॉल हो गया"
+
+msgid "AppImages integrated"
+msgstr "AppImages इंस्टॉल हो गए"
+
+msgid "Already integrated"
+msgstr "पहले से इंस्टॉल है"
+
+msgid "This AppImage is already integrated"
+msgstr "यह AppImage पहले से इंस्टॉल है"
+
+msgid "Version {version} is already integrated"
+msgstr "संस्करण {version} पहले से इंस्टॉल है"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "{arch} के लिए बनाया गया; इसे इंस्टॉल नहीं किया जाएगा"
+
+msgid "No AppImage could be integrated"
+msgstr "कोई भी AppImage इंस्टॉल नहीं किया जा सका"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "चुने गए AppImage में से कोई भी इंस्टॉल नहीं किया जा सकता"
+
+msgid "Integrated {done} of {total}"
+msgstr "{total} में से {done} इंस्टॉल हो गए"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "{done} इंस्टॉल हो गए; {remaining} शेष"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "डिफ़ॉल्ट फ़ोल्डर के बाहर इंस्टॉल किए गए AppImage दिखाएं"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"सिस्टम मेनू में इंस्टॉल किए गए लेकिन डिफ़ॉल्ट फ़ोल्डर के बाहर स्थित "
+"AppImage की सूची दिखाएं"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr "इंस्टॉल किए गए टर्मिनल ऐप्स के लिए निष्पादन योग्य नाम का उपयोग करें"
+
+msgid "Installed"
+msgstr "इंस्टॉल किए गए"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR अभी आपके डेस्कटॉप पर इंस्टॉल नहीं है। चुनें कि इसे कैसे "
+"इंस्टॉल करना है और अपने AppImage कहाँ रखने हैं।"
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR को उसके मेनू प्रविष्टि सहित हटा दिया जाएगा और ऐप बंद हो "
+"जाएगा। केवल Gear LeverR हटाने पर बाकी AppImage इंस्टॉल रहेंगे।"
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR एकमात्र इंस्टॉल किया गया AppImage है। इसे हटा दिया जाएगा "
+"और ऐप बंद हो जाएगा।"
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"इससे Gear LeverR सहित सभी {count} इंस्टॉल किए गए AppImage हट जाएंगे "
+"और ऐप बंद हो जाएगा।"
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr "चुने गए {count} AppImage का नाम पहले से इंस्टॉल किसी ऐप जैसा ही है।"

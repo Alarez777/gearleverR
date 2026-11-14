@@ -55,7 +55,7 @@ msgstr "اضف أو خصص بيئة هذا التطبيق"
 
 #: crates/gearlever/src/ui/mod.rs:3707
 msgid "Already integrated"
-msgstr ""
+msgstr "مثبَّتة بالفعل"
 
 #: crates/gearlever/src/ui/mod.rs:814 crates/gearlever/src/ui/mod.rs:842
 #: crates/gearlever/src/ui/mod.rs:855 crates/gearlever/src/ui/mod.rs:1169
@@ -84,7 +84,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:969
 msgid "AppImage integrated"
-msgstr ""
+msgstr "تم تثبيت AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:4760
 msgid "AppImage manager written in Rust"
@@ -104,7 +104,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1008
 msgid "AppImages integrated"
-msgstr ""
+msgstr "تم تثبيت AppImages"
 
 #: crates/gearlever/src/ui/mod.rs:1141
 msgid "AppImages removed"
@@ -134,7 +134,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3592
 msgid "Apps to integrate"
-msgstr ""
+msgstr "تطبيقات للتثبيت"
 
 #: crates/gearlever/src/ui/mod.rs:4907
 msgid "Ask for each"
@@ -162,7 +162,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3683
 msgid "Built for {arch}; it will not be integrated"
-msgstr ""
+msgstr "بُني لـ {arch}؛ لن يتم تثبيته"
 
 #: crates/gearlever/src/ui/mod.rs:2689 crates/gearlever/src/ui/mod.rs:2722
 #: crates/gearlever/src/ui/mod.rs:4011 crates/gearlever/src/ui/mod.rs:4777
@@ -402,6 +402,8 @@ msgid ""
 "Gear LeverR is not integrated into your desktop yet. Choose how it should be "
 "installed and where to keep your AppImages."
 msgstr ""
+"لم يتم تثبيت Gear LeverR على سطح المكتب بعد. اختر كيفية تثبيته وأين "
+"تحتفظ بـ AppImages."
 
 #: crates/gearlever/src/ui/mod.rs:4616
 msgid "Gear LeverR is not running from an AppImage."
@@ -411,7 +413,7 @@ msgstr ""
 msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
-msgstr ""
+msgstr "Gear LeverR هو AppImage المثبَّت الوحيد. ستتم إزالته وسيُغلق التطبيق."
 
 #: crates/gearlever/src/ui/mod.rs:4523
 msgid "Gear LeverR needs FUSE to mount the AppImage instead of extracting it."
@@ -423,6 +425,8 @@ msgid ""
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
+"ستتم إزالة Gear LeverR مع مدخله في القائمة وسيُغلق التطبيق. إذا أزلت "
+"Gear LeverR فقط، ستبقى AppImages الأخرى مثبَّتة."
 
 #: crates/gearlever/src/ui/mod.rs:5380
 msgid "Get started"
@@ -517,7 +521,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:5367
 msgid "Installed"
-msgstr ""
+msgstr "المثبَّتة"
 
 #: crates/gearlever/src/ui/mod.rs:2851 crates/gearlever/src/ui/mod.rs:5320
 msgid "Installed applications"
@@ -529,11 +533,11 @@ msgstr "جارٍ التثبيت..."
 
 #: crates/gearlever/src/ui/mod.rs:2423
 msgid "Integrated {done} of {total}"
-msgstr ""
+msgstr "تم تثبيت {done} من {total}"
 
 #: crates/gearlever/src/ui/mod.rs:2345 crates/gearlever/src/ui/mod.rs:2389
 msgid "Integrating..."
-msgstr ""
+msgstr "جارٍ التثبيت..."
 
 #: crates/gearlever/src/ui/mod.rs:4062
 msgid "Interface scale"
@@ -565,7 +569,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3118 crates/gearlever/src/ui/mod.rs:3328
 msgid "Launch"
-msgstr "إطلاق"
+msgstr "افتح"
 
 #: crates/gearlever/src/ui/welcome.rs:512
 msgid "Learn more"
@@ -576,7 +580,7 @@ msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
 msgstr ""
-"اظهر حزم AppImage التي تم دمجها بقائمة النظام لكنها توجد خارج المجلد "
+"إظهار AppImages المثبَّتة في قائمة النظام ولكنها موجودة خارج المجلد "
 "الافتراضي"
 
 #: crates/gearlever/src/ui/welcome.rs:403
@@ -623,11 +627,11 @@ msgstr "انقل حزم AppImage لمجلد الوجهة"
 
 #: crates/gearlever/src/ui/mod.rs:2743 crates/gearlever/src/ui/mod.rs:3636
 msgid "Move all to the app menu"
-msgstr ""
+msgstr "ثبّت الكل"
 
 #: crates/gearlever/src/ui/mod.rs:3335
 msgid "Move to the app menu"
-msgstr "انقل لقائمة التطبيقات"
+msgstr "ثبّت"
 
 #: crates/gearlever/src/ui/mod.rs:3657
 msgid "Name conflict"
@@ -645,7 +649,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1025
 msgid "No AppImage could be integrated"
-msgstr ""
+msgstr "تعذّر تثبيت أي AppImage"
 
 #: crates/gearlever/src/ui/mod.rs:5818
 msgid "No environment variables yet"
@@ -671,7 +675,7 @@ msgstr "لم يُعثر على تحديثات"
 
 #: crates/gearlever/src/ui/mod.rs:865 crates/gearlever/src/ui/mod.rs:3629
 msgid "None of the selected AppImages can be integrated"
-msgstr ""
+msgstr "لا يمكن تثبيت أي من AppImages المحددة"
 
 #: crates/gearlever/src/ui/mod.rs:4615 crates/gearlever/src/ui/mod.rs:6567
 #: crates/gearlever/src/ui/mod.rs:6825
@@ -894,7 +898,7 @@ msgstr "عيّن مكان لAppImage"
 
 #: crates/gearlever/src/ui/mod.rs:4033
 msgid "Show integrated AppImages outside the default folder"
-msgstr "اظهر حزم AppImage المدمجة خارج المجلد الافتراضي"
+msgstr "إظهار AppImages المثبَّتة خارج المجلد الافتراضي"
 
 #: crates/gearlever/src/ui/mod.rs:4825
 msgid "Skip"
@@ -996,7 +1000,7 @@ msgstr "يوجد تطبيق بنفس الاسم بالفعل، كيف تريد �
 
 #: crates/gearlever/src/ui/mod.rs:3697
 msgid "This AppImage is already integrated"
-msgstr ""
+msgstr "هذا الـ AppImage مثبَّت بالفعل"
 
 #: crates/gearlever/src/ui/mod.rs:6558 crates/gearlever/src/ui/mod.rs:6773
 msgid ""
@@ -1017,6 +1021,8 @@ msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
 msgstr ""
+"سيؤدي هذا إلى إزالة جميع AppImages المثبَّتة البالغ عددها {count}، "
+"بما في ذلك Gear LeverR، وسيُغلق التطبيق."
 
 #: crates/gearlever/src/ui/mod.rs:6173
 msgid "Token configured · invalid or expired"
@@ -1157,7 +1163,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4437
 msgid "Use executable name for integrated terminal apps"
-msgstr "استخدم اسم الملف التنفيذي لتطبيقات الطرفية المدمجة"
+msgstr "استخدام اسم الملف التنفيذي لتطبيقات الطرفية المثبَّتة"
 
 #: crates/gearlever/src/ui/mod.rs:4049
 msgid "Use safe mechanisms to load metadata"
@@ -1177,7 +1183,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3699
 msgid "Version {version} is already integrated"
-msgstr ""
+msgstr "الإصدار {version} مثبَّت بالفعل"
 
 #: crates/gearlever/src/ui/mod.rs:3255
 msgid "Website"
@@ -1204,7 +1210,7 @@ msgstr "ال_تفضيلات"
 msgid ""
 "{count} of the selected AppImages have the same name as an app that is "
 "already integrated."
-msgstr ""
+msgstr "{count} من AppImages المحددة لها الاسم نفسه لتطبيق مثبَّت بالفعل."
 
 #: crates/gearlever/src/ui/mod.rs:3751
 msgid "{count} updates failed"
@@ -1212,7 +1218,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1016
 msgid "{done} integrated; {remaining} pending"
-msgstr ""
+msgstr "تم تثبيت {done}؛ {remaining} قيد الانتظار"
 
 #: crates/gearlever/src/rate_limit.rs:60
 msgid "{minutes} min"

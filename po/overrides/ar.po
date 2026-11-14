@@ -1,0 +1,114 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Muhammed Al-Basha <contact.mu7basha@gmail.com>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: unnamed project\n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2026-02-04 23:57+0200\n"
+"Last-Translator: Muhammed Al-Basha <contact.mu7basha@gmail.com>\n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural= n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+"X-Generator: Gtranslator 49.0\n"
+
+msgid "Launch"
+msgstr "افتح"
+
+msgid "Move to the app menu"
+msgstr "ثبّت"
+
+msgid "Move all to the app menu"
+msgstr "ثبّت الكل"
+
+msgid "Apps to integrate"
+msgstr "تطبيقات للتثبيت"
+
+msgid "Integrating..."
+msgstr "جارٍ التثبيت..."
+
+msgid "AppImage integrated"
+msgstr "تم تثبيت AppImage"
+
+msgid "AppImages integrated"
+msgstr "تم تثبيت AppImages"
+
+msgid "Already integrated"
+msgstr "مثبَّتة بالفعل"
+
+msgid "This AppImage is already integrated"
+msgstr "هذا الـ AppImage مثبَّت بالفعل"
+
+msgid "Version {version} is already integrated"
+msgstr "الإصدار {version} مثبَّت بالفعل"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "بُني لـ {arch}؛ لن يتم تثبيته"
+
+msgid "No AppImage could be integrated"
+msgstr "تعذّر تثبيت أي AppImage"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "لا يمكن تثبيت أي من AppImages المحددة"
+
+msgid "Integrated {done} of {total}"
+msgstr "تم تثبيت {done} من {total}"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "تم تثبيت {done}؛ {remaining} قيد الانتظار"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "إظهار AppImages المثبَّتة خارج المجلد الافتراضي"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"إظهار AppImages المثبَّتة في قائمة النظام ولكنها موجودة خارج المجلد "
+"الافتراضي"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr "استخدام اسم الملف التنفيذي لتطبيقات الطرفية المثبَّتة"
+
+msgid "Installed"
+msgstr "المثبَّتة"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"لم يتم تثبيت Gear LeverR على سطح المكتب بعد. اختر كيفية تثبيته وأين "
+"تحتفظ بـ AppImages."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"ستتم إزالة Gear LeverR مع مدخله في القائمة وسيُغلق التطبيق. إذا أزلت "
+"Gear LeverR فقط، ستبقى AppImages الأخرى مثبَّتة."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr "Gear LeverR هو AppImage المثبَّت الوحيد. ستتم إزالته وسيُغلق التطبيق."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"سيؤدي هذا إلى إزالة جميع AppImages المثبَّتة البالغ عددها {count}، "
+"بما في ذلك Gear LeverR، وسيُغلق التطبيق."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr "{count} من AppImages المحددة لها الاسم نفسه لتطبيق مثبَّت بالفعل."

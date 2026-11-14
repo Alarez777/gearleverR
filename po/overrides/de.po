@@ -1,0 +1,115 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Launch"
+msgstr "Öffnen"
+
+msgid "Move to the app menu"
+msgstr "Installieren"
+
+msgid "Move all to the app menu"
+msgstr "Alle installieren"
+
+msgid "Apps to integrate"
+msgstr "Zu installierende Apps"
+
+msgid "Integrating..."
+msgstr "Installation läuft…"
+
+msgid "AppImage integrated"
+msgstr "AppImage installiert"
+
+msgid "AppImages integrated"
+msgstr "AppImages installiert"
+
+msgid "Already integrated"
+msgstr "Bereits installiert"
+
+msgid "This AppImage is already integrated"
+msgstr "Diese AppImage ist bereits installiert"
+
+msgid "Version {version} is already integrated"
+msgstr "Version {version} ist bereits installiert"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Für {arch} gebaut; sie wird nicht installiert"
+
+msgid "No AppImage could be integrated"
+msgstr "Keine AppImage konnte installiert werden"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Keine der ausgewählten AppImages kann installiert werden"
+
+msgid "Integrated {done} of {total}"
+msgstr "{done} von {total} installiert"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "{done} installiert; {remaining} ausstehend"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Installierte AppImages außerhalb des Standardordners anzeigen"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"AppImages auflisten, die im Systemmenü installiert wurden, aber "
+"außerhalb des Standardordners liegen"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr "Namen der ausführbaren Datei für installierte Terminal-Apps verwenden"
+
+msgid "Installed"
+msgstr "Installiert"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR ist noch nicht auf deinem Desktop installiert. Wähle, wie "
+"es installiert werden soll und wo deine AppImages gespeichert werden."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR wird zusammen mit seinem Desktop-Eintrag entfernt und die "
+"Anwendung wird geschlossen. Wenn nur Gear LeverR entfernt wird, "
+"bleiben die anderen AppImages installiert."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR ist die einzige installierte AppImage. Sie wird entfernt "
+"und die Anwendung wird geschlossen."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Dadurch werden alle {count} installierten AppImages entfernt, "
+"einschließlich Gear LeverR, und die Anwendung wird geschlossen."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"{count} der ausgewählten AppImages haben denselben Namen wie eine "
+"bereits installierte App."

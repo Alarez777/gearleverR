@@ -1,0 +1,118 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/Alarez777/gearleverR/issues\n"
+"POT-Creation-Date: 2026-11-12 16:53+0000\n"
+"PO-Revision-Date: 2025-04-02 22:34+0200\n"
+"Last-Translator: Heimen Stoffels <vistausss@fastmail.com>\n"
+"Language-Team: \n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.5\n"
+
+msgid "Launch"
+msgstr "Openen"
+
+msgid "Move to the app menu"
+msgstr "Installeren"
+
+msgid "Move all to the app menu"
+msgstr "Alles installeren"
+
+msgid "Apps to integrate"
+msgstr "Apps om te installeren"
+
+msgid "Integrating..."
+msgstr "Bezig met installeren…"
+
+msgid "AppImage integrated"
+msgstr "AppImage geïnstalleerd"
+
+msgid "AppImages integrated"
+msgstr "AppImages geïnstalleerd"
+
+msgid "Already integrated"
+msgstr "Al geïnstalleerd"
+
+msgid "This AppImage is already integrated"
+msgstr "Deze AppImage is al geïnstalleerd"
+
+msgid "Version {version} is already integrated"
+msgstr "Versie {version} is al geïnstalleerd"
+
+msgid "Built for {arch}; it will not be integrated"
+msgstr "Gebouwd voor {arch}; wordt niet geïnstalleerd"
+
+msgid "No AppImage could be integrated"
+msgstr "Er kon geen AppImage worden geïnstalleerd"
+
+msgid "None of the selected AppImages can be integrated"
+msgstr "Geen van de geselecteerde AppImages kan worden geïnstalleerd"
+
+msgid "Integrated {done} of {total}"
+msgstr "{done} van {total} geïnstalleerd"
+
+msgid "{done} integrated; {remaining} pending"
+msgstr "{done} geïnstalleerd; {remaining} in afwachting"
+
+msgid "Show integrated AppImages outside the default folder"
+msgstr "Geïnstalleerde AppImages buiten de standaardmap tonen"
+
+msgid ""
+"List AppImages that have been integrated into the system menu but are "
+"located outside the default folder"
+msgstr ""
+"AppImages tonen die in het systeemmenu zijn geïnstalleerd maar buiten "
+"de standaardmap staan"
+
+msgid "Use executable name for integrated terminal apps"
+msgstr ""
+"Naam van het uitvoerbare bestand gebruiken voor geïnstalleerde "
+"terminalapps"
+
+msgid "Installed"
+msgstr "Geïnstalleerd"
+
+msgid ""
+"Gear LeverR is not integrated into your desktop yet. Choose how it "
+"should be installed and where to keep your AppImages."
+msgstr ""
+"Gear LeverR is nog niet op je bureaublad geïnstalleerd. Kies hoe het "
+"moet worden geïnstalleerd en waar je AppImages worden bewaard."
+
+msgid ""
+"Gear LeverR will be removed together with its desktop entry and the "
+"application will close. Removing only Gear LeverR keeps the other "
+"AppImages integrated."
+msgstr ""
+"Gear LeverR wordt samen met zijn menu-item verwijderd en de "
+"toepassing wordt gesloten. Als je alleen Gear LeverR verwijdert, "
+"blijven de andere AppImages geïnstalleerd."
+
+msgid ""
+"Gear LeverR is the only integrated AppImage. It will be removed and "
+"the application will close."
+msgstr ""
+"Gear LeverR is de enige geïnstalleerde AppImage. Deze wordt "
+"verwijderd en de toepassing wordt gesloten."
+
+msgid ""
+"This removes all {count} integrated AppImages, including Gear LeverR, "
+"and the application will close."
+msgstr ""
+"Hiermee worden alle {count} geïnstalleerde AppImages verwijderd, "
+"inclusief Gear LeverR, en wordt de toepassing gesloten."
+
+msgid ""
+"{count} of the selected AppImages have the same name as an app that "
+"is already integrated."
+msgstr ""
+"{count} van de geselecteerde AppImages hebben dezelfde naam als een "
+"al geïnstalleerde app."

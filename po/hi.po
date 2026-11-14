@@ -53,7 +53,7 @@ msgstr "इस अनुप्रयोग के लिए पर्याव�
 
 #: crates/gearlever/src/ui/mod.rs:3707
 msgid "Already integrated"
-msgstr ""
+msgstr "पहले से इंस्टॉल है"
 
 #: crates/gearlever/src/ui/mod.rs:814 crates/gearlever/src/ui/mod.rs:842
 #: crates/gearlever/src/ui/mod.rs:855 crates/gearlever/src/ui/mod.rs:1169
@@ -82,7 +82,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:969
 msgid "AppImage integrated"
-msgstr ""
+msgstr "AppImage इंस्टॉल हो गया"
 
 #: crates/gearlever/src/ui/mod.rs:4760
 msgid "AppImage manager written in Rust"
@@ -102,7 +102,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1008
 msgid "AppImages integrated"
-msgstr ""
+msgstr "AppImages इंस्टॉल हो गए"
 
 #: crates/gearlever/src/ui/mod.rs:1141
 msgid "AppImages removed"
@@ -132,7 +132,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3592
 msgid "Apps to integrate"
-msgstr ""
+msgstr "इंस्टॉल करने के लिए ऐप्स"
 
 #: crates/gearlever/src/ui/mod.rs:4907
 msgid "Ask for each"
@@ -160,7 +160,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3683
 msgid "Built for {arch}; it will not be integrated"
-msgstr ""
+msgstr "{arch} के लिए बनाया गया; इसे इंस्टॉल नहीं किया जाएगा"
 
 #: crates/gearlever/src/ui/mod.rs:2689 crates/gearlever/src/ui/mod.rs:2722
 #: crates/gearlever/src/ui/mod.rs:4011 crates/gearlever/src/ui/mod.rs:4777
@@ -400,6 +400,8 @@ msgid ""
 "Gear LeverR is not integrated into your desktop yet. Choose how it should be "
 "installed and where to keep your AppImages."
 msgstr ""
+"Gear LeverR अभी आपके डेस्कटॉप पर इंस्टॉल नहीं है। चुनें कि इसे कैसे "
+"इंस्टॉल करना है और अपने AppImage कहाँ रखने हैं।"
 
 #: crates/gearlever/src/ui/mod.rs:4616
 msgid "Gear LeverR is not running from an AppImage."
@@ -410,6 +412,8 @@ msgid ""
 "Gear LeverR is the only integrated AppImage. It will be removed and the "
 "application will close."
 msgstr ""
+"Gear LeverR एकमात्र इंस्टॉल किया गया AppImage है। इसे हटा दिया जाएगा "
+"और ऐप बंद हो जाएगा।"
 
 #: crates/gearlever/src/ui/mod.rs:4523
 msgid "Gear LeverR needs FUSE to mount the AppImage instead of extracting it."
@@ -421,6 +425,8 @@ msgid ""
 "application will close. Removing only Gear LeverR keeps the other AppImages "
 "integrated."
 msgstr ""
+"Gear LeverR को उसके मेनू प्रविष्टि सहित हटा दिया जाएगा और ऐप बंद हो "
+"जाएगा। केवल Gear LeverR हटाने पर बाकी AppImage इंस्टॉल रहेंगे।"
 
 #: crates/gearlever/src/ui/mod.rs:5380
 msgid "Get started"
@@ -513,7 +519,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:5367
 msgid "Installed"
-msgstr ""
+msgstr "इंस्टॉल किए गए"
 
 #: crates/gearlever/src/ui/mod.rs:2851 crates/gearlever/src/ui/mod.rs:5320
 msgid "Installed applications"
@@ -525,11 +531,11 @@ msgstr "स्थापित किया जा रहा है..."
 
 #: crates/gearlever/src/ui/mod.rs:2423
 msgid "Integrated {done} of {total}"
-msgstr ""
+msgstr "{total} में से {done} इंस्टॉल हो गए"
 
 #: crates/gearlever/src/ui/mod.rs:2345 crates/gearlever/src/ui/mod.rs:2389
 msgid "Integrating..."
-msgstr ""
+msgstr "इंस्टॉल किया जा रहा है..."
 
 #: crates/gearlever/src/ui/mod.rs:4062
 msgid "Interface scale"
@@ -561,7 +567,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3118 crates/gearlever/src/ui/mod.rs:3328
 msgid "Launch"
-msgstr "शुरू करें"
+msgstr "खोलें"
 
 #: crates/gearlever/src/ui/welcome.rs:512
 msgid "Learn more"
@@ -572,8 +578,8 @@ msgid ""
 "List AppImages that have been integrated into the system menu but are "
 "located outside the default folder"
 msgstr ""
-"उन ऐपइमेज की सूची बनाएं जिन्हें सिस्टम मेनू में एकीकृत किया गया है लेकिन तयशुदा फोल्डर के "
-"बाहर स्थित हैं"
+"सिस्टम मेनू में इंस्टॉल किए गए लेकिन डिफ़ॉल्ट फ़ोल्डर के बाहर स्थित "
+"AppImage की सूची दिखाएं"
 
 #: crates/gearlever/src/ui/welcome.rs:403
 msgid ""
@@ -619,11 +625,11 @@ msgstr "ऐपइमेज को गंतव्य फोल्डर मे�
 
 #: crates/gearlever/src/ui/mod.rs:2743 crates/gearlever/src/ui/mod.rs:3636
 msgid "Move all to the app menu"
-msgstr ""
+msgstr "सभी इंस्टॉल करें"
 
 #: crates/gearlever/src/ui/mod.rs:3335
 msgid "Move to the app menu"
-msgstr "ऐप मेनू पर ले जाएं"
+msgstr "इंस्टॉल करें"
 
 #: crates/gearlever/src/ui/mod.rs:3657
 msgid "Name conflict"
@@ -641,7 +647,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1025
 msgid "No AppImage could be integrated"
-msgstr ""
+msgstr "कोई भी AppImage इंस्टॉल नहीं किया जा सका"
 
 #: crates/gearlever/src/ui/mod.rs:5818
 msgid "No environment variables yet"
@@ -667,7 +673,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:865 crates/gearlever/src/ui/mod.rs:3629
 msgid "None of the selected AppImages can be integrated"
-msgstr ""
+msgstr "चुने गए AppImage में से कोई भी इंस्टॉल नहीं किया जा सकता"
 
 #: crates/gearlever/src/ui/mod.rs:4615 crates/gearlever/src/ui/mod.rs:6567
 #: crates/gearlever/src/ui/mod.rs:6825
@@ -890,7 +896,7 @@ msgstr "ऐपइमेज स्थान निर्धारित करे
 
 #: crates/gearlever/src/ui/mod.rs:4033
 msgid "Show integrated AppImages outside the default folder"
-msgstr "तयशुदा फोल्डर के बाहर एकीकृत ऐपइमेज दिखाएं"
+msgstr "डिफ़ॉल्ट फ़ोल्डर के बाहर इंस्टॉल किए गए AppImage दिखाएं"
 
 #: crates/gearlever/src/ui/mod.rs:4825
 msgid "Skip"
@@ -992,7 +998,7 @@ msgstr "इसी नाम से एक ऐप पहले से मौज�
 
 #: crates/gearlever/src/ui/mod.rs:3697
 msgid "This AppImage is already integrated"
-msgstr ""
+msgstr "यह AppImage पहले से इंस्टॉल है"
 
 #: crates/gearlever/src/ui/mod.rs:6558 crates/gearlever/src/ui/mod.rs:6773
 msgid ""
@@ -1013,6 +1019,8 @@ msgid ""
 "This removes all {count} integrated AppImages, including Gear LeverR, and "
 "the application will close."
 msgstr ""
+"इससे Gear LeverR सहित सभी {count} इंस्टॉल किए गए AppImage हट जाएंगे "
+"और ऐप बंद हो जाएगा।"
 
 #: crates/gearlever/src/ui/mod.rs:6173
 msgid "Token configured · invalid or expired"
@@ -1153,7 +1161,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4437
 msgid "Use executable name for integrated terminal apps"
-msgstr "एकीकृत टर्मिनल ऐप्स के लिए निष्पादन योग्य नाम का उपयोग करें"
+msgstr "इंस्टॉल किए गए टर्मिनल ऐप्स के लिए निष्पादन योग्य नाम का उपयोग करें"
 
 #: crates/gearlever/src/ui/mod.rs:4049
 msgid "Use safe mechanisms to load metadata"
@@ -1173,7 +1181,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:3699
 msgid "Version {version} is already integrated"
-msgstr ""
+msgstr "संस्करण {version} पहले से इंस्टॉल है"
 
 #: crates/gearlever/src/ui/mod.rs:3255
 msgid "Website"
@@ -1200,7 +1208,7 @@ msgstr "प्राथमिकताएं (_P)"
 msgid ""
 "{count} of the selected AppImages have the same name as an app that is "
 "already integrated."
-msgstr ""
+msgstr "चुने गए {count} AppImage का नाम पहले से इंस्टॉल किसी ऐप जैसा ही है।"
 
 #: crates/gearlever/src/ui/mod.rs:3751
 msgid "{count} updates failed"
@@ -1208,7 +1216,7 @@ msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:1016
 msgid "{done} integrated; {remaining} pending"
-msgstr ""
+msgstr "{done} इंस्टॉल हो गए; {remaining} शेष"
 
 #: crates/gearlever/src/rate_limit.rs:60
 msgid "{minutes} min"
