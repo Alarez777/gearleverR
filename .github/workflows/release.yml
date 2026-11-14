@@ -48,26 +48,28 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN=1 \
             ./packaging/appimage/build.sh
 
-      - name: Verify AppImage runtime
+      - name: Locate the built AppImage
+        id: appimage
         run: |
           set -- dist/GearLeverR-*-"${ARCH}".AppImage
           if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
             echo "error: expected exactly one GearLeverR-*-${ARCH}.AppImage in dist" >&2
             exit 1
           fi
-          appimage=$1
-          "$appimage" --appimage-offset
-          APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version | grep -q '^gearlever-r '
+          echo "path=$1" >>"$GITHUB_OUTPUT"
+
+      - name: Verify AppImage runtime
+        env:
+          APPIMAGE: ${{ steps.appimage.outputs.path }}
+        run: |
+          "$APPIMAGE" --appimage-offset
+          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --version | grep -q '^gearlever-r '
 
       - name: Verify bundled DwarFS extractor
+        env:
+          APPIMAGE: ${{ steps.appimage.outputs.path }}
         run: |
-          set -- dist/GearLeverR-*-"${ARCH}".AppImage
-          if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
-            echo "error: expected exactly one GearLeverR-*-${ARCH}.AppImage in dist" >&2
-            exit 1
-          fi
-          appimage=$1
-          "$appimage" --appimage-extract >/dev/null
+          "$APPIMAGE" --appimage-extract >/dev/null
           ./squashfs-root/usr/bin/dwarfsextract --help | grep -q 'dwarfsextract'
           rm -rf squashfs-root AppDir
 
