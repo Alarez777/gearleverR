@@ -50,13 +50,23 @@ jobs:
 
       - name: Verify AppImage runtime
         run: |
-          appimage=$(echo dist/GearLeverR-*-${ARCH}.AppImage)
+          set -- dist/GearLeverR-*-"${ARCH}".AppImage
+          if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+            echo "error: expected exactly one GearLeverR-*-${ARCH}.AppImage in dist" >&2
+            exit 1
+          fi
+          appimage=$1
           "$appimage" --appimage-offset
           APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version | grep -q '^gearlever-r '
 
       - name: Verify bundled DwarFS extractor
         run: |
-          appimage=$(echo dist/GearLeverR-*-${ARCH}.AppImage)
+          set -- dist/GearLeverR-*-"${ARCH}".AppImage
+          if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+            echo "error: expected exactly one GearLeverR-*-${ARCH}.AppImage in dist" >&2
+            exit 1
+          fi
+          appimage=$1
           "$appimage" --appimage-extract >/dev/null
           ./squashfs-root/usr/bin/dwarfsextract --help | grep -q 'dwarfsextract'
           rm -rf squashfs-root AppDir
