@@ -7,7 +7,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-ARCH=${ARCH:-x86_64}
+ARCH=${ARCH:-$(uname -m)}
 OUT=${1:-$ROOT/.cache/dwarfsextract-$ARCH}
 
 DWARFS_VERSION=0.15.8

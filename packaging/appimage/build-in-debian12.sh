@@ -1,24 +1,52 @@
 #!/usr/bin/env bash
 # Builds the release AppImage inside Debian 12, which keeps it compatible with
 # glibc 2.36, GTK 4.8 and libadwaita 1.2.
+#
+# The container runs natively, so arm64 images must be built on an arm64 host.
+# The release workflow does that on the ubuntu-24.04-arm runner.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 RUNTIME=${CONTAINER_RUNTIME:-podman}
 IMAGE=${BUILD_IMAGE:-rust:1.98-bookworm}
-ARCH=${ARCH:-x86_64}
-TOOL=${APPIMAGETOOL:-$ROOT/.cache/appimagetool-x86_64.AppImage}
+ARCH=${ARCH:-$(uname -m)}
+HOST_ARCH=$(uname -m)
+MULTIARCH="${ARCH}-linux-gnu"
+TOOL=${APPIMAGETOOL:-$ROOT/.cache/appimagetool-$ARCH.AppImage}
+
+case "$HOST_ARCH" in
+    x86_64) PLATFORM=linux/amd64 ;;
+    aarch64) PLATFORM=linux/arm64 ;;
+    *)
+        echo "error: unsupported host architecture '$HOST_ARCH'" >&2
+        exit 1
+        ;;
+esac
+
+if [ "$ARCH" != "$HOST_ARCH" ]; then
+    echo "error: building $ARCH AppImages requires an $ARCH host" >&2
+    echo "use an $ARCH machine or the release workflow's $ARCH runner" >&2
+    exit 1
+fi
 
 if ! command -v "$RUNTIME" >/dev/null 2>&1; then
     echo "error: $RUNTIME is required (install podman or docker)" >&2
     exit 1
 fi
 
+case "$TOOL" in
+    "$ROOT/.cache/"*) ;;
+    *)
+        echo "error: APPIMAGETOOL must live under $ROOT/.cache" >&2
+        exit 1
+        ;;
+esac
+
 if [ ! -x "$TOOL" ]; then
-    echo ":: downloading appimagetool"
+    echo ":: downloading appimagetool for $ARCH"
     mkdir -p "$(dirname "$TOOL")"
     curl -fsSL -o "$TOOL" \
-        https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+        "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$ARCH.AppImage"
     chmod +x "$TOOL"
 fi
 
@@ -27,15 +55,20 @@ fi
 ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-uruntime.sh"
 ARCH="$ARCH" "$ROOT/packaging/appimage/fetch-dwarfs.sh"
 
-echo ":: building inside $IMAGE"
+echo ":: building $ARCH inside $IMAGE"
 "$RUNTIME" run --rm \
+    --platform "$PLATFORM" \
     -v "$ROOT:/src:z" \
     -w /src \
-    -e CARGO_TARGET_DIR=/src/target-debian12 \
-    -e RUSTFLAGS="-C link-arg=-L/usr/lib/x86_64-linux-gnu" \
+    -e CARGO_TARGET_DIR="/src/target-debian12-$ARCH" \
+    -e RUSTFLAGS="-C link-arg=-L/usr/lib/$MULTIARCH" \
     -e VARIANTS="${VARIANTS:-all}" \
     -e ARCH="$ARCH" \
+    -e IMAGE="$IMAGE" \
+    -e APPIMAGETOOL="/src/.cache/$(basename "$TOOL")" \
+    -e BINARY="/src/target-debian12-$ARCH/release/gearlever-r" \
     "$IMAGE" bash -c '
+        set -euo pipefail
         export PATH=/usr/local/cargo/bin:$PATH
         apt-get update -qq >/dev/null
         apt-get install -y -qq pkg-config libgtk-4-dev libadwaita-1-dev \
@@ -45,9 +78,10 @@ echo ":: building inside $IMAGE"
         cargo build --release --locked -p gearlever
 
         echo ":: packaging inside $IMAGE"
-        GEARLEVER_R_BINARY=/src/target-debian12/release/gearlever-r \
-        APPIMAGETOOL=/src/.cache/appimagetool-x86_64.AppImage \
+        GEARLEVER_R_BINARY="$BINARY" \
+        APPIMAGETOOL="$APPIMAGETOOL" \
         APPIMAGE_EXTRACT_AND_RUN=1 \
+        ARCH="$ARCH" \
         VARIANT="$VARIANTS" \
             ./packaging/appimage/build.sh
     '

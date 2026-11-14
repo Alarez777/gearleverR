@@ -7,5 +7,6 @@
 /packaging/appimage/AppDir-bundled
 /packaging/appimage/*.AppImage
 /target-debian12
+/target-debian12-*
 
 /.cache
