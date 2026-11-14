@@ -1358,11 +1358,26 @@ mod tests {
 
     #[test]
     fn picks_the_only_matching_asset() {
-        let assets = vec![asset("app-x86_64.AppImage"), asset("app-aarch64.AppImage")];
+        let assets = vec![asset("app-x86_64.AppImage")];
 
         assert_eq!(
             pick_asset(&assets, "app-*.AppImage").map(|asset| asset.name),
             Some("app-x86_64.AppImage".to_owned())
+        );
+    }
+
+    #[test]
+    fn prefers_the_native_architecture() {
+        let assets = vec![asset("app-x86_64.AppImage"), asset("app-aarch64.AppImage")];
+        let expected = if cfg!(target_arch = "x86_64") {
+            "app-x86_64.AppImage"
+        } else {
+            "app-aarch64.AppImage"
+        };
+
+        assert_eq!(
+            pick_asset(&assets, "app-*.AppImage").map(|asset| asset.name),
+            Some(expected.to_owned())
         );
     }
 
