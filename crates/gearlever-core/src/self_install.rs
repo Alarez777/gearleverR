@@ -140,6 +140,7 @@ fn bundled_gtk(appimage: &AppImage) -> Option<bool> {
         [
             "/usr/lib/libgtk-4.so.1",
             "/usr/lib/x86_64-linux-gnu/libgtk-4.so.1",
+            "/usr/lib/aarch64-linux-gnu/libgtk-4.so.1",
             "/lib/libgtk-4.so.1",
         ]
         .into_iter()
@@ -596,7 +597,7 @@ mod tests {
 
     #[derive(Clone, Copy)]
     enum Payload {
-        Bundled,
+        Bundled(&'static str),
         Default,
     }
 
@@ -609,13 +610,15 @@ mod tests {
         filesystem
             .push_dir_all("usr/lib", header)
             .expect("create the payload directories");
-        if matches!(payload, Payload::Bundled) {
+        if let Payload::Bundled(gtk_path) = payload {
+            let gtk_dir = Path::new(gtk_path)
+                .parent()
+                .expect("the GTK library has a parent directory");
             filesystem
-                .push_file(
-                    std::io::Cursor::new(b"gtk".to_vec()),
-                    "usr/lib/libgtk-4.so.1",
-                    header,
-                )
+                .push_dir_all(gtk_dir, header)
+                .expect("create the GTK library directory");
+            filesystem
+                .push_file(std::io::Cursor::new(b"gtk".to_vec()), gtk_path, header)
                 .expect("add the bundled GTK library");
         }
 
@@ -893,12 +896,25 @@ mod tests {
         let metadata = metadata();
 
         let bundled = directory.path().join("GearLeverR.AppImage");
-        synthetic_appimage(&bundled, Payload::Bundled);
+        synthetic_appimage(&bundled, Payload::Bundled("usr/lib/libgtk-4.so.1"));
         assert_eq!(detect_variant(&metadata, &bundled), Variant::GtkIncluded);
 
         let default = directory.path().join("GearLeverR-other.AppImage");
         synthetic_appimage(&default, Payload::Default);
         assert_eq!(detect_variant(&metadata, &default), Variant::Default);
+    }
+
+    #[test]
+    fn detects_gtk_bundled_in_an_aarch64_multiarch_directory() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let metadata = metadata();
+
+        let bundled = directory.path().join("GearLeverR-aarch64.AppImage");
+        synthetic_appimage(
+            &bundled,
+            Payload::Bundled("usr/lib/aarch64-linux-gnu/libgtk-4.so.1"),
+        );
+        assert_eq!(detect_variant(&metadata, &bundled), Variant::GtkIncluded);
     }
 
     #[test]
