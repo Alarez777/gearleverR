@@ -47,7 +47,7 @@ Style and API rules come from the skill; do not improvise them.
   external `7zz`/`7z` fallback. Running the inspected AppImage itself as an
   extractor stays gated
   by the safe-extractor setting.
-- AppImage runtime: `uruntime` v0.8.1 (static SquashFS build, pinned by SHA-256)
+- AppImage runtime: `uruntime` v0.8.2 (static SquashFS build, pinned by SHA-256)
   with `URUNTIME_EXTRACT=2`, so the AppImage extracts itself when FUSE is not
   available. Its MIT notice lives in `LICENSES/uruntime-MIT.txt`.
 - FTP: `suppaftp`. Hashing: `md-5`, `sha1`, `sha2`, `blake3`.
@@ -119,7 +119,12 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
   finding needs the exact rule, read the matching file under
   `.agents/skills/rust-best-practices/references/`. Fix every Must fix finding
   and report the remaining Should fix and Consider items in the hand-back.
-  Branches with no Rust changes skip the review.
+  Branches with no Rust changes still get their packaging, script and docs diff
+  reviewed before the merge.
+- AppImage artifacts are generated only under `dist/` (the AppImage and its
+  `.sha256`). Never replace or overwrite an installed copy such as
+  `~/AppImages/gear_leverr.appimage`; installing or updating it is an explicit
+  user action.
 - Never merge into `develop` on your own. Leave the branch implemented and
   tested, then wait for the user's explicit confirmation. Once confirmed, merge
   it into `develop`, then into `main`, and push both.

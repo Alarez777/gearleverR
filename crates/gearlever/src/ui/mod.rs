@@ -3982,6 +3982,11 @@ impl AppModel {
         window.set_transient_for(Some(&widgets.window));
         window.set_modal(true);
 
+        let (main_width, main_height) = window_allocation_size(widgets.window.upcast_ref());
+        let (width, height) = preferences_size(main_width, main_height);
+        let (width, height) = fit_window_size_to_window(width, height, widgets.window.upcast_ref());
+        window.set_default_size(width, height);
+
         let page = adw::PreferencesPage::new();
 
         // The original leaves the first group untitled, so keep it that way.
@@ -6386,6 +6391,46 @@ fn has_visible_rows(group: &adw::PreferencesGroup) -> bool {
     false
 }
 
+/// Returns the size of a window's content area.
+///
+/// `set_default_size` expects this size. On Wayland the surface also contains
+/// the client-side shadow, so sizing from it would add that shadow to the
+/// Preferences window a second time.
+fn window_allocation_size(window: &gtk::Window) -> (i32, i32) {
+    let width = window.width();
+    let height = window.height();
+    if width > 0 && height > 0 {
+        (width, height)
+    } else {
+        (window.default_width(), window.default_height())
+    }
+}
+
+/// Clamps a window size to the monitor that contains `window`.
+fn fit_window_size_to_window(width: i32, height: i32, window: &gtk::Window) -> (i32, i32) {
+    let Some(surface) = window.surface() else {
+        return (width, height);
+    };
+    let Some(monitor) = surface.display().monitor_at_surface(&surface) else {
+        return (width, height);
+    };
+    let geometry = monitor.geometry();
+
+    clamp_window_size(width, height, Some((geometry.width(), geometry.height())))
+}
+
+/// Clamps a window size to a monitor area, when the area is known.
+fn clamp_window_size(width: i32, height: i32, monitor: Option<(i32, i32)>) -> (i32, i32) {
+    let Some((monitor_width, monitor_height)) = monitor else {
+        return (width, height);
+    };
+
+    (width.min(monitor_width), height.min(monitor_height))
+}
+
+/// Space kept between a restored window and the monitor edges.
+const WINDOW_MONITOR_MARGIN: i32 = 80;
+
 /// Clamps a saved window size to the current monitor.
 fn fit_window_size(width: i32, height: i32) -> (i32, i32) {
     let width = width.clamp(480, 10_000);
@@ -6402,8 +6447,33 @@ fn fit_window_size(width: i32, height: i32) -> (i32, i32) {
     let geometry = monitor.geometry();
 
     (
-        width.min(geometry.width().saturating_sub(80)).max(480),
-        height.min(geometry.height().saturating_sub(80)).max(360),
+        width
+            .min(geometry.width().saturating_sub(WINDOW_MONITOR_MARGIN))
+            .max(480),
+        height
+            .min(geometry.height().saturating_sub(WINDOW_MONITOR_MARGIN))
+            .max(360),
+    )
+}
+
+/// Width of the Preferences window as a percentage of the main window.
+///
+/// The remaining 5 % leaves a 2.5 % margin on each side, which keeps the
+/// window visually attached to the main one without touching its edges.
+const PREFERENCES_WIDTH_PERCENT: i32 = 95;
+/// Height of the Preferences window as a percentage of the main window.
+///
+/// The remaining 10 % leaves a 5 % margin above and below.
+const PREFERENCES_HEIGHT_PERCENT: i32 = 90;
+
+/// Sizes the Preferences window relative to the main window.
+///
+/// The percentage always leaves a margin, so the window stays smaller than
+/// the main one even in the minimal preview used for new files.
+fn preferences_size(main_width: i32, main_height: i32) -> (i32, i32) {
+    (
+        main_width.saturating_mul(PREFERENCES_WIDTH_PERCENT) / 100,
+        main_height.saturating_mul(PREFERENCES_HEIGHT_PERCENT) / 100,
     )
 }
 
@@ -7056,5 +7126,24 @@ mod tests {
         assert!(is_history_variable("DESKTOPINTEGRATION=1"));
         assert!(!is_history_variable("=missing-key"));
         assert!(!is_history_variable(""));
+    }
+
+    #[test]
+    fn sizes_preferences_relative_to_the_main_window() {
+        assert_eq!(preferences_size(720, 720), (684, 648));
+        assert_eq!(preferences_size(1920, 1080), (1824, 972));
+    }
+
+    #[test]
+    fn keeps_preferences_smaller_on_small_main_windows() {
+        assert_eq!(preferences_size(600, 435), (570, 391));
+        assert_eq!(preferences_size(480, 360), (456, 324));
+    }
+
+    #[test]
+    fn clamps_preferences_to_the_monitor_area() {
+        assert_eq!(clamp_window_size(570, 391, Some((1400, 1000))), (570, 391));
+        assert_eq!(clamp_window_size(600, 500, Some((520, 420))), (520, 420));
+        assert_eq!(clamp_window_size(570, 391, None), (570, 391));
     }
 }
