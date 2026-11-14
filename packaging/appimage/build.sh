@@ -21,6 +21,9 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ARCH=${ARCH:-$(uname -m)}
 VARIANT=${VARIANT:-all}
 ALLOW_PAYLOAD_ONLY_CHECK=${ALLOW_PAYLOAD_ONLY_CHECK:-0}
+if [ "$ALLOW_PAYLOAD_ONLY_CHECK" = "1" ]; then
+    echo "warning: ALLOW_PAYLOAD_ONLY_CHECK=1 allows skipping the AppImage execution check" >&2
+fi
 VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/Cargo.toml" | head -n 1)
 DIST="$ROOT/dist"
 SYSTEM_APPDIR="$ROOT/packaging/appimage/AppDir"
