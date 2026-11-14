@@ -940,6 +940,21 @@ mod tests {
     }
 
     #[test]
+    fn keeps_apprun_bundled_paths_in_sync() {
+        let app_run = include_str!("../../../packaging/appimage/AppRun");
+
+        for path in BUNDLED_GTK_PATHS {
+            let shell_path = path
+                .strip_prefix('/')
+                .expect("the bundled GTK path is absolute");
+            assert!(
+                app_run.contains(&format!("\"$HERE/{shell_path}\"")),
+                "AppRun is missing $HERE/{shell_path}"
+            );
+        }
+    }
+
+    #[test]
     fn moves_a_managed_image_to_its_canonical_name() {
         let directory = tempfile::tempdir().expect("temporary directory");
         let source = directory.path().join("GearLeverR-0.1.0-x86_64.AppImage");
