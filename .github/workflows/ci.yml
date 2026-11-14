@@ -10,11 +10,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
-            runner: ubuntu-latest
+          - runner: ubuntu-latest
             triplet: x86_64-linux-gnu
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
+          - runner: ubuntu-24.04-arm
             triplet: aarch64-linux-gnu
     runs-on: ${{ matrix.runner }}
     container: rust:1.98-bookworm
