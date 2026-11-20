@@ -14,7 +14,7 @@ use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
 use super::http::HttpClient;
-use super::{DownloadContext, ManagerKind, UpdateManager, UpdateStatus, value};
+use super::{CheckOutcome, DownloadContext, ManagerKind, UpdateManager, UpdateStatus, value};
 
 const MAX_DEPTH: usize = 8;
 /// Maximum time spent resolving and opening an FTP connection.
@@ -197,18 +197,19 @@ impl UpdateManager for Ftp {
         &self.config
     }
 
-    fn check(&self, _hashes: &HashCache) -> Result<UpdateStatus> {
+    fn check(&self, _hashes: &HashCache) -> Result<CheckOutcome> {
         let Some((_, remote_size)) = self.target()? else {
-            return Ok(UpdateStatus::Unknown);
+            return Ok(CheckOutcome::without_version(UpdateStatus::Unknown));
         };
 
         let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
 
-        Ok(if remote_size == local_size {
+        let status = if remote_size == local_size {
             UpdateStatus::UpToDate
         } else {
             UpdateStatus::Available
-        })
+        };
+        Ok(CheckOutcome::without_version(status))
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {

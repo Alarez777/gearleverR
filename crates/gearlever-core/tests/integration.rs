@@ -22,7 +22,8 @@ use gearlever_core::scan::{ScanOptions, scan};
 use gearlever_core::self_install::{self, InstallOptions};
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::{
-    self, DownloadContext, ManagerKind, UpdateJob, UpdateManager, UpdateOptions, UpdateStatus,
+    self, CheckOutcome, DownloadContext, ManagerKind, UpdateJob, UpdateManager, UpdateOptions,
+    UpdateStatus,
 };
 
 fn test_appimage() -> Option<PathBuf> {
@@ -173,8 +174,8 @@ impl UpdateManager for CopyManager {
         &self.config
     }
 
-    fn check(&self, _hashes: &HashCache) -> Result<UpdateStatus> {
-        Ok(UpdateStatus::Available)
+    fn check(&self, _hashes: &HashCache) -> Result<CheckOutcome> {
+        Ok(CheckOutcome::without_version(UpdateStatus::Available))
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {

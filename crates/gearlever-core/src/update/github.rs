@@ -13,8 +13,8 @@ use crate::hash::HashCache;
 
 use super::http::{HttpClient, MAX_CONTROL_BYTES};
 use super::{
-    Asset, DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus, boolean,
-    delta, pick_asset, value,
+    Asset, CheckOutcome, DownloadContext, ManagerKind, ProgressTracker, UpdateManager,
+    UpdateStatus, boolean, delta, pick_asset, value,
 };
 
 const ACCEPT: &str = "application/vnd.github+json";
@@ -137,6 +137,8 @@ struct Core {
 #[derive(Debug, Deserialize)]
 struct Release {
     #[serde(default)]
+    tag_name: String,
+    #[serde(default)]
     draft: bool,
     #[serde(default)]
     prerelease: bool,
@@ -156,6 +158,7 @@ struct ReleaseAsset {
 #[derive(Clone)]
 struct Target {
     asset: Asset,
+    version: Option<String>,
     zsync_url: Option<String>,
     zsync_control: Option<Arc<[u8]>>,
 }
@@ -164,6 +167,7 @@ impl fmt::Debug for Target {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Target")
             .field("asset", &self.asset)
+            .field("version", &self.version)
             .field("zsync_url", &self.zsync_url)
             .field(
                 "control_bytes",
@@ -194,7 +198,7 @@ fn status_for_size(
 }
 
 /// Pairs the `.zsync` asset selected by `pattern` with the AppImage it describes.
-fn pick_zsync_target(assets: &[Asset], pattern: &str) -> Option<Target> {
+fn pick_zsync_target(assets: &[Asset], pattern: &str, version: Option<String>) -> Option<Target> {
     let zsync_asset = pick_asset(assets, pattern)?;
     let target_name = Path::new(&zsync_asset.name).file_stem()?.to_str()?;
     let asset = assets
@@ -204,6 +208,7 @@ fn pick_zsync_target(assets: &[Asset], pattern: &str) -> Option<Target> {
 
     Some(Target {
         asset,
+        version,
         zsync_url: Some(zsync_asset.url),
         zsync_control: None,
     })
@@ -326,6 +331,7 @@ impl Github {
             return Ok(None);
         };
 
+        let version = super::version_from_tag(&release.tag_name);
         let assets: Vec<Asset> = release
             .assets
             .into_iter()
@@ -341,11 +347,12 @@ impl Github {
             .extension()
             .is_some_and(|extension| extension.eq_ignore_ascii_case("zsync"))
         {
-            return Ok(pick_zsync_target(&assets, &pattern));
+            return Ok(pick_zsync_target(&assets, &pattern, version));
         }
 
         Ok(pick_asset(&assets, &pattern).map(|asset| Target {
             asset,
+            version,
             zsync_url: None,
             zsync_control: None,
         }))
@@ -365,18 +372,19 @@ impl UpdateManager for Github {
         &self.config
     }
 
-    fn check(&self, hashes: &HashCache) -> Result<UpdateStatus> {
+    fn check(&self, hashes: &HashCache) -> Result<CheckOutcome> {
         let Some(mut target) = self.target()? else {
-            return Ok(if value(&self.config, "repo_filename").is_some() {
+            let status = if value(&self.config, "repo_filename").is_some() {
                 UpdateStatus::Unknown
             } else {
                 UpdateStatus::UpToDate
-            });
+            };
+            return Ok(CheckOutcome::without_version(status));
         };
 
         let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
         if target.asset.size.is_some_and(|size| size != local_size) {
-            return Ok(UpdateStatus::Available);
+            return Ok(CheckOutcome::new(UpdateStatus::Available, target.version));
         }
 
         let mut control_unavailable = false;
@@ -400,11 +408,12 @@ impl UpdateManager for Github {
                 let info = super::zsync::parse_bytes(&control);
                 if let Some(expected) = info.sha1 {
                     let actual = hashes.sha1(&self.image)?;
-                    return Ok(if expected == actual {
+                    let status = if expected == actual {
                         UpdateStatus::UpToDate
                     } else {
                         UpdateStatus::Available
-                    });
+                    };
+                    return Ok(CheckOutcome::new(status, target.version));
                 }
             }
         }
@@ -413,18 +422,16 @@ impl UpdateManager for Github {
             && let Some(expected) = digest.strip_prefix("sha256:")
         {
             let actual = hashes.sha256(&self.image)?;
-            return Ok(if expected.eq_ignore_ascii_case(&actual) {
+            let status = if expected.eq_ignore_ascii_case(&actual) {
                 UpdateStatus::UpToDate
             } else {
                 UpdateStatus::Available
-            });
+            };
+            return Ok(CheckOutcome::new(status, target.version.clone()));
         }
 
-        Ok(status_for_size(
-            local_size,
-            target.asset.size,
-            control_unavailable,
-        ))
+        let status = status_for_size(local_size, target.asset.size, control_unavailable);
+        Ok(CheckOutcome::new(status, target.version))
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
@@ -592,7 +599,7 @@ mod tests {
         ]
         .map(asset);
 
-        let target = pick_zsync_target(&assets, "*.zsync").unwrap();
+        let target = pick_zsync_target(&assets, "*.zsync", Some("3.3.0".to_owned())).unwrap();
 
         assert_eq!(
             target.asset.name,
@@ -610,19 +617,25 @@ mod tests {
 
     #[test]
     fn fetches_a_single_latest_release() {
-        let (url, server) = serve(r#"{"draft":false,"prerelease":false,"assets":[]}"#.to_owned());
+        let (url, server) = serve(
+            r#"{"tag_name":"v0.7.0","draft":false,"prerelease":false,"assets":[]}"#.to_owned(),
+        );
         let release = manager().fetch_latest_release(&url).unwrap();
 
+        assert_eq!(release.tag_name, "v0.7.0");
         assert!(release.assets.is_empty());
         server.join().unwrap();
     }
 
     #[test]
     fn fetches_a_release_list() {
-        let (url, server) = serve(r#"[{"draft":false,"prerelease":false,"assets":[]}]"#.to_owned());
+        let (url, server) = serve(
+            r#"[{"tag_name":"v0.7.0","draft":false,"prerelease":false,"assets":[]}]"#.to_owned(),
+        );
         let releases = manager().fetch_releases(&url).unwrap();
 
         assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0].tag_name, "v0.7.0");
         server.join().unwrap();
     }
 
@@ -717,6 +730,7 @@ mod tests {
                 size: Some(u64::try_from(FILE_SIZE).unwrap()),
                 digest: None,
             },
+            version: Some("0.7.0".to_owned()),
             zsync_url: Some(server.url("/new.AppImage.zsync")),
             zsync_control: None,
         }
