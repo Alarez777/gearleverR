@@ -758,3 +758,6 @@ msgid "Use executable name for integrated terminal apps"
 msgstr ""
 "Usar el nombre del ejecutable para las aplicaciones de terminal "
 "instaladas"
+
+msgid "Update to {version}"
+msgstr "Actualizar a {version}"
