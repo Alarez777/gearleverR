@@ -45,7 +45,7 @@ use gearlever_core::self_install;
 use gearlever_core::system::{self, FuseComponent, FuseReport, RunningMode};
 use gearlever_core::uninstall::{Removal, uninstall};
 use gearlever_core::update::github::TokenCheck;
-use gearlever_core::update::{self, ManagerKind, UpdateOptions, UpdateStatus};
+use gearlever_core::update::{self, ManagerKind, UpdateOptions};
 
 use crate::i18n::{t, tf};
 use crate::launch;
@@ -280,6 +280,13 @@ struct SingleUpdateRow {
     ring: util::CircularProgress,
 }
 
+/// Update found by a check, ready to be offered to the user.
+#[derive(Debug)]
+struct AvailableUpdate {
+    version: Option<String>,
+    manager: Arc<dyn update::UpdateManager>,
+}
+
 /// Widgets and update facts produced while building a details page.
 struct DetailsBuild {
     single_row: Option<SingleUpdateRow>,
@@ -317,7 +324,7 @@ enum Msg {
     /// Checks one app whose update source was validated by the caller.
     CheckAppUpdates(PathBuf),
     UpdateCheckStarted(usize),
-    UpdateChecked(PathBuf, bool, Option<Arc<dyn update::UpdateManager>>),
+    UpdateChecked(PathBuf, Option<AvailableUpdate>),
     UpdateRetryStarted,
     CheckDone,
     GithubTokenTested(TokenCheck),
@@ -440,6 +447,7 @@ struct AppModel {
     search: String,
     updates: HashSet<PathBuf>,
     managers: HashMap<PathBuf, Arc<dyn update::UpdateManager>>,
+    available_versions: HashMap<PathBuf, String>,
     checking: bool,
     check_total: usize,
     check_done: usize,
@@ -714,7 +722,7 @@ impl Component for AppModel {
                     widgets.updates_progress.set_fraction(0.0);
                 }
             }
-            Msg::UpdateChecked(path, available, manager) => {
+            Msg::UpdateChecked(path, update) => {
                 self.check_done = self.check_done.saturating_add(1);
                 if self.check_total > 0 {
                     widgets
@@ -722,14 +730,19 @@ impl Component for AppModel {
                         .set_fraction(progress_fraction(self.check_done, self.check_total));
                 }
 
-                if available && !self.config.updates_disabled(&path) {
-                    self.updates.insert(path.clone());
-                    if let Some(manager) = manager {
-                        self.managers.insert(path.clone(), manager);
+                match update {
+                    Some(update) if !self.config.updates_disabled(&path) => {
+                        self.updates.insert(path.clone());
+                        self.managers.insert(path.clone(), update.manager);
+                        if let Some(version) = update.version {
+                            self.available_versions.insert(path.clone(), version);
+                        } else {
+                            self.available_versions.remove(&path);
+                        }
                     }
-                } else {
-                    self.updates.remove(&path);
-                    self.managers.remove(&path);
+                    _ => {
+                        self.remove_update(&path);
+                    }
                 }
 
                 if let Some(DetailsItem::Installed(app)) = &self.details
@@ -1073,8 +1086,7 @@ impl Component for AppModel {
                 Ok((path, config)) => {
                     self.config = config;
                     let _ = self.config.save(&self.paths.config_file());
-                    self.updates.remove(&path);
-                    self.managers.remove(&path);
+                    self.remove_update(&path);
 
                     if self.removing_self {
                         self.removing_self = false;
@@ -1445,8 +1457,7 @@ impl Component for AppModel {
                     Ok((app, config)) => {
                         self.config = config;
                         let _ = self.config.save(&self.paths.config_file());
-                        self.updates.remove(&app.image_path);
-                        self.managers.remove(&app.image_path);
+                        self.remove_update(&app.image_path);
                         self.reloaded = None;
                         self.refresh_apps();
                         widgets.update_all_button.set_visible(self.has_updates());
@@ -1493,8 +1504,7 @@ impl Component for AppModel {
 
                 self.single_update = None;
                 self.single_row = None;
-                self.updates.remove(&path);
-                self.managers.remove(&path);
+                self.remove_update(&path);
 
                 if self.page == Page::Details {
                     if let Some(DetailsItem::Installed(app)) = &self.details
@@ -1528,8 +1538,7 @@ impl Component for AppModel {
                 self.multi_done.insert(path.clone());
                 self.multi_active.remove(&path);
                 self.multi_fractions.insert(path.clone(), 1.0);
-                self.updates.remove(&path);
-                self.managers.remove(&path);
+                self.remove_update(&path);
                 if let Some(row) = self.multi_rows.get(&path) {
                     row.row.set_opacity(1.0);
                     row.ring.set_fraction(1.0);
@@ -1571,9 +1580,9 @@ impl Component for AppModel {
                         let _ = self.config.save(&self.paths.config_file());
                         // Remove only the badges that were actually installed;
                         // failed updates must stay visible in the list.
-                        for path in &self.multi_done {
-                            self.updates.remove(path);
-                            self.managers.remove(path);
+                        let installed: Vec<PathBuf> = self.multi_done.iter().cloned().collect();
+                        for path in &installed {
+                            self.remove_update(path);
                         }
                         self.refresh_apps();
                         if self.multi_failed.is_empty() && !cancelled {
@@ -1712,8 +1721,7 @@ impl Component for AppModel {
                     Ok(()) => {
                         self.config = config;
 
-                        if !enabled && self.updates.remove(&path) {
-                            self.managers.remove(&path);
+                        if !enabled && self.remove_update(&path) {
                             Self::rebuild_details(self, widgets, &sender);
                             Self::rebuild_list(self, widgets, &sender);
                         }
@@ -1777,7 +1785,7 @@ impl Component for AppModel {
                 {
                     let path = app.image_path.clone();
                     self.config.delete_update_manager(&path);
-                    self.managers.remove(&path);
+                    self.remove_update(&path);
                     let _ = self.config.save(&self.paths.config_file());
                     self.details_source = None;
                     Self::rebuild_details(self, widgets, &sender);
@@ -1791,7 +1799,7 @@ impl Component for AppModel {
             Msg::ApplySource { path, kind, values } => {
                 let mut config = self.config.clone();
                 config.set_update_manager(&path, kind.name(), values);
-                self.managers.remove(&path);
+                self.remove_update(&path);
                 match config.save(&self.paths.config_file()) {
                     Ok(()) => {
                         sender.input(Msg::ConfigSaved(Ok(config)));
@@ -1945,6 +1953,7 @@ impl AppModel {
             search: String::new(),
             updates: HashSet::new(),
             managers: HashMap::new(),
+            available_versions: HashMap::new(),
             checking: false,
             check_total: 0,
             check_done: 0,
@@ -2202,15 +2211,14 @@ impl AppModel {
                 // resets it and shows the limit again.
                 let rate_limit_notified = Cell::new(false);
                 let mut on_event = |event| match event {
-                    update::CheckEvent::Checked { index, status } => {
+                    update::CheckEvent::Checked { index, outcome } => {
                         let job = &jobs_ref[index];
-                        let manager =
-                            (status == UpdateStatus::Available).then(|| Arc::clone(&job.manager));
-                        sender.input(Msg::UpdateChecked(
-                            job.app.image_path.clone(),
-                            status == UpdateStatus::Available,
-                            manager,
-                        ));
+                        let available = outcome.status.is_available();
+                        let update = available.then(|| AvailableUpdate {
+                            version: outcome.version,
+                            manager: Arc::clone(&job.manager),
+                        });
+                        sender.input(Msg::UpdateChecked(job.app.image_path.clone(), update));
                     }
                     update::CheckEvent::Retrying => sender.input(Msg::UpdateRetryStarted),
                     update::CheckEvent::TokenInvalid => sender.input(Msg::GithubTokenInvalid),
@@ -2818,6 +2826,9 @@ impl AppModel {
                 &display,
                 action,
                 single,
+                self.available_versions
+                    .get(&display.image_path)
+                    .map(String::as_str),
                 &self.paths.metadata_cache_dir(),
                 sender,
             );
@@ -2867,10 +2878,18 @@ impl AppModel {
             .any(|app| self.updates.contains(&app.image_path))
     }
 
+    /// Forgets every update fact recorded for `path`.
+    fn remove_update(&mut self, path: &Path) -> bool {
+        self.available_versions.remove(path);
+        self.managers.remove(path);
+        self.updates.remove(path)
+    }
+
     fn list_row(
         app: &InstalledApp,
         action: RowAction,
         single: Option<&SingleUpdate>,
+        available_version: Option<&str>,
         cache_dir: &Path,
         sender: &ComponentSender<Self>,
     ) -> ListRow {
@@ -2897,19 +2916,29 @@ impl AppModel {
         name.add_css_class("heading");
         text.append(&name);
 
-        let mut subtitle = app.version.clone().unwrap_or_default();
-        if subtitle.is_empty() {
-            subtitle = size(app.size);
-        } else {
-            subtitle = format!("{subtitle} · {}", size(app.size));
-        }
+        let subtitle = metadata_text(app.version.as_deref(), app.size);
+
+        let metadata = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        metadata.set_halign(gtk::Align::Start);
+        metadata.set_hexpand(true);
 
         let subtitle = gtk::Label::new(Some(&subtitle));
         subtitle.set_halign(gtk::Align::Start);
         subtitle.set_hexpand(true);
         subtitle.set_ellipsize(gtk::pango::EllipsizeMode::End);
         subtitle.add_css_class("dim-label");
-        text.append(&subtitle);
+        metadata.append(&subtitle);
+
+        if let Some(version) = available_version {
+            let target = gtk::Label::new(Some(&format!("→ {version}")));
+            target.set_halign(gtk::Align::Start);
+            target.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            target.set_max_width_chars(30);
+            target.add_css_class("accent");
+            metadata.append(&target);
+        }
+
+        text.append(&metadata);
 
         line.append(&text);
 
@@ -2926,6 +2955,12 @@ impl AppModel {
             button.set_valign(gtk::Align::Center);
             if action == RowAction::Update {
                 button.add_css_class("suggested-action");
+                if let Some(version) = available_version {
+                    button.set_tooltip_text(Some(&tf(
+                        "Update to {version}",
+                        &[("version", version)],
+                    )));
+                }
             }
             let sender = sender.clone();
             let path = app.image_path.clone();
@@ -3145,7 +3180,11 @@ impl AppModel {
                 actions.append(&row.status);
                 single_row = Some(row);
             } else if self.updates.contains(&app.image_path) {
-                let update = gtk::Button::with_label(&t("Update"));
+                let label = self.available_versions.get(&app.image_path).map_or_else(
+                    || t("Update"),
+                    |version| tf("Update to {version}", &[("version", version)]),
+                );
+                let update = gtk::Button::with_label(&label);
                 update.add_css_class("suggested-action");
                 update.set_size_request(ACTION_ROW_WIDTH, ACTION_BUTTON_HEIGHT);
                 let sender_update = sender.clone();
@@ -6580,6 +6619,14 @@ fn has_update_source(image: &Path, manager: &BTreeMap<String, String>) -> bool {
     }
 }
 
+/// Builds the version and size line shown under an application name.
+fn metadata_text(version: Option<&str>, bytes: u64) -> String {
+    match version {
+        Some(version) if !version.is_empty() => format!("{version} · {}", size(bytes)),
+        _ => size(bytes),
+    }
+}
+
 fn details_header(
     name: &str,
     description: &str,
@@ -6716,6 +6763,13 @@ mod tests {
         let mut app = installed(name, image);
         app.self_entry = true;
         app
+    }
+
+    #[test]
+    fn metadata_text_combines_version_and_size() {
+        assert_eq!(metadata_text(Some("0.6.0"), 900), "0.6.0 · 900 B");
+        assert_eq!(metadata_text(None, 900), "900 B");
+        assert_eq!(metadata_text(Some(""), 900), "900 B");
     }
 
     fn candidate(name: &str, image: &str) -> CandidateFile {
