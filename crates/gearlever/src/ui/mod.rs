@@ -281,7 +281,7 @@ struct SingleUpdateRow {
 }
 
 /// Update found by a check, ready to be offered to the user.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct AvailableUpdate {
     version: Option<String>,
     manager: Arc<dyn update::UpdateManager>,
@@ -445,9 +445,7 @@ struct AppModel {
     /// Whether the open details page has a usable update source.
     details_can_check_updates: bool,
     search: String,
-    updates: HashSet<PathBuf>,
-    managers: HashMap<PathBuf, Arc<dyn update::UpdateManager>>,
-    available_versions: HashMap<PathBuf, String>,
+    updates: HashMap<PathBuf, AvailableUpdate>,
     checking: bool,
     check_total: usize,
     check_done: usize,
@@ -732,13 +730,7 @@ impl Component for AppModel {
 
                 match update {
                     Some(update) if !self.config.updates_disabled(&path) => {
-                        self.updates.insert(path.clone());
-                        self.managers.insert(path.clone(), update.manager);
-                        if let Some(version) = update.version {
-                            self.available_versions.insert(path.clone(), version);
-                        } else {
-                            self.available_versions.remove(&path);
-                        }
+                        self.updates.insert(path.clone(), update);
                     }
                     _ => {
                         self.remove_update(&path);
@@ -1144,7 +1136,6 @@ impl Component for AppModel {
                 }
 
                 self.updates.clear();
-                self.managers.clear();
                 self.refresh_apps();
                 Self::rebuild_list(self, widgets, &sender);
                 if errors.is_empty() {
@@ -1192,7 +1183,10 @@ impl Component for AppModel {
                 let options = self.update_options();
                 let config = self.config.clone();
                 let paths = self.paths.clone();
-                let stored_manager = self.managers.get(&path).cloned();
+                let stored_manager = self
+                    .updates
+                    .get(&path)
+                    .map(|update| Arc::clone(&update.manager));
                 let download_dir = options.staging_dir();
                 let cancel = Arc::new(AtomicBool::new(false));
                 self.cancel_token = Some(Arc::clone(&cancel));
@@ -1267,7 +1261,7 @@ impl Component for AppModel {
                 let queue: Vec<InstalledApp> = self
                     .apps
                     .iter()
-                    .filter(|app| self.updates.contains(&app.image_path))
+                    .filter(|app| self.updates.contains_key(&app.image_path))
                     .cloned()
                     .collect();
 
@@ -1285,7 +1279,7 @@ impl Component for AppModel {
                 let config = self.config.clone();
                 let paths = self.paths.clone();
                 let options = self.update_options();
-                let stored_managers = self.managers.clone();
+                let stored_updates = self.updates.clone();
                 let download_dir = options.staging_dir();
                 let parallel = self.settings.values().max_parallel_downloads;
                 let cancel = Arc::new(AtomicBool::new(false));
@@ -1301,8 +1295,8 @@ impl Component for AppModel {
 
                     for app in queue {
                         let resolved: Result<Option<Arc<dyn update::UpdateManager>>, CoreError> =
-                            if let Some(manager) = stored_managers.get(&app.image_path) {
-                                Ok(Some(Arc::clone(manager)))
+                            if let Some(update) = stored_updates.get(&app.image_path) {
+                                Ok(Some(Arc::clone(&update.manager)))
                             } else {
                                 if !token_loaded {
                                     let settings = Settings::load(&paths);
@@ -1951,9 +1945,7 @@ impl AppModel {
             details_source: None,
             details_can_check_updates: false,
             search: String::new(),
-            updates: HashSet::new(),
-            managers: HashMap::new(),
-            available_versions: HashMap::new(),
+            updates: HashMap::new(),
             checking: false,
             check_total: 0,
             check_done: 0,
@@ -2808,7 +2800,7 @@ impl AppModel {
                 display.version.clone_from(&metadata.version);
             }
 
-            let has_update = self.updates.contains(&app.image_path);
+            let has_update = self.updates.contains_key(&app.image_path);
             let action = if has_update {
                 RowAction::Update
             } else {
@@ -2826,9 +2818,9 @@ impl AppModel {
                 &display,
                 action,
                 single,
-                self.available_versions
+                self.updates
                     .get(&display.image_path)
-                    .map(String::as_str),
+                    .and_then(|update| update.version.as_deref()),
                 &self.paths.metadata_cache_dir(),
                 sender,
             );
@@ -2875,14 +2867,12 @@ impl AppModel {
     fn has_updates(&self) -> bool {
         self.apps
             .iter()
-            .any(|app| self.updates.contains(&app.image_path))
+            .any(|app| self.updates.contains_key(&app.image_path))
     }
 
     /// Forgets every update fact recorded for `path`.
     fn remove_update(&mut self, path: &Path) -> bool {
-        self.available_versions.remove(path);
-        self.managers.remove(path);
-        self.updates.remove(path)
+        self.updates.remove(path).is_some()
     }
 
     fn list_row(
@@ -3179,8 +3169,8 @@ impl AppModel {
                 let row = Self::single_update_row(update, &name, ACTION_BUTTON_HEIGHT);
                 actions.append(&row.status);
                 single_row = Some(row);
-            } else if self.updates.contains(&app.image_path) {
-                let label = self.available_versions.get(&app.image_path).map_or_else(
+            } else if let Some(available) = self.updates.get(&app.image_path) {
+                let label = available.version.as_deref().map_or_else(
                     || t("Update"),
                     |version| tf("Update to {version}", &[("version", version)]),
                 );
