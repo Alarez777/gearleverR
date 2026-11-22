@@ -261,6 +261,18 @@ const STYLE: &str = r"
         border-radius: 12px;
         padding: 12px;
     }
+    checkbutton.env-unsaved > check {
+        color: @warning_color;
+        box-shadow: inset 0 0 0 2px @warning_color;
+    }
+    checkbutton.env-unsaved > check:checked {
+        background-color: @warning_bg_color;
+        color: @warning_fg_color;
+        box-shadow: none;
+    }
+    .env-unsaved-label {
+        color: @warning_color;
+    }
     .fuse-warning {
         background-color: alpha(@warning_color, 0.15);
         border-radius: 12px;
