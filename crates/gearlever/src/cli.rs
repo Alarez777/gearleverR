@@ -960,7 +960,7 @@ impl CommandContext {
         let updates = jobs
             .into_iter()
             .zip(report.outcomes)
-            .filter_map(|(job, status)| status.is_available().then_some(job))
+            .filter_map(|(job, outcome)| outcome.status.is_available().then_some(job))
             .collect();
 
         Ok(CollectedUpdates {
