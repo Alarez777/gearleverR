@@ -3563,7 +3563,7 @@ impl AppModel {
 
         for entry in &app.env_variables {
             let (key, value) = entry.split_once('=').unwrap_or((entry.as_str(), ""));
-            editor.add(key, value, EnvState::Enabled);
+            editor.add_saved(key, value, EnvState::Enabled);
         }
 
         for entry in config.disabled_env(&app.image_path) {
@@ -3578,14 +3578,14 @@ impl AppModel {
             {
                 continue;
             }
-            editor.add(key, value, EnvState::Disabled);
+            editor.add_saved(key, value, EnvState::Disabled);
         }
         editor.refresh();
         history_button.set_popover(Some(&environment_history_popover(&editor, history)));
 
         let editor_add = editor.clone();
         add.connect_clicked(move |_| {
-            editor_add.add("", "", EnvState::Enabled);
+            editor_add.add_new("", "", EnvState::Enabled);
             editor_add.refresh();
         });
         let editor_save = editor;
@@ -5611,6 +5611,46 @@ struct EnvRow {
     key: gtk::Entry,
     value: gtk::Entry,
     enabled: gtk::CheckButton,
+    status: gtk::Label,
+    /// Persisted state currently represented by this row.
+    saved: Option<EnvSnapshot>,
+}
+
+/// Environment row values that are persisted.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct EnvSnapshot {
+    key: String,
+    value: String,
+    state: EnvState,
+}
+
+impl EnvSnapshot {
+    fn new(key: &str, value: &str, state: EnvState) -> Self {
+        Self {
+            key: key.trim().to_owned(),
+            value: value.trim().to_owned(),
+            state,
+        }
+    }
+}
+
+impl EnvRow {
+    fn state(&self) -> EnvState {
+        if self.enabled.is_active() {
+            EnvState::Enabled
+        } else {
+            EnvState::Disabled
+        }
+    }
+
+    fn is_dirty(&self) -> bool {
+        env_row_is_dirty(
+            self.saved.as_ref(),
+            self.key.text().as_str(),
+            self.value.text().as_str(),
+            self.state(),
+        )
+    }
 }
 
 /// Whether an environment variable is written to the desktop entry.
@@ -5621,7 +5661,15 @@ enum EnvState {
 }
 
 impl EnvEditor {
-    fn add(&self, key: &str, value: &str, state: EnvState) {
+    fn add_saved(&self, key: &str, value: &str, state: EnvState) {
+        self.add(key, value, state, Some(EnvSnapshot::new(key, value, state)));
+    }
+
+    fn add_new(&self, key: &str, value: &str, state: EnvState) {
+        self.add(key, value, state, None);
+    }
+
+    fn add(&self, key: &str, value: &str, state: EnvState, saved: Option<EnvSnapshot>) {
         let id = self.next_id.get();
         self.next_id.set(id.wrapping_add(1));
 
@@ -5645,6 +5693,12 @@ impl EnvEditor {
         check.set_valign(gtk::Align::Center);
         check.set_tooltip_text(Some(&t("Enable or disable this environment variable")));
 
+        let status = gtk::Label::new(Some(&t("Unsaved")));
+        status.add_css_class("caption");
+        status.add_css_class("env-unsaved-label");
+        status.set_valign(gtk::Align::Center);
+        status.set_visible(false);
+
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         row.set_margin_top(6);
         row.set_margin_bottom(6);
@@ -5654,6 +5708,7 @@ impl EnvEditor {
         row.append(&gtk::Label::new(Some("=")));
         row.append(&value_entry);
         row.append(&delete);
+        row.append(&status);
         row.append(&check);
 
         self.container.append(&row);
@@ -5662,6 +5717,8 @@ impl EnvEditor {
             key: key_entry.clone(),
             value: value_entry.clone(),
             enabled: check.clone(),
+            status,
+            saved,
         });
 
         let editor = self.clone();
@@ -5719,6 +5776,22 @@ impl EnvEditor {
             row.key.set_opacity(opacity);
             row.value.set_opacity(opacity);
 
+            let dirty = row.is_dirty();
+            let description = if dirty {
+                t(
+                    "Not saved yet. The yellow check means this variable is not saved; press Save or toggle this check to apply it.",
+                )
+            } else {
+                t("Enable or disable this environment variable")
+            };
+            if dirty {
+                row.enabled.add_css_class("env-unsaved");
+            } else {
+                row.enabled.remove_css_class("env-unsaved");
+            }
+            row.status.set_visible(dirty);
+            row.enabled.set_tooltip_text(Some(&description));
+
             if !unique {
                 valid = false;
             }
@@ -5733,15 +5806,10 @@ impl EnvEditor {
             .borrow()
             .iter()
             .map(|row| {
-                let state = if row.enabled.is_active() {
-                    EnvState::Enabled
-                } else {
-                    EnvState::Disabled
-                };
                 (
                     row.key.text().trim().to_owned(),
                     row.value.text().trim().to_owned(),
-                    state,
+                    row.state(),
                 )
             })
             .collect();
@@ -5783,11 +5851,18 @@ impl EnvEditor {
                 }
                 self.suspend_save.set(suspended);
             }
-            None => self.add(key, value, EnvState::Enabled),
+            None => self.add_new(key, value, EnvState::Enabled),
         }
 
         self.refresh();
     }
+}
+
+/// Returns whether an editor row differs from the state last saved.
+fn env_row_is_dirty(saved: Option<&EnvSnapshot>, key: &str, value: &str, state: EnvState) -> bool {
+    let key = key.trim();
+    let value = value.trim();
+    saved.is_none_or(|saved| saved.key != key || saved.value != value || saved.state != state)
 }
 
 /// Returns the key of a `KEY=value` environment entry.
@@ -7145,6 +7220,46 @@ mod tests {
         assert!(Page::List.shows_left_button(false));
         assert!(Page::Details.shows_left_button(false));
         assert!(Page::MultiInstall.shows_left_button(false));
+    }
+
+    #[test]
+    fn detects_environment_rows_pending_save() {
+        let saved = EnvSnapshot {
+            key: "GTK_THEME".to_owned(),
+            value: "Adwaita:dark".to_owned(),
+            state: EnvState::Enabled,
+        };
+
+        assert!(env_row_is_dirty(
+            None,
+            "GTK_THEME",
+            "Adwaita:dark",
+            EnvState::Enabled
+        ));
+        assert!(!env_row_is_dirty(
+            Some(&saved),
+            " GTK_THEME ",
+            " Adwaita:dark ",
+            EnvState::Enabled
+        ));
+        assert!(env_row_is_dirty(
+            Some(&saved),
+            "GTK_THEME",
+            "Adwaita:light",
+            EnvState::Enabled
+        ));
+        assert!(env_row_is_dirty(
+            Some(&saved),
+            "QT_SCALE_FACTOR",
+            "Adwaita:dark",
+            EnvState::Enabled
+        ));
+        assert!(env_row_is_dirty(
+            Some(&saved),
+            "GTK_THEME",
+            "Adwaita:dark",
+            EnvState::Disabled
+        ));
     }
 
     #[test]
