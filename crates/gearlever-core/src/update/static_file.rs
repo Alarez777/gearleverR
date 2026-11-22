@@ -11,7 +11,8 @@ use crate::hash::HashCache;
 
 use super::http::{HttpClient, MAX_CONTROL_BYTES};
 use super::{
-    DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus, delta, value, zsync,
+    CheckOutcome, DownloadContext, ManagerKind, ProgressTracker, UpdateManager, UpdateStatus,
+    delta, value, zsync,
 };
 
 #[derive(Clone)]
@@ -141,47 +142,50 @@ impl UpdateManager for StaticFile {
         &self.config
     }
 
-    fn check(&self, hashes: &HashCache) -> Result<UpdateStatus> {
+    fn check(&self, hashes: &HashCache) -> Result<CheckOutcome> {
         let Some(target) = self.target()? else {
-            return Ok(UpdateStatus::Unknown);
+            return Ok(CheckOutcome::without_version(UpdateStatus::Unknown));
         };
         let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
 
         if target.control_unavailable {
             let Some(remote_size) = self.http.content_length(&target.url)? else {
-                return Ok(UpdateStatus::Unknown);
+                return Ok(CheckOutcome::without_version(UpdateStatus::Unknown));
             };
-            return Ok(if remote_size == local_size {
+            let status = if remote_size == local_size {
                 UpdateStatus::Unknown
             } else {
                 UpdateStatus::Available
-            });
+            };
+            return Ok(CheckOutcome::without_version(status));
         }
 
         if let Some(info) = &target.zsync {
             if info.length.is_some_and(|length| length != local_size) {
-                return Ok(UpdateStatus::Available);
+                return Ok(CheckOutcome::without_version(UpdateStatus::Available));
             }
 
             if let Some(expected) = info.sha1.as_deref() {
                 let actual = hashes.sha1(&self.image)?;
-                return Ok(if expected == actual {
+                let status = if expected == actual {
                     UpdateStatus::UpToDate
                 } else {
                     UpdateStatus::Available
-                });
+                };
+                return Ok(CheckOutcome::without_version(status));
             }
         }
 
         let Some(remote_size) = self.http.content_length(&target.url)? else {
-            return Ok(UpdateStatus::Unknown);
+            return Ok(CheckOutcome::without_version(UpdateStatus::Unknown));
         };
 
-        Ok(if remote_size == local_size {
+        let status = if remote_size == local_size {
             UpdateStatus::UpToDate
         } else {
             UpdateStatus::Available
-        })
+        };
+        Ok(CheckOutcome::without_version(status))
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
@@ -313,7 +317,9 @@ mod tests {
         );
         let hashes = HashCache::new(directory.path().join("hashes"));
 
-        assert_eq!(manager.check(&hashes).unwrap(), UpdateStatus::Available);
+        let outcome = manager.check(&hashes).unwrap();
+        assert_eq!(outcome.status, UpdateStatus::Available);
+        assert!(outcome.version.is_none());
 
         let mut progress = |_fraction: f64| {};
         let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
@@ -346,7 +352,9 @@ mod tests {
             HttpClient::new(),
         );
         let hashes = HashCache::new(directory.path().join("hashes"));
-        assert_eq!(manager.check(&hashes).unwrap(), UpdateStatus::Available);
+        let outcome = manager.check(&hashes).unwrap();
+        assert_eq!(outcome.status, UpdateStatus::Available);
+        assert!(outcome.version.is_none());
         let mut progress = |_fraction: f64| {};
         let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);
         context.use_zsync_delta = true;
@@ -440,7 +448,9 @@ mod tests {
             HttpClient::new(),
         );
         let hashes = HashCache::new(directory.path().join("hashes"));
-        assert_eq!(manager.check(&hashes).unwrap(), UpdateStatus::Unknown);
+        let outcome = manager.check(&hashes).unwrap();
+        assert_eq!(outcome.status, UpdateStatus::Unknown);
+        assert!(outcome.version.is_none());
 
         let mut progress = |_fraction: f64| {};
         let mut context = DownloadContext::new(directory.path().join("downloads"), &mut progress);

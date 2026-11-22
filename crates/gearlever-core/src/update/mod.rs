@@ -103,6 +103,53 @@ impl UpdateStatus {
     }
 }
 
+/// Result of checking one update source.
+///
+/// The version is `None` when the source does not publish release metadata,
+/// such as a static URL or an FTP file listing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct CheckOutcome {
+    /// Whether a newer release exists.
+    pub status: UpdateStatus,
+    /// Version of the newest release, when the source names one.
+    pub version: Option<String>,
+}
+
+impl CheckOutcome {
+    /// Creates an outcome with an optional release version.
+    #[must_use]
+    pub const fn new(status: UpdateStatus, version: Option<String>) -> Self {
+        Self { status, version }
+    }
+
+    /// Creates an outcome for a source that cannot name the release version.
+    #[must_use]
+    pub const fn without_version(status: UpdateStatus) -> Self {
+        Self::new(status, None)
+    }
+}
+
+/// Normalizes a release tag for display.
+///
+/// A leading `v` is dropped only when it decorates a numeric version
+/// (`v1.2.3` becomes `1.2.3`); other tags are kept verbatim. Empty tags yield
+/// `None`.
+#[must_use]
+fn version_from_tag(tag: &str) -> Option<String> {
+    let tag = tag.trim();
+    if tag.is_empty() {
+        return None;
+    }
+
+    let numeric = tag
+        .strip_prefix('v')
+        .or_else(|| tag.strip_prefix('V'))
+        .filter(|rest| rest.starts_with(|character: char| character.is_ascii_digit()));
+
+    Some(numeric.unwrap_or(tag).to_owned())
+}
+
 /// Kind of update source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -290,14 +337,14 @@ pub trait UpdateManager: Send + Sync + fmt::Debug {
     /// Returns the effective configuration.
     fn config(&self) -> &std::collections::BTreeMap<String, String>;
 
-    /// Checks whether a newer release exists.
+    /// Checks whether a newer release exists and reports its version when known.
     ///
     /// # Errors
     ///
     /// Returns [`Error::Http`] when the network request fails,
     /// [`Error::UpdateConfig`] when required settings are missing, and
     /// [`Error::NoMatchingAsset`] when no release matches the file name.
-    fn check(&self, hashes: &HashCache) -> Result<UpdateStatus>;
+    fn check(&self, hashes: &HashCache) -> Result<CheckOutcome>;
 
     /// Downloads the new release into a temporary file.
     ///
@@ -574,7 +621,7 @@ impl UpdateJob {
 }
 
 /// Event emitted while checking a batch of update sources.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CheckEvent {
     /// One check finished.
@@ -582,7 +629,7 @@ pub enum CheckEvent {
         /// Position of the job in the input slice.
         index: usize,
         /// Result reported by the source.
-        status: UpdateStatus,
+        outcome: CheckOutcome,
     },
     /// The first pass finished with transient failures and retries are starting.
     Retrying,
@@ -595,8 +642,8 @@ pub enum CheckEvent {
 /// Result of checking a batch of update sources.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CheckReport {
-    /// Final status of every job, in the same order as the input slice.
-    pub outcomes: Vec<UpdateStatus>,
+    /// Final outcome of every job, in the same order as the input slice.
+    pub outcomes: Vec<CheckOutcome>,
     /// Whether GitHub rejected the configured token.
     pub token_invalid: bool,
     /// Rate-limit details when GitHub exhausted the API limit.
@@ -817,7 +864,7 @@ pub fn check_batch(
     on_event: &mut dyn FnMut(CheckEvent),
 ) -> CheckReport {
     let total = jobs.len();
-    let mut statuses: Vec<Option<UpdateStatus>> = vec![None; total];
+    let mut outcomes: Vec<Option<CheckOutcome>> = vec![None; total];
     let token_invalid = AtomicBool::new(false);
     let rate_limited = AtomicBool::new(false);
     let rate_limit = Mutex::new(None);
@@ -846,8 +893,8 @@ pub fn check_batch(
                         };
 
                         match job.manager.check(hashes) {
-                            Ok(status) => {
-                                let _ = sender.send(CheckWorker::Checked { index, status });
+                            Ok(outcome) => {
+                                let _ = sender.send(CheckWorker::Checked { index, outcome });
                             }
                             Err(error @ Error::GithubTokenInvalid) => {
                                 if !token_invalid.swap(true, Ordering::Relaxed) {
@@ -860,7 +907,7 @@ pub fn check_batch(
                                 );
                                 let _ = sender.send(CheckWorker::Checked {
                                     index,
-                                    status: UpdateStatus::Unknown,
+                                    outcome: CheckOutcome::without_version(UpdateStatus::Unknown),
                                 });
                             }
                             Err(error) => {
@@ -901,7 +948,9 @@ pub fn check_batch(
                                     }
                                     let _ = sender.send(CheckWorker::Checked {
                                         index,
-                                        status: UpdateStatus::Unknown,
+                                        outcome: CheckOutcome::without_version(
+                                            UpdateStatus::Unknown,
+                                        ),
                                     });
                                 }
                             }
@@ -914,9 +963,9 @@ pub fn check_batch(
 
             for message in receiver {
                 match message {
-                    CheckWorker::Checked { index, status } => {
-                        statuses[index] = Some(status);
-                        on_event(CheckEvent::Checked { index, status });
+                    CheckWorker::Checked { index, outcome } => {
+                        outcomes[index] = Some(outcome.clone());
+                        on_event(CheckEvent::Checked { index, outcome });
                     }
                     CheckWorker::TokenInvalid => on_event(CheckEvent::TokenInvalid),
                     CheckWorker::RateLimited(info) => on_event(CheckEvent::RateLimited(info)),
@@ -942,11 +991,9 @@ pub fn check_batch(
                     app = %job.app.name,
                     "update check not retried: retry budget exhausted"
                 );
-                statuses[index] = Some(UpdateStatus::Unknown);
-                on_event(CheckEvent::Checked {
-                    index,
-                    status: UpdateStatus::Unknown,
-                });
+                let outcome = CheckOutcome::without_version(UpdateStatus::Unknown);
+                outcomes[index] = Some(outcome.clone());
+                on_event(CheckEvent::Checked { index, outcome });
                 continue;
             }
 
@@ -955,13 +1002,13 @@ pub fn check_batch(
             }
 
             match job.manager.check(hashes) {
-                Ok(status) => {
+                Ok(outcome) => {
                     tracing::info!(
                         app = %job.app.name,
                         "update check succeeded after retry"
                     );
-                    statuses[index] = Some(status);
-                    on_event(CheckEvent::Checked { index, status });
+                    outcomes[index] = Some(outcome.clone());
+                    on_event(CheckEvent::Checked { index, outcome });
                 }
                 Err(error @ Error::GithubTokenInvalid) => {
                     if !token_invalid.swap(true, Ordering::Relaxed) {
@@ -972,11 +1019,9 @@ pub fn check_batch(
                         %error,
                         "update check failed after retry"
                     );
-                    statuses[index] = Some(UpdateStatus::Unknown);
-                    on_event(CheckEvent::Checked {
-                        index,
-                        status: UpdateStatus::Unknown,
-                    });
+                    let outcome = CheckOutcome::without_version(UpdateStatus::Unknown);
+                    outcomes[index] = Some(outcome.clone());
+                    on_event(CheckEvent::Checked { index, outcome });
                 }
                 Err(error) => {
                     if let Some(info) = error.rate_limit_info() {
@@ -1003,20 +1048,20 @@ pub fn check_batch(
                             "update check failed after retry"
                         );
                     }
-                    statuses[index] = Some(UpdateStatus::Unknown);
-                    on_event(CheckEvent::Checked {
-                        index,
-                        status: UpdateStatus::Unknown,
-                    });
+                    let outcome = CheckOutcome::without_version(UpdateStatus::Unknown);
+                    outcomes[index] = Some(outcome.clone());
+                    on_event(CheckEvent::Checked { index, outcome });
                 }
             }
         }
     }
 
     CheckReport {
-        outcomes: statuses
+        outcomes: outcomes
             .into_iter()
-            .map(|status| status.unwrap_or(UpdateStatus::Unknown))
+            .map(|outcome| {
+                outcome.unwrap_or_else(|| CheckOutcome::without_version(UpdateStatus::Unknown))
+            })
             .collect(),
         token_invalid: token_invalid.load(Ordering::Relaxed),
         rate_limit: rate_limit
@@ -1027,7 +1072,7 @@ pub fn check_batch(
 
 /// Message sent by a check worker to the coordinator.
 enum CheckWorker {
-    Checked { index: usize, status: UpdateStatus },
+    Checked { index: usize, outcome: CheckOutcome },
     TokenInvalid,
     RateLimited(RateLimitInfo),
 }
@@ -1511,20 +1556,37 @@ mod tests {
         assert_eq!(cache.get(), Some(7));
     }
 
+    #[test]
+    fn normalizes_release_tags_for_display() {
+        assert_eq!(version_from_tag("v0.7.0").as_deref(), Some("0.7.0"));
+        assert_eq!(version_from_tag("V1.2.3").as_deref(), Some("1.2.3"));
+        assert_eq!(version_from_tag(" 0.7.0 ").as_deref(), Some("0.7.0"));
+        assert_eq!(
+            version_from_tag("release-1.0").as_deref(),
+            Some("release-1.0")
+        );
+        assert_eq!(
+            version_from_tag("continuous").as_deref(),
+            Some("continuous")
+        );
+        assert_eq!(version_from_tag("vnext").as_deref(), Some("vnext"));
+        assert_eq!(version_from_tag("").as_deref(), None);
+    }
+
     #[derive(Debug)]
     struct FakeManager {
         config: BTreeMap<String, String>,
-        statuses: Mutex<VecDeque<Result<UpdateStatus>>>,
+        outcomes: Mutex<VecDeque<Result<CheckOutcome>>>,
         delay: Duration,
         in_flight: Arc<AtomicUsize>,
         max_in_flight: Arc<AtomicUsize>,
     }
 
     impl FakeManager {
-        fn new(statuses: impl IntoIterator<Item = Result<UpdateStatus>>) -> Self {
+        fn new(outcomes: impl IntoIterator<Item = Result<CheckOutcome>>) -> Self {
             Self {
                 config: BTreeMap::new(),
-                statuses: Mutex::new(statuses.into_iter().collect()),
+                outcomes: Mutex::new(outcomes.into_iter().collect()),
                 delay: Duration::ZERO,
                 in_flight: Arc::new(AtomicUsize::new(0)),
                 max_in_flight: Arc::new(AtomicUsize::new(0)),
@@ -1550,17 +1612,17 @@ mod tests {
             &self.config
         }
 
-        fn check(&self, _hashes: &HashCache) -> Result<UpdateStatus> {
+        fn check(&self, _hashes: &HashCache) -> Result<CheckOutcome> {
             let current = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
             self.max_in_flight.fetch_max(current, Ordering::SeqCst);
             std::thread::sleep(self.delay);
             self.in_flight.fetch_sub(1, Ordering::SeqCst);
 
-            self.statuses
+            self.outcomes
                 .lock()
-                .expect("fake update status lock poisoned")
+                .expect("fake update outcome lock poisoned")
                 .pop_front()
-                .unwrap_or(Ok(UpdateStatus::Unknown))
+                .unwrap_or_else(|| Ok(CheckOutcome::without_version(UpdateStatus::Unknown)))
         }
 
         fn download(&self, _context: &mut DownloadContext<'_>) -> Result<PathBuf> {
@@ -1601,21 +1663,26 @@ mod tests {
         }
     }
 
+    fn outcome(status: UpdateStatus) -> CheckOutcome {
+        CheckOutcome::without_version(status)
+    }
+
     #[test]
     fn check_batch_runs_checks_concurrently_and_preserves_order() {
         let directory = tempfile::tempdir().unwrap();
         let in_flight = Arc::new(AtomicUsize::new(0));
         let max_in_flight = Arc::new(AtomicUsize::new(0));
-        let statuses = [
+        let expected = [
             UpdateStatus::Available,
             UpdateStatus::UpToDate,
             UpdateStatus::Unknown,
         ];
-        let jobs: Vec<UpdateJob> = statuses
+        let jobs: Vec<UpdateJob> = expected
             .iter()
             .enumerate()
             .map(|(index, status)| {
-                let manager = FakeManager::new([Ok(*status)]).with_delay(Duration::from_millis(40));
+                let manager =
+                    FakeManager::new([Ok(outcome(*status))]).with_delay(Duration::from_millis(40));
                 let manager = FakeManager {
                     in_flight: Arc::clone(&in_flight),
                     max_in_flight: Arc::clone(&max_in_flight),
@@ -1636,7 +1703,12 @@ mod tests {
             &mut |_| {},
         );
 
-        assert_eq!(report.outcomes, statuses);
+        let statuses: Vec<UpdateStatus> = report
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.status)
+            .collect();
+        assert_eq!(statuses, expected);
         assert!(
             max_in_flight.load(Ordering::SeqCst) >= 2,
             "checks should overlap"
@@ -1644,11 +1716,35 @@ mod tests {
     }
 
     #[test]
+    fn check_batch_propagates_the_release_version() {
+        let directory = tempfile::tempdir().unwrap();
+        let manager = FakeManager::new([Ok(CheckOutcome::new(
+            UpdateStatus::Available,
+            Some("0.7.0".to_owned()),
+        ))]);
+        let jobs = vec![UpdateJob::new(
+            app("version", directory.path()),
+            Arc::new(manager),
+        )];
+
+        let report = check_batch(
+            &jobs,
+            &HashCache::new(directory.path().join("hashes")),
+            1,
+            Duration::ZERO,
+            &mut |_| {},
+        );
+
+        assert_eq!(report.outcomes[0].status, UpdateStatus::Available);
+        assert_eq!(report.outcomes[0].version.as_deref(), Some("0.7.0"));
+    }
+
+    #[test]
     fn check_batch_retries_transient_failures() {
         let directory = tempfile::tempdir().unwrap();
         let manager = FakeManager::new([
             Err(Error::Http("transient".to_owned())),
-            Ok(UpdateStatus::Available),
+            Ok(outcome(UpdateStatus::Available)),
         ]);
         let jobs = vec![UpdateJob::new(
             app("retry", directory.path()),
@@ -1664,12 +1760,15 @@ mod tests {
             &mut |event| events.push(event),
         );
 
-        assert_eq!(report.outcomes, vec![UpdateStatus::Available]);
+        assert_eq!(report.outcomes, vec![outcome(UpdateStatus::Available)]);
         assert!(events.contains(&CheckEvent::Retrying));
         assert!(events.iter().any(|event| matches!(
             event,
             CheckEvent::Checked {
-                status: UpdateStatus::Available,
+                outcome: CheckOutcome {
+                    status: UpdateStatus::Available,
+                    ..
+                },
                 ..
             }
         )));
@@ -1701,7 +1800,7 @@ mod tests {
         );
 
         assert!(report.token_invalid);
-        assert_eq!(report.outcomes, vec![UpdateStatus::Unknown; 2]);
+        assert_eq!(report.outcomes, vec![outcome(UpdateStatus::Unknown); 2]);
         assert_eq!(invalid_events, 1);
     }
 
@@ -1748,7 +1847,7 @@ mod tests {
             .map(|index| {
                 UpdateJob::new(
                     app(&format!("batch-{index}"), directory.path()),
-                    Arc::new(FakeManager::new([Ok(UpdateStatus::Available)])),
+                    Arc::new(FakeManager::new([Ok(outcome(UpdateStatus::Available))])),
                 )
             })
             .collect();

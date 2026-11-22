@@ -11,7 +11,10 @@ use crate::error::{Error, Result};
 use crate::hash::HashCache;
 
 use super::http::HttpClient;
-use super::{Asset, DownloadContext, ManagerKind, UpdateManager, UpdateStatus, pick_asset, value};
+use super::{
+    Asset, CheckOutcome, DownloadContext, ManagerKind, UpdateManager, UpdateStatus, pick_asset,
+    value,
+};
 
 /// A GitLab release source.
 #[derive(Debug, Clone)]
@@ -20,11 +23,19 @@ pub struct Gitlab {
     config: BTreeMap<String, String>,
     embedded: Option<String>,
     http: HttpClient,
-    cache: super::TargetCache<Asset>,
+    cache: super::TargetCache<Target>,
+}
+
+#[derive(Debug, Clone)]
+struct Target {
+    asset: Asset,
+    version: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct Release {
+    #[serde(default)]
+    tag_name: String,
     #[serde(default)]
     assets: Assets,
 }
@@ -88,7 +99,7 @@ impl Gitlab {
         ))
     }
 
-    fn target(&self) -> Result<Option<Asset>> {
+    fn target(&self) -> Result<Option<Target>> {
         if let Some(target) = self.cache.get() {
             return Ok(Some(target));
         }
@@ -101,7 +112,7 @@ impl Gitlab {
         Ok(target)
     }
 
-    fn resolve_target(&self) -> Result<Option<Asset>> {
+    fn resolve_target(&self) -> Result<Option<Target>> {
         let (host, project) = self.remote()?;
         let pattern = value(&self.config, "repo_filename")
             .ok_or_else(|| Error::UpdateConfig("missing repo_filename".to_owned()))?;
@@ -114,6 +125,7 @@ impl Gitlab {
             return Ok(None);
         };
 
+        let version = super::version_from_tag(&release.tag_name);
         let assets: Vec<Asset> = release
             .assets
             .links
@@ -126,7 +138,7 @@ impl Gitlab {
             })
             .collect();
 
-        Ok(pick_asset(&assets, pattern))
+        Ok(pick_asset(&assets, pattern).map(|asset| Target { asset, version }))
     }
 }
 
@@ -143,25 +155,26 @@ impl UpdateManager for Gitlab {
         &self.config
     }
 
-    fn check(&self, _hashes: &HashCache) -> Result<UpdateStatus> {
-        let Some(asset) = self.target()? else {
-            return Ok(UpdateStatus::Unknown);
+    fn check(&self, _hashes: &HashCache) -> Result<CheckOutcome> {
+        let Some(target) = self.target()? else {
+            return Ok(CheckOutcome::without_version(UpdateStatus::Unknown));
         };
 
-        let Some(remote_size) = self.http.content_length(&asset.url)? else {
-            return Ok(UpdateStatus::Unknown);
+        let Some(remote_size) = self.http.content_length(&target.asset.url)? else {
+            return Ok(CheckOutcome::without_version(UpdateStatus::Unknown));
         };
         let local_size = fs::metadata(&self.image).map(|metadata| metadata.len())?;
 
-        Ok(if remote_size == local_size {
+        let status = if remote_size == local_size {
             UpdateStatus::UpToDate
         } else {
             UpdateStatus::Available
-        })
+        };
+        Ok(CheckOutcome::new(status, target.version))
     }
 
     fn download(&self, context: &mut DownloadContext<'_>) -> Result<PathBuf> {
-        let Some(asset) = self.target()? else {
+        let Some(target) = self.target()? else {
             return Err(Error::NoMatchingAsset(
                 "no matching GitLab release".to_owned(),
             ));
@@ -169,8 +182,12 @@ impl UpdateManager for Gitlab {
 
         fs::create_dir_all(&context.directory)?;
         let path = context.output_path();
-        self.http
-            .download(&asset.url, &path, &mut *context.progress, &context.cancel)?;
+        self.http.download(
+            &target.asset.url,
+            &path,
+            &mut *context.progress,
+            &context.cancel,
+        )?;
 
         Ok(path)
     }
