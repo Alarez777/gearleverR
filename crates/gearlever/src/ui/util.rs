@@ -270,6 +270,9 @@ const STYLE: &str = r"
         color: @warning_fg_color;
         box-shadow: none;
     }
+    .env-unsaved-label {
+        color: @warning_color;
+    }
     .fuse-warning {
         background-color: alpha(@warning_color, 0.15);
         border-radius: 12px;

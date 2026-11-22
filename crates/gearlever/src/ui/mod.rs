@@ -5611,7 +5611,8 @@ struct EnvRow {
     key: gtk::Entry,
     value: gtk::Entry,
     enabled: gtk::CheckButton,
-    /// State last read from or written to the desktop entry.
+    status: gtk::Label,
+    /// Persisted state currently represented by this row.
     saved: Option<EnvSnapshot>,
 }
 
@@ -5692,6 +5693,12 @@ impl EnvEditor {
         check.set_valign(gtk::Align::Center);
         check.set_tooltip_text(Some(&t("Enable or disable this environment variable")));
 
+        let status = gtk::Label::new(Some(&t("Unsaved")));
+        status.add_css_class("caption");
+        status.add_css_class("env-unsaved-label");
+        status.set_valign(gtk::Align::Center);
+        status.set_visible(false);
+
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         row.set_margin_top(6);
         row.set_margin_bottom(6);
@@ -5701,6 +5708,7 @@ impl EnvEditor {
         row.append(&gtk::Label::new(Some("=")));
         row.append(&value_entry);
         row.append(&delete);
+        row.append(&status);
         row.append(&check);
 
         self.container.append(&row);
@@ -5709,6 +5717,7 @@ impl EnvEditor {
             key: key_entry.clone(),
             value: value_entry.clone(),
             enabled: check.clone(),
+            status,
             saved,
         });
 
@@ -5767,16 +5776,21 @@ impl EnvEditor {
             row.key.set_opacity(opacity);
             row.value.set_opacity(opacity);
 
-            if row.is_dirty() {
+            let dirty = row.is_dirty();
+            let description = if dirty {
+                t(
+                    "Not saved yet. The yellow check means this variable is not saved; press Save or toggle this check to apply it.",
+                )
+            } else {
+                t("Enable or disable this environment variable")
+            };
+            if dirty {
                 row.enabled.add_css_class("env-unsaved");
-                row.enabled.set_tooltip_text(Some(&t(
-                    "Not saved yet. The yellow check means this variable is not saved; press Save to apply it.",
-                )));
             } else {
                 row.enabled.remove_css_class("env-unsaved");
-                row.enabled
-                    .set_tooltip_text(Some(&t("Enable or disable this environment variable")));
             }
+            row.status.set_visible(dirty);
+            row.enabled.set_tooltip_text(Some(&description));
 
             if !unique {
                 valid = false;
