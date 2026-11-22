@@ -51,8 +51,11 @@ msgstr "Calcular hashes"
 msgid "Enable or disable this environment variable"
 msgstr "Activar o desactivar esta variable de entorno"
 
-msgid "Not saved yet. The yellow check means this variable is not saved; press Save to apply it."
-msgstr "Aún sin guardar: la marca amarilla indica que esta variable no está guardada; pulsa Guardar para aplicarla."
+msgid "Not saved yet. The yellow check means this variable is not saved; press Save or toggle this check to apply it."
+msgstr "Aún sin guardar: la marca amarilla indica que esta variable no está guardada; pulsa Guardar o cambia esta marca para aplicarla."
+
+msgid "Unsaved"
+msgstr "Sin guardar"
 
 msgid "Environment variable history"
 msgstr "Historial de variables de entorno"

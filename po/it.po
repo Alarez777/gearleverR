@@ -136,7 +136,7 @@ msgid ""
 "the GNU General Public License, version 3 or later."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6350
+#: crates/gearlever/src/ui/mod.rs:6367
 msgid "Access forbidden — token lacks required permissions"
 msgstr ""
 
@@ -225,7 +225,7 @@ msgid ""
 "requests per hour"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6349
+#: crates/gearlever/src/ui/mod.rs:6366
 msgid "Authentication failed — token is invalid or expired"
 msgstr ""
 
@@ -316,7 +316,7 @@ msgstr "Argomenti da linea di comando"
 msgid "Conflict with \"{app_name}\""
 msgstr "Conflitto con \"{app_name}\""
 
-#: crates/gearlever/src/ui/mod.rs:6356
+#: crates/gearlever/src/ui/mod.rs:6373
 msgid "Connection error: {error}"
 msgstr ""
 
@@ -332,11 +332,11 @@ msgstr ""
 msgid "Could not check how Gear LeverR was started."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6238
+#: crates/gearlever/src/ui/mod.rs:6255
 msgid "Could not clear the token: {error}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6220
+#: crates/gearlever/src/ui/mod.rs:6237
 msgid "Could not save the token: {error}"
 msgstr ""
 
@@ -383,11 +383,11 @@ msgstr "Rilascia il file qui"
 msgid "Enable debug logs"
 msgstr "Attiva log di debug"
 
-#: crates/gearlever/src/ui/mod.rs:5685 crates/gearlever/src/ui/mod.rs:5770
+#: crates/gearlever/src/ui/mod.rs:5694 crates/gearlever/src/ui/mod.rs:5785
 msgid "Enable or disable this environment variable"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6204
+#: crates/gearlever/src/ui/mod.rs:6221
 msgid "Enter a token first"
 msgstr ""
 
@@ -395,7 +395,7 @@ msgstr ""
 msgid "Enter a valid token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:3531 crates/gearlever/src/ui/mod.rs:5906
+#: crates/gearlever/src/ui/mod.rs:3531 crates/gearlever/src/ui/mod.rs:5923
 msgid "Environment variable history"
 msgstr ""
 
@@ -493,7 +493,7 @@ msgid ""
 "GitHub authentication failed (401). Check your token in Preferences → GitHub."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6234
+#: crates/gearlever/src/ui/mod.rs:6251
 msgid "GitHub token cleared"
 msgstr ""
 
@@ -501,7 +501,7 @@ msgstr ""
 msgid "GitHub token expired or invalid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6215
+#: crates/gearlever/src/ui/mod.rs:6232
 msgid "GitHub token saved. Use Test to verify it."
 msgstr ""
 
@@ -581,7 +581,7 @@ msgstr "Installo..."
 msgid "Interface scale"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6649 crates/gearlever/src/ui/mod.rs:6890
+#: crates/gearlever/src/ui/mod.rs:6666 crates/gearlever/src/ui/mod.rs:6907
 msgid "Invalid update source"
 msgstr ""
 
@@ -598,7 +598,7 @@ msgid "Keep the original file and create a copy in the destination folder"
 msgstr ""
 "Conserva il file originale e creare una copia nella cartella di destinazione"
 
-#: crates/gearlever/src/ui/mod.rs:5668
+#: crates/gearlever/src/ui/mod.rs:5677
 msgid "Key"
 msgstr "Chiave"
 
@@ -666,11 +666,11 @@ msgid ""
 "it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5911
+#: crates/gearlever/src/ui/mod.rs:5928
 msgid "No environment variables yet"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6739
+#: crates/gearlever/src/ui/mod.rs:6756
 msgid ""
 "No extractor is available to read this AppImage. Install dwarfsextract or 7-"
 "Zip."
@@ -688,8 +688,8 @@ msgstr "Nessun aggiornamento disponibile"
 msgid "No updates found"
 msgstr "Nessun aggiornamento trovato"
 
-#: crates/gearlever/src/ui/mod.rs:4650 crates/gearlever/src/ui/mod.rs:6743
-#: crates/gearlever/src/ui/mod.rs:7025
+#: crates/gearlever/src/ui/mod.rs:4650 crates/gearlever/src/ui/mod.rs:6760
+#: crates/gearlever/src/ui/mod.rs:7042
 msgid "Not an AppImage"
 msgstr ""
 
@@ -701,10 +701,10 @@ msgstr ""
 msgid "Not now"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5764
+#: crates/gearlever/src/ui/mod.rs:5781
 msgid ""
 "Not saved yet. The yellow check means this variable is not saved; press Save "
-"to apply it."
+"or toggle this check to apply it."
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:2688 crates/gearlever/src/ui/mod.rs:2942
@@ -744,8 +744,8 @@ msgstr ""
 msgid "Path"
 msgstr "Posizione"
 
-#: crates/gearlever/src/ui/mod.rs:4328 crates/gearlever/src/ui/mod.rs:6214
-#: crates/gearlever/src/ui/mod.rs:6233
+#: crates/gearlever/src/ui/mod.rs:4328 crates/gearlever/src/ui/mod.rs:6231
+#: crates/gearlever/src/ui/mod.rs:6250
 msgid "Personal access token"
 msgstr ""
 
@@ -765,7 +765,7 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6351
+#: crates/gearlever/src/ui/mod.rs:6368
 msgid "Rate limit exceeded — try again later"
 msgstr ""
 
@@ -845,7 +845,7 @@ msgstr ""
 msgid "Remove application?"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5951
+#: crates/gearlever/src/ui/mod.rs:5968
 msgid "Remove from history"
 msgstr ""
 
@@ -951,19 +951,19 @@ msgstr ""
 msgid "Test token"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6292
+#: crates/gearlever/src/ui/mod.rs:6309
 msgid "Testing..."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6749 crates/gearlever/src/ui/mod.rs:6992
+#: crates/gearlever/src/ui/mod.rs:6766 crates/gearlever/src/ui/mod.rs:7009
 msgid "The AppImage could not be read."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6744
+#: crates/gearlever/src/ui/mod.rs:6761
 msgid "The AppImage does not contain a .desktop file."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6748
+#: crates/gearlever/src/ui/mod.rs:6765
 msgid "The AppImage filesystem could not be read."
 msgstr ""
 
@@ -971,7 +971,7 @@ msgstr ""
 msgid "The AppImage filesystem is mounted through FUSE."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6747
+#: crates/gearlever/src/ui/mod.rs:6764
 msgid "The AppImage runtime is invalid."
 msgstr ""
 
@@ -983,17 +983,17 @@ msgstr ""
 msgid "The application is running, close it first"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6736 crates/gearlever/src/ui/mod.rs:6950
+#: crates/gearlever/src/ui/mod.rs:6753 crates/gearlever/src/ui/mod.rs:6967
 msgid ""
 "The bundled DwarFS extractor is missing. Reinstall Gear LeverR or install "
 "dwarfsextract."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6745
+#: crates/gearlever/src/ui/mod.rs:6762
 msgid "The desktop entry is not valid UTF-8."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6746 crates/gearlever/src/ui/mod.rs:7010
+#: crates/gearlever/src/ui/mod.rs:6763 crates/gearlever/src/ui/mod.rs:7027
 msgid "The file could not be read."
 msgstr ""
 
@@ -1005,7 +1005,7 @@ msgstr ""
 msgid "The kernel device AppImages use to mount their filesystem."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6208
+#: crates/gearlever/src/ui/mod.rs:6225
 msgid "The token contains invalid characters"
 msgstr ""
 
@@ -1013,13 +1013,13 @@ msgstr ""
 msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr "Esiste già un'applicazione con lo stesso nome, come vuoi procedere?"
 
-#: crates/gearlever/src/ui/mod.rs:6734 crates/gearlever/src/ui/mod.rs:6973
+#: crates/gearlever/src/ui/mod.rs:6751 crates/gearlever/src/ui/mod.rs:6990
 msgid ""
 "This AppImage uses an ISO9660 payload. Install 7-Zip (7zz or 7z) to read it."
 msgstr ""
 
 #: crates/gearlever/src/cli.rs:364 crates/gearlever/src/ui/mod.rs:2715
-#: crates/gearlever/src/ui/mod.rs:6620
+#: crates/gearlever/src/ui/mod.rs:6637
 msgid "This app might not be compatible with your system architecture"
 msgstr ""
 "Questa applicazione potrebbe non essere compatibile con la tua architettura"
@@ -1030,50 +1030,50 @@ msgstr ""
 "Questa applicazione include le informazioni di aggiornamento fornite dallo "
 "sviluppatore"
 
-#: crates/gearlever/src/ui/mod.rs:6277
+#: crates/gearlever/src/ui/mod.rs:6294
 msgid "Token configured · invalid or expired"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6273
+#: crates/gearlever/src/ui/mod.rs:6290
 msgid "Token configured · invalid or expired · expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6270
+#: crates/gearlever/src/ui/mod.rs:6287
 msgid "Token configured · valid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6266
+#: crates/gearlever/src/ui/mod.rs:6283
 msgid "Token configured · valid · expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6257
+#: crates/gearlever/src/ui/mod.rs:6274
 msgid ""
 "Token configured, but it could not be loaded. Unlock the system keyring or "
 "enter a new token."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6249
+#: crates/gearlever/src/ui/mod.rs:6266
 msgid ""
 "Token configured, but the keyring is locked. Unlock it or enter a new token."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6279
+#: crates/gearlever/src/ui/mod.rs:6296
 msgid "Token configured. Use Test to verify it."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6347
+#: crates/gearlever/src/ui/mod.rs:6364
 msgid "Token is valid"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6343
+#: crates/gearlever/src/ui/mod.rs:6360
 msgid "Token is valid — expires {expires_at}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6338
+#: crates/gearlever/src/ui/mod.rs:6355
 msgid "Token is valid — {remaining} / {limit} requests remaining"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6326
+#: crates/gearlever/src/ui/mod.rs:6343
 msgid ""
 "Token is valid — {remaining} / {limit} requests remaining · expires "
 "{expires_at}"
@@ -1083,16 +1083,20 @@ msgstr ""
 msgid "Turn it off to keep the original file and clone it instead."
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6357
+#: crates/gearlever/src/ui/mod.rs:6374
 msgid "Unexpected response"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6354
+#: crates/gearlever/src/ui/mod.rs:6371
 msgid "Unexpected response ({status})"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:4654
 msgid "Unknown"
+msgstr ""
+
+#: crates/gearlever/src/ui/mod.rs:5696
+msgid "Unsaved"
 msgstr ""
 
 #: crates/gearlever/src/ui/mod.rs:2941 crates/gearlever/src/ui/mod.rs:3174
@@ -1154,11 +1158,11 @@ msgstr ""
 msgid "Updates management"
 msgstr "Gestione aggioramenti"
 
-#: crates/gearlever/src/ui/mod.rs:6639 crates/gearlever/src/ui/mod.rs:6864
+#: crates/gearlever/src/ui/mod.rs:6656 crates/gearlever/src/ui/mod.rs:6881
 msgid "Updates: {source}"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:6634 crates/gearlever/src/ui/mod.rs:6881
+#: crates/gearlever/src/ui/mod.rs:6651 crates/gearlever/src/ui/mod.rs:6898
 msgid "Updates: {source} (incomplete)"
 msgstr ""
 
@@ -1179,11 +1183,11 @@ msgstr ""
 msgid "Use zsync delta updates"
 msgstr ""
 
-#: crates/gearlever/src/ui/mod.rs:5673
+#: crates/gearlever/src/ui/mod.rs:5682
 msgid "Value"
 msgstr "Valore"
 
-#: crates/gearlever/src/ui/mod.rs:6254
+#: crates/gearlever/src/ui/mod.rs:6271
 msgid "Verify your token works and check rate limit status"
 msgstr ""
 

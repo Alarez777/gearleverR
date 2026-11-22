@@ -53,10 +53,13 @@ msgstr "Activar o desactivar esta variable de entorno"
 
 msgid ""
 "Not saved yet. The yellow check means this variable is not saved; press Save "
-"to apply it."
+"or toggle this check to apply it."
 msgstr ""
 "Aún sin guardar: la marca amarilla indica que esta variable no está "
-"guardada; pulsa Guardar para aplicarla."
+"guardada; pulsa Guardar o cambia esta marca para aplicarla."
+
+msgid "Unsaved"
+msgstr "Sin guardar"
 
 msgid "Environment variable history"
 msgstr "Historial de variables de entorno"
@@ -960,7 +963,7 @@ msgstr "Mantener ambas"
 msgid "Keep the original file and create a copy in the destination folder"
 msgstr "Mantiene el archivo original y crea una copia en la otra carpeta"
 
-#: crates/gearlever/src/ui/mod.rs:5668
+#: crates/gearlever/src/ui/mod.rs:5677
 msgid "Key"
 msgstr "Clave"
 
@@ -1052,7 +1055,7 @@ msgid "There is already an app with the same name, how do you want to proceed?"
 msgstr "Tienes una app con el mismo nombre ¿Como quieres proceder?"
 
 #: crates/gearlever/src/cli.rs:364 crates/gearlever/src/ui/mod.rs:2715
-#: crates/gearlever/src/ui/mod.rs:6620
+#: crates/gearlever/src/ui/mod.rs:6637
 msgid "This app might not be compatible with your system architecture"
 msgstr ""
 "Es posible que esta aplicación no sea compatible con la arquitectura de tu "
@@ -1092,7 +1095,7 @@ msgstr "Gestión de actualizaciones"
 msgid "Use safe mechanisms to load metadata"
 msgstr "Utilice mecanismos seguros para cargar metadatos"
 
-#: crates/gearlever/src/ui/mod.rs:5673
+#: crates/gearlever/src/ui/mod.rs:5682
 msgid "Value"
 msgstr "Valor"
 
