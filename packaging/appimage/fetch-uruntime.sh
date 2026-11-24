@@ -11,7 +11,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ARCH=${ARCH:-$(uname -m)}
 OUT=${1:-$ROOT/.cache/uruntime-appimage-squashfs-lite-$ARCH}
 
-URUNTIME_VERSION=v0.8.3
+URUNTIME_VERSION=v0.8.5
 URUNTIME_NAME=uruntime-appimage-squashfs-lite-$ARCH
 URUNTIME_URL="https://github.com/VHSgunzo/uruntime/releases/download/$URUNTIME_VERSION/$URUNTIME_NAME"
 
@@ -25,12 +25,12 @@ fi
 
 case "$ARCH" in
     x86_64)
-        SHA256_ORIGINAL=85caec9c27c60933f1754281dd39b423f557b1d821a137698d98e6433f48e209
-        SHA256_PATCHED=ad30b8d22db47eaae8bc7bbe008e26562db7cca542beda6b2dbda0c513c96560
+        SHA256_ORIGINAL=95fcae18298788ee08e8fc29c4e33ac85dcd2b01fb631dda33d60b8ab8e5b4a5
+        SHA256_PATCHED=19d89e8ccaa512cbcf21c5accc787cb4d00b13e7bd3e5bd393ced71d4f18c637
         ;;
     aarch64)
-        SHA256_ORIGINAL=731fe2ae7eedee32284a4e70bd40cfabaa0b3c401c74fbec744e9d7dbbb725bb
-        SHA256_PATCHED=261639cfc9bfa14f3acf25d144b3ab73e8936adf9f5362945b3a8ce386bfad8d
+        SHA256_ORIGINAL=48dbb5d7ff4bdfdbfbfaf675e6ab21fa6646df693915c066a7443576967045e1
+        SHA256_PATCHED=80ff2c16317bcd8af884a5110d136f9ae2ad9c215b6879f679e5da5ef33222b2
         ;;
     *)
         echo "error: no pinned uruntime for architecture '$ARCH'" >&2
