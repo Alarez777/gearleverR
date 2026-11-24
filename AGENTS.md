@@ -47,7 +47,7 @@ Style and API rules come from the skill; do not improvise them.
   external `7zz`/`7z` fallback. Running the inspected AppImage itself as an
   extractor stays gated
   by the safe-extractor setting.
-- AppImage runtime: `uruntime` v0.8.3 (static SquashFS build, pinned by version
+- AppImage runtime: `uruntime` v0.8.5 (static SquashFS build, pinned by version
   and SHA-256 in `packaging/appimage/fetch-uruntime.sh`) with
   `URUNTIME_EXTRACT=2`, so the AppImage extracts itself when FUSE is not
   available. Its MIT notice lives in `LICENSES/uruntime-MIT.txt`.
